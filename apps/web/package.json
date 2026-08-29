@@ -11,8 +11,10 @@
   "dependencies": {
     "@kipple/shared": "workspace:*",
     "@kipple/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
