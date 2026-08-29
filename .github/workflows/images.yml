@@ -31,7 +31,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ toLower(github.repository) }}/${{ matrix.service }}
+          images: ghcr.io/kulik-labs-development/kipple/${{ matrix.service }}
           tags: |
             type=ref,event=tag
             type=sha,prefix=sha-
