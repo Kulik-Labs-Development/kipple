@@ -43,8 +43,13 @@ Core capabilities (see `docs/PLAN.md` for the full roadmap):
 
 ## Status
 
-**Phase 0 in progress.** The monorepo scaffold is live (apps, packages,
-tooling, CI/CD, Docker compose). Update this file as each phase lands.
+**Phase 0 in progress.** Live: monorepo scaffold, CI/CD + GHCR image
+builds, Postgres schema (Drizzle, migrations auto-run on api boot),
+better-auth (email+password, TOTP 2FA plugin, sessions, signups closed
+after first user), first-run setup wizard (owner account → superuser,
+instance name in `settings`), RBAC skeleton (role column + requireUser/
+requireRole helpers), and the web setup/login/workspace screens.
+Update this file as each phase lands.
 
 ## Repository layout
 

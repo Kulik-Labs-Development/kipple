@@ -31,6 +31,7 @@ services:
     environment:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (openssl rand -base64 32)}
       DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       PORT: "3000"
