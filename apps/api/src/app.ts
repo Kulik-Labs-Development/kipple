@@ -3,6 +3,8 @@ import path from 'node:path'
 import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { toErrorBody } from '@kipple/shared'
+import { registerAuthRoutes } from './auth-routes'
+import { registerApiRoutes } from './routes'
 
 function spaRoot(): string | null {
   const cwd = process.cwd()
@@ -10,6 +12,7 @@ function spaRoot(): string | null {
     process.env.SPA_ROOT,
     path.resolve(cwd, 'public'),
     path.resolve(cwd, 'apps/web/dist'),
+    path.resolve(cwd, '../web/dist'),
   ].filter((value): value is string => Boolean(value))
   return candidates.find((candidate) => existsSync(candidate)) ?? null
 }
@@ -18,6 +21,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
 
   app.get('/healthz', async () => ({ ok: true, service: 'api' }))
+
+  await registerAuthRoutes(app)
+  await registerApiRoutes(app)
 
   const root = spaRoot()
   if (root) {

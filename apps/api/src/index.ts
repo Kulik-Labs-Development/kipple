@@ -1,9 +1,11 @@
 import pino from 'pino'
 import { buildApp } from './app'
+import { runMigrations } from './db/migrate'
 
 const log = pino({ name: 'api' })
 
 async function main() {
+  await runMigrations()
   const app = await buildApp()
 
   const port = Number(process.env.PORT ?? 3000)
