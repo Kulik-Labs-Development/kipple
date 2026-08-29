@@ -1,0 +1,7 @@
+# Kipple bundled proxy (compose `proxy` profile).
+# For auto-HTTPS, replace :80 with your public host (e.g. help.example.com)
+# and point DNS at this host.
+
+:80 {
+	reverse_proxy api:3000
+}

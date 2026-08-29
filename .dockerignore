@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.turbo
+.git
+.github
+docs
+logos
+infra
+.env
+.env.*
+*.md

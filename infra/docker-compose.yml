@@ -1,0 +1,88 @@
+name: kipple
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kipple}
+      POSTGRES_USER: ${POSTGRES_USER:-kipple}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kipple}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/kulik-labs-development/kipple/api:${KIPPLE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      TRUST_PROXY: ${TRUST_PROXY:-false}
+      DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      PORT: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/kulik-labs-development/kipple/worker:${KIPPLE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["proxy"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    profiles: ["dev"]
+    environment:
+      MP_SMTP_AUTH: any
+
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    profiles: ["dev"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

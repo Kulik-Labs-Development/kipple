@@ -43,11 +43,10 @@ Core capabilities (see `docs/PLAN.md` for the full roadmap):
 
 ## Status
 
-**Planning phase.** No code exists yet. The repository layout, commands, and
-conventions below describe the intended scaffold — update this file as each
-phase lands and remove this notice once the scaffold exists.
+**Phase 0 in progress.** The monorepo scaffold is live (apps, packages,
+tooling, CI/CD, Docker compose). Update this file as each phase lands.
 
-## Planned repository layout
+## Repository layout
 
 ```
 kipple/
@@ -58,16 +57,18 @@ kipple/
     mcp/        MCP server (stdio + streamable HTTP)
   packages/
     shared/     Zod schemas, types, constants shared by all apps
-    ui/         Shared React components
+    ui/         Shared React components + design tokens
     mail/       Email parsing/threading helpers (imapflow, mailparser)
-  docker/       Dockerfiles
-  infra/        docker-compose.yml, Portainer template, .env.example
+  docker/       Dockerfiles (api, worker, mcp)
+  infra/        docker-compose.yml, Caddyfile, Portainer template
   docs/         PLAN.md, API reference, deployment guides
+  .github/      CI (lint/typecheck/test) + image builds to GHCR
+  logos/        Brand assets
 ```
 
 ## Setup commands
 
-Intended once the scaffold exists (pnpm + Turborepo):
+pnpm + Turborepo monorepo:
 
 ```sh
 pnpm install                 # install all workspace deps
