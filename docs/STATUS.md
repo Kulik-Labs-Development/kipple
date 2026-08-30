@@ -87,8 +87,7 @@ then M365 OAuth2.
   Added vitest to `@kipple/web` with unit tests for the queue helpers.
   Verified: lint/typecheck/test all green (29 api, 6 web tests) plus a live
   HTTP smoke (setup → client → contact → ticket → reply, SPA served by the
-  API). **All of this plus the first session's domain work is still
-  uncommitted** — commit as one or two commits.
+  API). Committed: API half in `10ca00b`, workspace UI + this doc in `b42b5db`.
 - **2026-08-30** — Theme system shipped: token contract (13 tokens), 4 themes
   (console/graphite/slate/blush), `users.theme`/`users.color_mode` +
   `settings.theme` plumbing, `PATCH /api/preferences`, registry↔CSS sync test.
