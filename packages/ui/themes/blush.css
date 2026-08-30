@@ -1,0 +1,31 @@
+:root[data-theme='blush'][data-mode='light'] {
+  --color-ink: #fdf2f8;
+  --color-panel: #ffffff;
+  --color-line: #f2cfe0;
+  --color-fg: #3d2033;
+  --color-dim: #9d6b84;
+  --color-accent: #db2777;
+  --color-ok: #15803d;
+  --color-warn: #b45309;
+  --color-danger: #b91c1c;
+  --font-app: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+  --radius-app: 8px;
+}
+
+:root[data-theme='blush'][data-mode='dark'] {
+  --color-ink: #170a12;
+  --color-panel: #22101c;
+  --color-line: #3a1f31;
+  --color-fg: #f3dbe8;
+  --color-dim: #a87893;
+  --color-accent: #f472b6;
+  --color-ok: #4ade80;
+  --color-warn: #fbbf24;
+  --color-danger: #f87171;
+  --font-app: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+  --radius-app: 8px;
+}

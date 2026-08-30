@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const ColorMode = z.enum(['light', 'dark', 'system'])
 export type ColorMode = z.infer<typeof ColorMode>
 
-export const ThemeId = z.enum(['console', 'graphite', 'slate'])
+export const ThemeId = z.enum(['console', 'graphite', 'slate', 'blush'])
 export type ThemeId = z.infer<typeof ThemeId>
 
 export type ThemeSurface = 'agent' | 'portal'
@@ -36,6 +36,13 @@ export const THEMES: ThemeMeta[] = [
     label: 'Slate',
     description: 'Clean sans-serif theme for the client portal, light and dark.',
     surfaces: ['portal'],
+    defaultMode: 'light',
+  },
+  {
+    id: 'blush',
+    label: 'Blush',
+    description: 'Warm pink palette in light and dark, for agents and the portal.',
+    surfaces: ['agent', 'portal'],
     defaultMode: 'light',
   },
 ]
