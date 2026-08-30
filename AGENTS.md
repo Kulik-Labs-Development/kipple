@@ -48,7 +48,9 @@ builds, Postgres schema (Drizzle, migrations auto-run on api boot),
 better-auth (email+password, TOTP 2FA plugin, sessions, signups closed
 after first user), first-run setup wizard (owner account → superuser,
 instance name in `settings`), RBAC skeleton (role column + requireUser/
-requireRole helpers), and the web setup/login/workspace screens.
+requireRole helpers), theme system (token-swap themes in `packages/ui`,
+instance theme in `settings`, per-user theme/color-mode preferences), and
+the web setup/login/workspace screens.
 Update this file as each phase lands.
 
 ## Repository layout
@@ -108,7 +110,13 @@ Add or update tests for the code you change, even if nobody asked.
 - Functional style, small exported functions; no barrel-file god-exports
 - Design tokens live in `packages/ui`; the agent app defaults to the
   monospace "Console" theme and the client portal to a sans-serif theme.
-  Themes are token swaps only — no per-theme component code
+  A theme is one CSS file in `packages/ui/themes/` overriding the semantic
+  token set (`--color-ink/panel/line/fg/dim/accent/ok/warn/danger`,
+  `--font-app/mono/sans`, `--radius-app`) under `data-theme`/`data-mode` on
+  `<html>`; theme ids are registered in `@kipple/shared` (`THEMES`) and a
+  test keeps the registry and CSS files in sync. New theme = one CSS file +
+  one registry entry. Components use only semantic utilities (`bg-ink`,
+  `text-fg`, `border-line`, `text-accent`) — never raw color values
 - Errors: throw typed domain errors from `packages/shared`, mapped to HTTP
   status codes by a single API error handler
 - No console.log — use the pino logger from the api/worker bootstrap

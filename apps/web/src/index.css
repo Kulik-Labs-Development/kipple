@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@kipple/ui/themes.css";
 
 @theme {
   --color-ink: #0a0e14;
@@ -7,9 +8,13 @@
   --color-fg: #c5cdd9;
   --color-dim: #5c6773;
   --color-accent: #4fd6be;
+  --color-ok: #3fb950;
   --color-warn: #d29922;
   --color-danger: #f85149;
-  --font-mono: "JetBrains Mono", "SF Mono", "Consolas", "Fira Code", monospace;
+  --font-app: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+  --font-sans: "Inter", -apple-system, "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+  --radius-app: 4px;
 }
 
 html,
@@ -22,5 +27,5 @@ body {
   margin: 0;
   background: var(--color-ink);
   color: var(--color-fg);
-  font-family: var(--font-mono);
+  font-family: var(--font-app);
 }

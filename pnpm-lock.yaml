@@ -163,6 +163,10 @@ importers:
         version: 3.25.76
 
   packages/ui:
+    dependencies:
+      '@kipple/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       '@types/react':
         specifier: ^19.0.0

@@ -24,6 +24,8 @@ export const users = pgTable('users', {
   presence: text('presence').notNull().default('offline'),
   authSource: text('auth_source').notNull().default('local'),
   twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+  theme: text('theme'),
+  colorMode: text('color_mode').notNull().default('system'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

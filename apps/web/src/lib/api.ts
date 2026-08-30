@@ -1,3 +1,5 @@
+import type { ColorMode } from '@kipple/shared'
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -19,6 +21,16 @@ export interface MeUser {
   authSource: string
 }
 
+export interface MeResponse {
+  user: MeUser
+  sessionId: string
+  instanceTheme: string
+  preferences: {
+    theme: string | null
+    colorMode: ColorMode
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     credentials: 'include',
@@ -34,8 +46,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  me: () =>
-    request<{ user: MeUser; sessionId: string }>('/api/me'),
+  me: () => request<MeResponse>('/api/me'),
   setupStatus: () => request<{ setupRequired: boolean }>('/api/setup/status'),
   setup: (body: {
     instanceName: string
@@ -49,4 +60,9 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   signOut: () => request('/api/auth/sign-out', { method: 'POST' }),
+  patchPreferences: (body: { theme?: string | null; colorMode?: ColorMode }) =>
+    request('/api/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 }

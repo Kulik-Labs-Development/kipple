@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { fromNodeHeaders } from 'better-auth/node'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
-import { SetupRequest } from '@kipple/shared'
+import { PreferencesPatch, SetupRequest } from '@kipple/shared'
 import { auth } from './auth'
 import { db } from './db'
 import { settings, users } from './db/schema'
@@ -91,6 +91,45 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   app.get('/api/me', async (request, reply) => {
     const session = await requireUser(request, reply)
     if (!session) return null
-    return { user: session.user, sessionId: session.session.id }
+    const [prefs] = await db
+      .select({ theme: users.theme, colorMode: users.colorMode })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+    const [themeSetting] = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, 'theme'))
+    const instanceTheme =
+      ((themeSetting?.value as { id?: string } | null) ?? {}).id ?? 'slate'
+    return {
+      user: session.user,
+      sessionId: session.session.id,
+      instanceTheme,
+      preferences: {
+        theme: prefs?.theme ?? null,
+        colorMode: prefs?.colorMode ?? 'system',
+      },
+    }
+  })
+
+  app.patch('/api/preferences', async (request, reply) => {
+    const session = await requireUser(request, reply)
+    if (!session) return null
+    const parsed = PreferencesPatch.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: issue?.message ?? 'invalid body' })
+    }
+    const patch: { theme?: string | null; colorMode?: string } = {}
+    if (parsed.data.theme !== undefined) patch.theme = parsed.data.theme
+    if (parsed.data.colorMode !== undefined) patch.colorMode = parsed.data.colorMode
+    await db.update(users).set(patch).where(eq(users.id, session.user.id))
+    const [row] = await db
+      .select({ theme: users.theme, colorMode: users.colorMode })
+      .from(users)
+      .where(eq(users.id, session.user.id))
+    return { theme: row?.theme ?? null, colorMode: row?.colorMode ?? 'system' }
   })
 }

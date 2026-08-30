@@ -1,0 +1,31 @@
+:root[data-theme='console'][data-mode='dark'] {
+  --color-ink: #0a0e14;
+  --color-panel: #11161f;
+  --color-line: #1d2530;
+  --color-fg: #c5cdd9;
+  --color-dim: #5c6773;
+  --color-accent: #4fd6be;
+  --color-ok: #3fb950;
+  --color-warn: #d29922;
+  --color-danger: #f85149;
+  --font-app: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+  --radius-app: 4px;
+}
+
+:root[data-theme='console'][data-mode='light'] {
+  --color-ink: #eef1f4;
+  --color-panel: #ffffff;
+  --color-line: #d7dde4;
+  --color-fg: #1f252d;
+  --color-dim: #69737e;
+  --color-accent: #0f766e;
+  --color-ok: #1a7f37;
+  --color-warn: #9a6700;
+  --color-danger: #cf222e;
+  --font-app: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', 'Helvetica Neue', 'Arial', sans-serif;
+  --radius-app: 4px;
+}

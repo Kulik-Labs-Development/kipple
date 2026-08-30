@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type MeUser } from './lib/api'
+import { applyTheme, resolveThemeChoice, watchSystemScheme } from './lib/theme'
 import { LoginView } from './views/LoginView'
 import { SetupView } from './views/SetupView'
 import { WorkspaceView } from './views/WorkspaceView'
@@ -13,6 +14,13 @@ export default function App() {
   const refresh = useCallback(async () => {
     try {
       const me = await api.me()
+      const choice = resolveThemeChoice(me.preferences, me.instanceTheme, me.user.role)
+      applyTheme(choice)
+      if (choice.colorMode === 'system') {
+        watchSystemScheme((dark) => {
+          document.documentElement.dataset.mode = dark ? 'dark' : 'light'
+        })
+      }
       setUser(me.user)
       setMode('app')
     } catch (err) {
