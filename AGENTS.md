@@ -51,7 +51,19 @@ instance name in `settings`), RBAC skeleton (role column + requireUser/
 requireRole helpers), theme system (token-swap themes in `packages/ui`,
 instance theme in `settings`, per-user theme/color-mode preferences), and
 the web setup/login/workspace screens.
+
+**Phase 1 in progress:** ticket domain API is live (clients, contacts with
+M2M client links + primary, tickets with sequence numbers + plus-addressed
+aliases, public/internal updates), client scoping enforced in the query
+layer (`apps/api/src/access.ts`, out-of-scope = 404), audit log on
+mutations, `users.contact_id` for portal users. Next: email outbound
+pipeline (§5b).
 Update this file as each phase lands.
+
+**Rolling build state:** read `docs/STATUS.md` at the start of every session
+(active plan, what's live, open questions) and update it — including a dated
+"recent sessions" bullet — before committing, so other sessions pick up the
+same context.
 
 ## Repository layout
 

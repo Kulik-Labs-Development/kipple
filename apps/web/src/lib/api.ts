@@ -25,6 +25,7 @@ export interface MeResponse {
   user: MeUser
   sessionId: string
   instanceTheme: string
+  contactId: string | null
   preferences: {
     theme: string | null
     colorMode: ColorMode
@@ -45,8 +46,110 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data
 }
 
+export interface ClientSummary {
+  id: string
+  name: string
+  domain: string | null
+}
+
+export interface ContactSummary {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+}
+
+export interface StaffUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  presence: string
+}
+
+export interface TicketRow {
+  id: string
+  number: number
+  clientId: string
+  alias: string | null
+  subject: string
+  status: string
+  priority: string
+  assignedTo: string | null
+  tags: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TicketUpdateRow {
+  id: string
+  ticketId: string
+  authorId: string | null
+  authorName: string | null
+  kind: string
+  body: string
+  createdAt: string
+}
+
+export interface TicketDetail extends TicketRow {
+  clientName: string | null
+  assignedName: string | null
+  updates: TicketUpdateRow[]
+}
+
+export interface TicketFilters {
+  status?: string
+  priority?: string
+  clientId?: string
+  assignedTo?: string
+  q?: string
+}
+
+function ticketQuery(filters: TicketFilters): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value)
+  }
+  const qs = params.toString()
+  return qs ? `?${qs}` : ''
+}
+
 export const api = {
   me: () => request<MeResponse>('/api/me'),
+  listClients: () => request<ClientSummary[]>('/api/clients'),
+  createClient: (body: { name: string; domain?: string }) =>
+    request<ClientSummary>('/api/clients', { method: 'POST', body: JSON.stringify(body) }),
+  listContacts: (clientId: string) =>
+    request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),
+  listStaff: () => request<StaffUser[]>('/api/users'),
+  listTickets: (filters: TicketFilters = {}) =>
+    request<TicketRow[]>(`/api/tickets${ticketQuery(filters)}`),
+  getTicket: (id: string) => request<TicketDetail>(`/api/tickets/${id}`),
+  createTicket: (body: {
+    clientId: string
+    subject: string
+    body?: string
+    priority?: string
+    tags?: string[]
+  }) => request<TicketRow>('/api/tickets', { method: 'POST', body: JSON.stringify(body) }),
+  patchTicket: (
+    id: string,
+    body: {
+      clientId?: string
+      subject?: string
+      status?: string
+      priority?: string
+      assignedTo?: string | null
+      tags?: string[]
+    },
+  ) => request<TicketRow>(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  addTicketUpdate: (id: string, body: { kind?: 'public' | 'internal'; body: string }) =>
+    request<TicketUpdateRow>(`/api/tickets/${id}/updates`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  deleteTicket: (id: string) =>
+    request<void>(`/api/tickets/${id}`, { method: 'DELETE' }),
   setupStatus: () => request<{ setupRequired: boolean }>('/api/setup/status'),
   setup: (body: {
     instanceName: string
