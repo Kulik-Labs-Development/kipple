@@ -3,6 +3,7 @@ import {
   boolean,
   integer,
   jsonb,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -26,6 +27,7 @@ export const users = pgTable('users', {
   twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
   theme: text('theme'),
   colorMode: text('color_mode').notNull().default('system'),
+  contactId: text('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
@@ -122,8 +124,14 @@ export const contactClients = pgTable(
   (table) => [unique().on(table.contactId, table.clientId)],
 )
 
+export const ticketNumberSeq = pgSequence('ticket_number', { startWith: 1, increment: 1 })
+
 export const tickets = pgTable('tickets', {
   id: text('id').primaryKey(),
+  number: integer('number')
+    .notNull()
+    .unique()
+    .default(sql`nextval('ticket_number')`),
   clientId: text('client_id').notNull().references(() => clients.id),
   alias: text('alias').unique(),
   subject: text('subject').notNull(),
@@ -163,5 +171,15 @@ export const emailOutbox = pgTable('email_outbox', {
   status: text('status').notNull().default('queued'),
   error: text('error'),
   sentAt: timestamp('sent_at', { withTimezone: true }),
+  createdAt: createdAt(),
+})
+
+export const audit = pgTable('audit', {
+  id: text('id').primaryKey(),
+  actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  action: text('action').notNull(),
+  entityType: text('entity_type'),
+  entityId: text('entity_id'),
+  meta: jsonb('meta'),
   createdAt: createdAt(),
 })

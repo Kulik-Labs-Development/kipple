@@ -47,6 +47,9 @@ importers:
       '@fastify/static':
         specifier: ^8.0.0
         version: 8.3.0
+      '@kipple/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
       '@kipple/shared':
         specifier: workspace:*
         version: link:../../packages/shared

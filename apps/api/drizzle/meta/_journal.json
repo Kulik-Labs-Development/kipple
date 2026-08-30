@@ -15,6 +15,13 @@
       "when": 1788051562775,
       "tag": "0001_tan_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788114485226,
+      "tag": "0002_far_tomas",
+      "breakpoints": true
     }
   ]
 }

@@ -1,47 +1,14 @@
 import { eq } from 'drizzle-orm'
-import { fromNodeHeaders } from 'better-auth/node'
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { PreferencesPatch, SetupRequest } from '@kipple/shared'
+import type { FastifyInstance } from 'fastify'
+import { badRequest, requireUser } from './access'
 import { auth } from './auth'
 import { db } from './db'
 import { settings, users } from './db/schema'
-
-export type SessionUser = {
-  id: string
-  name: string
-  email: string
-  emailVerified: boolean
-  role: string
-  presence: string
-  authSource: string
-}
-
-export async function getSession(request: FastifyRequest) {
-  return auth.api.getSession({ headers: fromNodeHeaders(request.headers) })
-}
-
-export async function requireUser(request: FastifyRequest, reply: FastifyReply) {
-  const session = await getSession(request)
-  if (!session) {
-    reply.code(401).send({ error: 'unauthorized', message: 'not signed in' })
-    return null
-  }
-  return session
-}
-
-export async function requireRole(
-  request: FastifyRequest,
-  reply: FastifyReply,
-  roles: string[],
-) {
-  const session = await requireUser(request, reply)
-  if (!session) return null
-  if (!roles.includes(session.user.role)) {
-    reply.code(403).send({ error: 'forbidden', message: 'insufficient role' })
-    return null
-  }
-  return session
-}
+import { registerClientRoutes } from './routes/clients'
+import { registerContactRoutes } from './routes/contacts'
+import { registerTicketRoutes } from './routes/tickets'
+import { registerUserRoutes } from './routes/users'
 
 async function instanceSetupRequired(): Promise<boolean> {
   const [row] = await db.select({ id: users.id }).from(users).limit(1)
@@ -56,10 +23,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/setup', async (request, reply) => {
     const parsed = SetupRequest.safeParse(request.body)
     if (!parsed.success) {
-      const issue = parsed.error.issues[0]
-      return reply
-        .code(400)
-        .send({ error: 'bad_request', message: issue?.message ?? 'invalid body' })
+      return reply.code(400).send(badRequest(parsed.error))
     }
     const { instanceName, ownerName, ownerEmail, password } = parsed.data
 
@@ -92,7 +56,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     const session = await requireUser(request, reply)
     if (!session) return null
     const [prefs] = await db
-      .select({ theme: users.theme, colorMode: users.colorMode })
+      .select({ theme: users.theme, colorMode: users.colorMode, contactId: users.contactId })
       .from(users)
       .where(eq(users.id, session.user.id))
     const [themeSetting] = await db
@@ -105,6 +69,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       user: session.user,
       sessionId: session.session.id,
       instanceTheme,
+      contactId: prefs?.contactId ?? null,
       preferences: {
         theme: prefs?.theme ?? null,
         colorMode: prefs?.colorMode ?? 'system',
@@ -117,10 +82,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     if (!session) return null
     const parsed = PreferencesPatch.safeParse(request.body ?? {})
     if (!parsed.success) {
-      const issue = parsed.error.issues[0]
-      return reply
-        .code(400)
-        .send({ error: 'bad_request', message: issue?.message ?? 'invalid body' })
+      return reply.code(400).send(badRequest(parsed.error))
     }
     const patch: { theme?: string | null; colorMode?: string } = {}
     if (parsed.data.theme !== undefined) patch.theme = parsed.data.theme
@@ -132,4 +94,9 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(users.id, session.user.id))
     return { theme: row?.theme ?? null, colorMode: row?.colorMode ?? 'system' }
   })
+
+  await registerClientRoutes(app)
+  await registerContactRoutes(app)
+  await registerTicketRoutes(app)
+  await registerUserRoutes(app)
 }
