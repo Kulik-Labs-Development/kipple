@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@kipple/shared": "workspace:*",
-    "imapflow": "^1.0.200",
+    "imapflow": "^1.7.6",
     "mailparser": "^3.9.17",
-    "nodemailer": "^7.0.3"
+    "nodemailer": "^9.1.0"
   },
   "devDependencies": {
     "@types/mailparser": "^3.4.6",
