@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logos/logo-wordmark-black.png" alt="Kipple" width="440" />
+  <img src="logos/logo-wordmark-white.png" alt="Kipple" width="440" />
 </p>
 
 <p align="center">
