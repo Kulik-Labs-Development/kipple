@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QueuePane } from '../components/QueuePane'
+import { SlaManager } from '../components/SlaManager'
 import { TicketDetail, type TicketPatch } from '../components/TicketDetail'
 import { TicketForm, type TicketFormValues } from '../components/TicketForm'
 import { TimePanel } from '../components/TimePanel'
@@ -7,6 +8,7 @@ import {
   api,
   type ClientSummary,
   type MeUser,
+  type SlaConfig,
   type StaffUser,
   type TicketDetail as TicketDetailData,
   type TicketRow,
@@ -46,6 +48,8 @@ export function WorkspaceView({
   const [error, setError] = useState<string | null>(null)
   const [activeEntry, setActiveEntry] = useState<TimeEntryRow | null>(null)
   const [activeNumber, setActiveNumber] = useState<number | null>(null)
+  const [slaConfig, setSlaConfig] = useState<SlaConfig | null>(null)
+  const [showSlaManager, setShowSlaManager] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -71,6 +75,15 @@ export function WorkspaceView({
     }
   }, [])
 
+  const refreshSlaConfig = useCallback(async () => {
+    if (!isStaff) return
+    try {
+      setSlaConfig(await api.slaConfig())
+    } catch {
+      setSlaConfig(null)
+    }
+  }, [isStaff])
+
   useEffect(() => {
     let cancelled = false
     async function init() {
@@ -93,6 +106,10 @@ export function WorkspaceView({
   }, [isStaff])
 
   useEffect(() => {
+    void refreshSlaConfig()
+  }, [refreshSlaConfig])
+
+  useEffect(() => {
     void refreshList()
   }, [refreshList])
 
@@ -108,9 +125,10 @@ export function WorkspaceView({
     const timer = setInterval(() => {
       void refreshList()
       if (selectedId) void refreshDetail(selectedId)
+      void refreshSlaConfig()
     }, POLL_MS)
     return () => clearInterval(timer)
-  }, [refreshList, refreshDetail, selectedId])
+  }, [refreshList, refreshDetail, refreshSlaConfig, selectedId])
 
   const refreshActiveTimer = useCallback(async () => {
     if (!isStaff) return
@@ -276,6 +294,21 @@ export function WorkspaceView({
           <span className="text-xs text-dim">agent workspace</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
+          {isStaff && (
+            <button
+              onClick={
+                user.role === 'superuser' ? () => setShowSlaManager(true) : undefined
+              }
+              title={
+                user.role === 'superuser' ? 'SLA settings (superuser)' : 'SLA status'
+              }
+              className={`border px-2 py-1 uppercase tracking-widest ${
+                slaConfig?.enabled ? 'border-ok text-ok' : 'border-line text-dim'
+              }`}
+            >
+              sla
+            </button>
+          )}
           {isStaff && activeEntry && (
             <button
               onClick={toggleTimer}
@@ -333,6 +366,7 @@ export function WorkspaceView({
             statusFilter={statusFilter}
             search={search}
             canCreate={isStaff}
+            slaConfig={slaConfig}
             searchRef={searchRef}
             onStatusFilter={setStatusFilter}
             onSearch={setSearch}
@@ -350,6 +384,7 @@ export function WorkspaceView({
                   detail={detail}
                   staff={staff}
                   isStaff={isStaff}
+                  slaConfig={slaConfig}
                   onPatch={patchTicket}
                   onReply={reply}
                   onDelete={deleteTicket}
@@ -387,6 +422,18 @@ export function WorkspaceView({
           error={formError}
           onSubmit={createTicket}
           onClose={() => setShowNewTicket(false)}
+        />
+      )}
+
+      {showSlaManager && slaConfig && (
+        <SlaManager
+          config={slaConfig}
+          onChanged={() => {
+            void refreshSlaConfig()
+            void refreshList()
+            if (selectedId) void refreshDetail(selectedId)
+          }}
+          onClose={() => setShowSlaManager(false)}
         />
       )}
 

@@ -25,6 +25,13 @@ function ticket(overrides: Partial<TicketRow>): TicketRow {
     tags: [],
     createdAt: '2026-08-30T08:00:00Z',
     updatedAt: '2026-08-30T08:00:00Z',
+    slaPolicyId: null,
+    slaResponseDueAt: null,
+    slaResolveDueAt: null,
+    slaResponseAt: null,
+    slaResolvedAt: null,
+    slaResponseState: 'pending',
+    slaResolveState: 'pending',
     ...overrides,
   }
 }

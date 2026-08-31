@@ -9,8 +9,10 @@ chat or contributor can pick up where work left off. Deep design lives in
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
 Email outbound (§5b), email inbound, the client portal with magic-link
-login, time tracking v1, and the SLA backend are live.
-Next up: SLA display in the workspace UI, then item 11.
+login, time tracking v1, and the SLA feature (backend + workspace UI) are
+live.
+Next up: item 11 (email templates + rules, notification center, dashboard
+stats + presence).
 
 ## What's live
 
@@ -147,12 +149,36 @@ Next up: SLA display in the workspace UI, then item 11.
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | done |
-| 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | backend done — web display NEXT |
-| 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started |
+| 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | done |
+| 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started — NEXT |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started |
 
 ## Recent sessions
 
+- **2026-08-31 (SLA workspace UI)** — Finished plan item 10. `lib/sla.ts`
+  (web): `queueSlaState` (breached > at_risk > pending, closed = none),
+  `slaRemainingMinutes` (business minutes left, clamped at 0),
+  `formatRemainingMinutes` ("2d 4h"/"3h 20m"/"45m"/"due"), state
+  class/label maps — 5 new unit tests. `api.ts`: SLA fields on
+  `TicketRow` (the API strips them for contacts), `SlaPolicy`/`SlaConfig`
+  types, endpoints `slaConfig`/`slaSetEnabled`/`slaSetBusinessHours`/
+  `slaCreatePolicy`/`slaPatchPolicy`/`slaDeletePolicy`, `slaPolicyId` in
+  patchTicket. TicketDetail: SLA strip under the staff controls —
+  response + resolve chips (state, due stamp, remaining business minutes)
+  and a per-ticket policy override select (inherited | each policy).
+  QueuePane: compact `sla <state>` chip on rows with a due time.
+  WorkspaceView: loads `/api/sla/config` (init + 30s poll), `sla` header
+  button (enabled = ok-colored; only superusers open the manager), renders
+  `SlaManager`. `SlaManager.tsx`: superuser modal — enable/disable,
+  business-hours editor (IANA timezone + 7 per-day start/end time inputs,
+  blank day = off, start<end checked client-side), policy list (default
+  radio, targets summary `u 60/240 · h 120/480 · …`, delete with confirm),
+  add-policy form (name + 8 numeric target inputs in a priority grid);
+  every action refetches config + list + detail. Build fix: web now
+  imports the math from `@kipple/shared/sla` (new subpath export) because
+  the shared index re-exports `crypto.ts` (node:crypto) which rollup
+  refuses for the browser bundle. Verified: lint/typecheck (7)/test (140,
+  incl. 9 api + 5 web SLA tests)/build (4) green.
 - **2026-08-31 (SLA backend)** — Built the backend half of plan item 10.
   Shared: `sla.ts` — `BusinessHours` (IANA tz + per-day windows, ISO days
   Mon=1..Sun=7; default Mon–Fri 09:00–17:00 UTC), `isBusinessMinute`,

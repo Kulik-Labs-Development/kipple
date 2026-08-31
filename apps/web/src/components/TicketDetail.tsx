@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import type { StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
+import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
+import {
+  formatRemainingMinutes,
+  slaRemainingMinutes,
+  slaStateClass,
+  slaStateLabel,
+  type SlaLine,
+} from '../lib/sla'
 import {
   formatStamp,
   parseTags,
@@ -14,12 +21,14 @@ export interface TicketPatch {
   priority?: string
   assignedTo?: string | null
   tags?: string[]
+  slaPolicyId?: string | null
 }
 
 interface TicketDetailProps {
   detail: TicketDetailData
   staff: StaffUser[]
   isStaff: boolean
+  slaConfig: SlaConfig | null
   onPatch: (id: string, patch: TicketPatch) => Promise<void>
   onReply: (id: string, kind: 'public' | 'internal', body: string) => Promise<void>
   onDelete: (id: string) => Promise<void>
@@ -29,10 +38,31 @@ const selectClass =
   'border border-line bg-ink px-2 py-1 text-xs text-fg outline-none focus:border-accent'
 const labelClass = 'text-xs uppercase tracking-widest text-dim'
 
+function SlaChip({ line, label, businessHours }: { line: SlaLine; label: string; businessHours: SlaConfig['businessHours'] }) {
+  const remaining = slaRemainingMinutes(line.dueAt, businessHours)
+  const settled = line.state === 'met' || line.state === 'breached'
+  return (
+    <span className={`flex items-center gap-2 border px-2 py-0.5 ${slaStateClass(line.state)}`}>
+      <span className="uppercase tracking-widest">{label}</span>
+      <span className="text-fg/80">{slaStateLabel(line.state)}</span>
+      <span className="tabular-nums text-dim">
+        {settled && line.doneAt
+          ? `done ${formatStamp(line.doneAt)}`
+          : line.dueAt
+            ? `due ${formatStamp(line.dueAt)}${
+                remaining !== null ? ` · ${formatRemainingMinutes(remaining)} left` : ''
+              }`
+            : 'no target'}
+      </span>
+    </span>
+  )
+}
+
 export function TicketDetail({
   detail,
   staff,
   isStaff,
+  slaConfig,
   onPatch,
   onReply,
   onDelete,
@@ -156,6 +186,48 @@ export function TicketDetail({
                 className={`${selectClass} w-40`}
               />
             </label>
+          </div>
+        )}
+        {isStaff && slaConfig?.enabled && (detail.slaResponseDueAt || detail.slaResolveDueAt) && (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <SlaChip
+              line={{
+                state: detail.slaResponseState as SlaLine['state'],
+                dueAt: detail.slaResponseDueAt,
+                doneAt: detail.slaResponseAt,
+              }}
+              label="response"
+              businessHours={slaConfig.businessHours}
+            />
+            <SlaChip
+              line={{
+                state: detail.slaResolveState as SlaLine['state'],
+                dueAt: detail.slaResolveDueAt,
+                doneAt: detail.slaResolvedAt,
+              }}
+              label="resolve"
+              businessHours={slaConfig.businessHours}
+            />
+            {detail.status !== 'closed' && detail.status !== 'deleted' && (
+              <label className="flex items-center gap-2">
+                <span className={labelClass}>policy</span>
+                <select
+                  value={detail.slaPolicyId ?? ''}
+                  onChange={(event) =>
+                    onPatch(detail.id, { slaPolicyId: event.target.value || null })
+                  }
+                  className={selectClass}
+                >
+                  <option value="">inherited</option>
+                  {slaConfig.policies.map((policy) => (
+                    <option key={policy.id} value={policy.id}>
+                      {policy.name}
+                      {policy.isDefault ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </div>
         )}
       </header>

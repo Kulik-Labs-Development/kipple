@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
-import type { TicketRow } from '../lib/api'
+import type { SlaConfig, TicketRow } from '../lib/api'
+import { queueSlaState, slaStateClass, slaStateLabel } from '../lib/sla'
 import {
   priorityClass,
   relativeTime,
@@ -16,6 +17,7 @@ interface QueuePaneProps {
   statusFilter: StatusFilter
   search: string
   canCreate: boolean
+  slaConfig: SlaConfig | null
   searchRef: RefObject<HTMLInputElement | null>
   onStatusFilter: (filter: StatusFilter) => void
   onSearch: (value: string) => void
@@ -33,6 +35,7 @@ export function QueuePane({
   statusFilter,
   search,
   canCreate,
+  slaConfig,
   searchRef,
   onStatusFilter,
   onSearch,
@@ -109,6 +112,19 @@ export function QueuePane({
                 >
                   {ticket.priority}
                 </span>
+                {slaConfig?.enabled &&
+                  (() => {
+                    const state = queueSlaState(ticket)
+                    if (!state) return null
+                    return (
+                      <span
+                        className={`shrink-0 border px-1 uppercase ${slaStateClass(state)}`}
+                        title={`SLA ${slaStateLabel(state)}`}
+                      >
+                        sla {slaStateLabel(state)}
+                      </span>
+                    )
+                  })()}
                 <span className="ml-auto shrink-0 tabular-nums">
                   {relativeTime(ticket.updatedAt)}
                 </span>

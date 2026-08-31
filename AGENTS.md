@@ -73,7 +73,10 @@ response/resolve targets in business minutes, precedence
 ticket > client > instance default, minute-stepped business-hours math in
 `@kipple/shared`, at-risk/breach/met state machine driven by a 60s worker
 tick, `system` timeline events + audit rows, SLA fields stripped from
-contact responses. Next: SLA display in the workspace UI, then item 11.
+contact responses; workspace UI shows response/resolve chips with
+business-minutes countdown, per-ticket policy override, queue SLA badges,
+and a superuser SLA manager (enable, business hours, policies).
+Next: item 11.
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

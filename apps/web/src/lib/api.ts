@@ -80,6 +80,42 @@ export interface TicketRow {
   tags: string[]
   createdAt: string
   updatedAt: string
+  // SLA fields (staff only — the API strips them from contact responses)
+  slaPolicyId: string | null
+  slaResponseDueAt: string | null
+  slaResolveDueAt: string | null
+  slaResponseAt: string | null
+  slaResolvedAt: string | null
+  slaResponseState: string
+  slaResolveState: string
+}
+
+export interface SlaPolicy {
+  id: string
+  name: string
+  isDefault: boolean
+  targets: {
+    responseMinutes: Record<'low' | 'normal' | 'high' | 'urgent', number>
+    resolveMinutes: Record<'low' | 'normal' | 'high' | 'urgent', number>
+  }
+}
+
+export interface SlaPolicyInput {
+  name: string
+  isDefault?: boolean
+  targets: {
+    responseMinutes: Record<'low' | 'normal' | 'high' | 'urgent', number>
+    resolveMinutes: Record<'low' | 'normal' | 'high' | 'urgent', number>
+  }
+}
+
+export interface SlaConfig {
+  enabled: boolean
+  businessHours: {
+    timezone: string
+    windows: { day: number; start: string; end: string }[]
+  }
+  policies: SlaPolicy[]
 }
 
 export interface TicketUpdateRow {
@@ -172,6 +208,7 @@ export const api = {
       priority?: string
       assignedTo?: string | null
       tags?: string[]
+      slaPolicyId?: string | null
     },
   ) => request<TicketRow>(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   addTicketUpdate: (id: string, body: { kind?: 'public' | 'internal'; body: string }) =>
@@ -229,4 +266,23 @@ export const api = {
     body: { startedAt?: string; durationS?: number; billable?: boolean; note?: string },
   ) => request<TimeEntryRow>(`/api/time/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteTime: (id: string) => request<void>(`/api/time/${id}`, { method: 'DELETE' }),
+  slaConfig: () => request<SlaConfig>('/api/sla/config'),
+  slaSetEnabled: (enabled: boolean) =>
+    request<{ enabled: boolean }>('/api/sla/settings', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
+    }),
+  slaSetBusinessHours: (businessHours: SlaConfig['businessHours']) =>
+    request<SlaConfig['businessHours']>('/api/sla/business-hours', {
+      method: 'POST',
+      body: JSON.stringify(businessHours),
+    }),
+  slaCreatePolicy: (body: SlaPolicyInput) =>
+    request<SlaPolicy>('/api/sla/policies', { method: 'POST', body: JSON.stringify(body) }),
+  slaPatchPolicy: (id: string, body: Partial<SlaPolicyInput>) =>
+    request<SlaPolicy>(`/api/sla/policies/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  slaDeletePolicy: (id: string) => request<void>(`/api/sla/policies/${id}`, { method: 'DELETE' }),
 }
