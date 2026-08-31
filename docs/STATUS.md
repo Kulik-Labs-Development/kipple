@@ -73,6 +73,20 @@ then M365 OAuth2.
 
 ## Recent sessions
 
+- **2026-08-31 (audit follow-up)** — Cleared the `pnpm audit` job failures
+  (was 11 vulns: 1 critical, 2 high, 8 moderate). Bumped `vitest` ^2.1.0 →
+  ^3.2.6 (resolved 3.2.7; clears the critical Vitest-UI advisory and the
+  vite 5.4.21 / esbuild 0.21.5 cluster it pulled in), `esbuild` ^0.24.0 →
+  ^0.25.0 (resolved 0.25.12), `@fastify/static` ^8.0.0 → ^10.1.2 (resolved
+  10.1.3; no code changes needed — usage is `{ root }` + `sendFile`). The
+  last path, `drizzle-kit > @esbuild-kit/core-utils > esbuild@0.18.20`
+  (esbuild-kit is unmaintained, drizzle-kit 0.31.10 is still latest), is
+  pinned with a nested pnpm override
+  `@esbuild-kit/core-utils>esbuild: ^0.25.12` in the root `package.json`
+  (`pnpm.overrides`). `pnpm audit` is now clean. Verified: lint/typecheck/
+  test (46 tests, incl. vitest 3 in all 5 test packages)/build green, plus a
+  live HTTP smoke of SPA static serving + deep-route fallback on
+  `@fastify/static` 10.
 - **2026-08-31** — Fixed the failing CI build (run 6 on `dd8e23e`: `pnpm test`
   → `database "kipple" does not exist`). Root cause: `10ca00b` replaced the
   `env` block in `apps/api/vitest.config.ts` (which injected
@@ -94,7 +108,7 @@ then M365 OAuth2.
   — vitest 2.1.9 (critical, UI server file read, patched in 3.2.6), vite
   5.4.21 via vitest (high), `@fastify/static` 8.3.0 (high path traversal +
   moderate, patched in 10.1.1/10.1.2); clearing needs a vitest 3.x +
-  `@fastify/static` 10.x bump.
+  `@fastify/static` 10.x bump — done, see next bullet.
 - **2026-08-30 (second session)** — Finished the ticket domain API. Fixed the
   red domain test: better-auth signs session tokens (`{random}.{sig}`), so the
   fixture now inserts a credential account (issuer `local:credential`,
