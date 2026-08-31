@@ -64,8 +64,11 @@ dedupe in `email_messages`, no match → new ticket). Client portal +
 magic-link login are live (better-auth `magicLink` plugin wired to the
 outbox; only local contact accounts get a link; `POST /api/contacts/:id/portal`
 provisions portal users; public sign-up blocked at the route once users
-exist; web PortalView + role-based routing). Next: time tracking v1 (plan
-item 9).
+exist; web PortalView + role-based routing). Time tracking v1 is live
+(`time_entries`, one running timer per agent = `duration_s IS NULL`,
+billable flag, manual entries, client-scoped API + TimePanel in the
+workspace with a `T` shortcut). Next: SLA feature (plan item 10,
+enable-able, OFF by default).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

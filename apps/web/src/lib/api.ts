@@ -106,6 +106,36 @@ export interface TicketFilters {
   q?: string
 }
 
+export interface TimeEntryRow {
+  id: string
+  ticketId: string
+  agentId: string
+  agentName: string | null
+  clientId: string
+  startedAt: string
+  durationS: number | null
+  billable: boolean
+  note: string
+}
+
+export interface TimeFilters {
+  ticketId?: string
+  clientId?: string
+  agentId?: string
+  billable?: boolean
+  running?: boolean
+  completed?: boolean
+}
+
+function timeQuery(filters: TimeFilters): string {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined) params.set(key, String(value))
+  }
+  const qs = params.toString()
+  return qs ? `?${qs}` : ''
+}
+
 function ticketQuery(filters: TicketFilters): string {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(filters)) {
@@ -174,4 +204,29 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),
+  listTime: (filters: TimeFilters = {}) =>
+    request<TimeEntryRow[]>(`/api/time${timeQuery(filters)}`),
+  activeTime: () => request<{ entry: TimeEntryRow | null }>('/api/time/active'),
+  startTime: (body: { ticketId: string; billable?: boolean; note?: string }) =>
+    request<TimeEntryRow>('/api/time/start', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  stopTime: () => request<TimeEntryRow>('/api/time/stop', { method: 'POST' }),
+  addTimeEntry: (body: {
+    ticketId: string
+    startedAt: string
+    durationS: number
+    billable?: boolean
+    note?: string
+  }) =>
+    request<TimeEntryRow>('/api/time/entries', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  patchTime: (
+    id: string,
+    body: { startedAt?: string; durationS?: number; billable?: boolean; note?: string },
+  ) => request<TimeEntryRow>(`/api/time/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteTime: (id: string) => request<void>(`/api/time/${id}`, { method: 'DELETE' }),
 }

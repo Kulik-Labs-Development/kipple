@@ -9,6 +9,7 @@ import { registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerEmailRoutes } from './routes/email'
 import { registerTicketRoutes } from './routes/tickets'
+import { registerTimeRoutes } from './routes/time'
 import { registerUserRoutes } from './routes/users'
 
 async function instanceSetupRequired(): Promise<boolean> {
@@ -118,5 +119,6 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerContactRoutes(app)
   await registerEmailRoutes(app)
   await registerTicketRoutes(app)
+  await registerTimeRoutes(app)
   await registerUserRoutes(app)
 }

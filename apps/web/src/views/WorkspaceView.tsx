@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { QueuePane } from '../components/QueuePane'
 import { TicketDetail, type TicketPatch } from '../components/TicketDetail'
 import { TicketForm, type TicketFormValues } from '../components/TicketForm'
+import { TimePanel } from '../components/TimePanel'
 import {
   api,
   type ClientSummary,
@@ -9,8 +10,14 @@ import {
   type StaffUser,
   type TicketDetail as TicketDetailData,
   type TicketRow,
+  type TimeEntryRow,
 } from '../lib/api'
-import { queueStats, TICKET_STATUSES, type StatusFilter } from '../lib/tickets'
+import {
+  formatClock,
+  queueStats,
+  TICKET_STATUSES,
+  type StatusFilter,
+} from '../lib/tickets'
 
 const POLL_MS = 30_000
 
@@ -37,6 +44,9 @@ export function WorkspaceView({
   const [showNewTicket, setShowNewTicket] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [activeEntry, setActiveEntry] = useState<TimeEntryRow | null>(null)
+  const [activeNumber, setActiveNumber] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
 
   const clientNames = useMemo(
@@ -102,8 +112,66 @@ export function WorkspaceView({
     return () => clearInterval(timer)
   }, [refreshList, refreshDetail, selectedId])
 
+  const refreshActiveTimer = useCallback(async () => {
+    if (!isStaff) return
+    try {
+      const { entry } = await api.activeTime()
+      setActiveEntry(entry)
+      setActiveNumber(entry ? (await api.getTicket(entry.ticketId)).number : null)
+    } catch {
+      setActiveEntry(null)
+    }
+  }, [isStaff])
+
+  useEffect(() => {
+    void refreshActiveTimer()
+    const timer = setInterval(() => void refreshActiveTimer(), POLL_MS)
+    return () => clearInterval(timer)
+  }, [refreshActiveTimer])
+
+  useEffect(() => {
+    if (!activeEntry) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [activeEntry])
+
+  async function toggleTimer() {
+    if (!isStaff || !selectedId) return
+    setError(null)
+    try {
+      if (activeEntry && activeEntry.ticketId === selectedId) {
+        await api.stopTime()
+      } else {
+        await api.startTime({ ticketId: selectedId })
+      }
+      await refreshActiveTimer()
+    } catch (err) {
+      setError(errorMessage(err, 'timer action failed'))
+    }
+  }
+
+  const toggleTimerRef = useRef(toggleTimer)
+  useEffect(() => {
+    toggleTimerRef.current = toggleTimer
+  })
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (event.key === 't' || event.key === 'T') {
+        const target = event.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.tagName === 'SELECT' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        event.preventDefault()
+        void toggleTimerRef.current()
+        return
+      }
       if (event.key !== '/') return
       const target = event.target as HTMLElement | null
       if (
@@ -208,6 +276,16 @@ export function WorkspaceView({
           <span className="text-xs text-dim">agent workspace</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
+          {isStaff && activeEntry && (
+            <button
+              onClick={toggleTimer}
+              title="stop timer (T)"
+              className="border border-ok bg-ok/10 px-2 py-1 tabular-nums text-ok"
+            >
+              TIMER {activeNumber ? `#${activeNumber}` : ''} ·{' '}
+              {formatClock((now - new Date(activeEntry.startedAt).getTime()) / 1000)}
+            </button>
+          )}
           <span>
             <span className="text-dim">{user.name}</span>{' '}
             <span className="text-dim">·</span>{' '}
@@ -266,15 +344,26 @@ export function WorkspaceView({
           />
           <div className="flex min-h-0 flex-1 flex-col">
             {detail ? (
-              <TicketDetail
-                key={detail.id}
-                detail={detail}
-                staff={staff}
-                isStaff={isStaff}
-                onPatch={patchTicket}
-                onReply={reply}
-                onDelete={deleteTicket}
-              />
+              <>
+                <TicketDetail
+                  key={detail.id}
+                  detail={detail}
+                  staff={staff}
+                  isStaff={isStaff}
+                  onPatch={patchTicket}
+                  onReply={reply}
+                  onDelete={deleteTicket}
+                />
+                {isStaff && (
+                  <TimePanel
+                    ticketId={detail.id}
+                    onChanged={() => {
+                      void refreshList()
+                      void refreshActiveTimer()
+                    }}
+                  />
+                )}
+              </>
             ) : (
               <div className="grid flex-1 place-items-center">
                 <div className="text-center">

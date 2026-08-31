@@ -138,3 +138,43 @@ export const OutboxTestSend = z.object({ to: z.string().email().max(254) })
 export type OutboxTestSend = z.infer<typeof OutboxTestSend>
 
 export const EMAIL_OUTBOX_QUEUE = 'email-outbox'
+
+// --- Time tracking ---
+export const MAX_ENTRY_DURATION_S = 24 * 3600
+
+export const TimeEntryStart = z.object({
+  ticketId: z.string().min(1),
+  billable: z.boolean().optional().default(true),
+  note: z.string().max(2000).optional().default(''),
+})
+export type TimeEntryStart = z.infer<typeof TimeEntryStart>
+
+export const TimeEntryManual = z.object({
+  ticketId: z.string().min(1),
+  startedAt: z.coerce.date(),
+  durationS: z.number().int().min(1).max(MAX_ENTRY_DURATION_S),
+  billable: z.boolean().optional().default(true),
+  note: z.string().max(2000).optional().default(''),
+})
+export type TimeEntryManual = z.infer<typeof TimeEntryManual>
+
+export const TimeEntryUpdate = z.object({
+  startedAt: z.coerce.date().optional(),
+  durationS: z.number().int().min(1).max(MAX_ENTRY_DURATION_S).optional(),
+  billable: z.boolean().optional(),
+  note: z.string().max(2000).optional(),
+})
+export type TimeEntryUpdate = z.infer<typeof TimeEntryUpdate>
+
+export const TimeEntryView = z.object({
+  id: z.string(),
+  ticketId: z.string(),
+  agentId: z.string(),
+  agentName: z.string().nullable(),
+  clientId: z.string(),
+  startedAt: z.coerce.date(),
+  durationS: z.number().int().nullable(),
+  billable: z.boolean(),
+  note: z.string(),
+})
+export type TimeEntryView = z.infer<typeof TimeEntryView>

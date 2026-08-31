@@ -76,6 +76,25 @@ export function queueStats(tickets: TicketRow[], me: string, now: Date = new Dat
   return { assignedToMe, inQueue, openedToday, closedToday }
 }
 
+export function formatClock(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds))
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  const mm = String(m).padStart(2, '0')
+  const ss = String(sec).padStart(2, '0')
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
+}
+
+export function formatDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds))
+  const hours = Math.floor(seconds / 3600)
+  const mins = Math.floor((seconds % 3600) / 60)
+  if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  if (mins > 0) return `${mins}m`
+  return `${seconds}s`
+}
+
 export interface PortalFilters {
   status: StatusFilter
   q: string

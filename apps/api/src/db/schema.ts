@@ -197,6 +197,28 @@ export const emailMessages = pgTable('email_messages', {
   createdAt: createdAt(),
 })
 
+// Time tracking. A running timer is a row with duration_s NULL; exactly one
+// such row may exist per agent (enforced in the service layer). client_id is
+// denormalized from the ticket at entry time so per-client billing reports
+// survive client reassignment.
+export const timeEntries = pgTable('time_entries', {
+  id: text('id').primaryKey(),
+  ticketId: text('ticket_id')
+    .notNull()
+    .references(() => tickets.id, { onDelete: 'cascade' }),
+  agentId: text('agent_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  clientId: text('client_id')
+    .notNull()
+    .references(() => clients.id, { onDelete: 'cascade' }),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  durationS: integer('duration_s'),
+  billable: boolean('billable').notNull().default(true),
+  note: text('note').notNull().default(''),
+  createdAt: createdAt(),
+})
+
 export const audit = pgTable('audit', {
   id: text('id').primaryKey(),
   actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),

@@ -8,9 +8,9 @@ chat or contributor can pick up where work left off. Deep design lives in
 ## Current phase
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
-Email outbound (§5b), email inbound, and the client portal with
-magic-link login are live.
-Next up: time tracking v1 (plan item 9).
+Email outbound (§5b), email inbound, the client portal with magic-link
+login, and time tracking v1 are live.
+Next up: SLA feature (plan item 10).
 
 ## What's live
 
@@ -96,6 +96,18 @@ Next up: time tracking v1 (plan item 9).
    agent (password) tabs, new PortalView (request list with status chips +
    search, thread view, reply, new-request modal, 30s polling), role-based
    routing in App (contact → portal, staff → workspace)
+ - Time tracking v1 (plan item 9): `time_entries` table (migration 0005;
+  running timer = `duration_s IS NULL`, one per agent; `client_id`
+  denormalized for billing reports). API: `POST /api/time/start` (409 if a
+  timer is already running), `POST /api/time/stop` (min 1s),
+  `POST /api/time/entries` (manual: startedAt + durationS 1s–24h),
+  `GET /api/time` (filters ticketId/clientId/agentId/billable/running/
+  completed/from/to; client-scoped — contacts see only their clients),
+  `GET /api/time/active`, `PATCH/DELETE /api/time/:id`; audit rows on every
+  action. Web: TimePanel in the ticket detail (totals + billable totals,
+  start/stop with live tick, entry list with billable toggles + delete,
+  manual-entry form), active-timer chip in the workspace header, `T`
+  shortcut toggles the timer for the selected ticket
 
 ## Phase 1 — active plan
 
@@ -109,13 +121,39 @@ Next up: time tracking v1 (plan item 9).
 | 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | done |
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
-| 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | not started — NEXT |
-| 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | not started |
+| 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | done |
+| 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | not started — NEXT |
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started |
 
 ## Recent sessions
 
+- **2026-08-31 (time tracking v1)** — Built plan item 9. Schema:
+  `time_entries` (migration 0005) — ticket/agent/client refs, `started_at`,
+  nullable `duration_s` (NULL = running timer), `billable`, `note`;
+  client id denormalized from the ticket at entry time. Service rules: one
+  running timer per agent (checked in the route, 409 with the running entry
+  on conflict — single-tenant low-concurrency model, no partial index),
+  stop rounds to ≥1s, manual entries 1s–24h (zod in shared:
+  TimeEntryStart/Manual/Update/View). API `routes/time.ts`: start/stop/
+  entries/list/active/patch/delete; list accepts ticketId/clientId/agentId/
+  billable/running/completed/from/to and is client-scoped (contacts see
+  only their clients' entries, staff all); mutations are staff-only and
+  ticket-scoped (out-of-scope = 404); every action audit-logged
+  (time.start/stop/entry/update/delete). Web: `TimePanel` component in the
+  ticket detail (ticket totals incl. billable, START TIMER / STOP · 00:05:12
+  live tick, completed-entry list with per-row billable checkbox + delete,
+  collapsible manual form: datetime-local + minutes + billable + note);
+  active-timer chip in the workspace header (30s poll + 1s tick, click =
+  stop); `T` keyboard shortcut toggles the timer on the selected ticket
+  (via a ref to dodge the once-mounted keydown effect); `formatDuration` +
+  `formatClock` helpers + tests. 6 new api e2e tests (start/409/active,
+  stop/double-stop, manual + validation, scoping 404s, list filters +
+  patch/delete + audit actions, contact list scoped to own client + 403 on
+  mutations). Verified: lint/typecheck/test (114 tests)/build green.
+  Follow-ups: CSV export (Phase 2, §8b), Invoice Ninja draft invoices
+  (Phase 2), calendar blocking + call-log time entries (Phase 3), MCP
+  start_timer/stop_timer tools (Phase 2).
 - **2026-08-31 (client portal + magic link)** — Built plan item 8. Auth:
   better-auth's built-in `magicLink` plugin (found in the 1.7.2 dist — it has
   `sign-in/magic-link` + `magic-link/verify`, hashed tokens, single-use

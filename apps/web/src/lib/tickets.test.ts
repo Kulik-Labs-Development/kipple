@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { TicketRow } from './api'
 import {
   filterPortalTickets,
+  formatClock,
+  formatDuration,
   formatStamp,
   parseTags,
   priorityClass,
@@ -124,5 +126,25 @@ describe('filterPortalTickets', () => {
     expect(filterPortalTickets(rows, { status: 'open', q: 'vpn' })).toHaveLength(1)
     expect(filterPortalTickets(rows, { status: 'closed', q: 'vpn' })).toHaveLength(1)
     expect(filterPortalTickets(rows, { status: 'pending', q: 'vpn' })).toHaveLength(0)
+  })
+})
+
+describe('formatClock', () => {
+  it('renders mm:ss and h:mm:ss', () => {
+    expect(formatClock(0)).toBe('00:00')
+    expect(formatClock(5)).toBe('00:05')
+    expect(formatClock(305)).toBe('05:05')
+    expect(formatClock(3661)).toBe('1:01:01')
+    expect(formatClock(-3)).toBe('00:00')
+  })
+})
+
+describe('formatDuration', () => {
+  it('renders compact durations', () => {
+    expect(formatDuration(0)).toBe('0s')
+    expect(formatDuration(45)).toBe('45s')
+    expect(formatDuration(1350)).toBe('22m')
+    expect(formatDuration(3600)).toBe('1h')
+    expect(formatDuration(5045)).toBe('1h 24m')
   })
 })
