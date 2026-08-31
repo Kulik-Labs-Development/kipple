@@ -17,10 +17,10 @@ import {
   encryptAtRest,
   isEncryptedValue,
 } from '@kipple/shared'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, ilike } from 'drizzle-orm'
 import { logAudit } from './audit'
 import { db } from './db'
-import { contactClients, contacts, emailOutbox, settings } from './db/schema'
+import { contactClients, contacts, emailOutbox, settings, users } from './db/schema'
 
 const log = pino({ name: 'mail' })
 
@@ -227,6 +227,51 @@ export async function enqueueOutbox(input: EnqueueOutboxInput): Promise<string> 
     )
   }
   return id
+}
+
+// Magic-link login email (better-auth magicLink plugin hook). Only local
+// contact accounts receive one: unknown emails get nothing (no enumeration,
+// no spam), SSO users sign in via their IdP, staff magic links are a later
+// per-account opt-in. Delivered through the normal provider queue.
+export async function sendMagicLinkEmail(email: string, url: string): Promise<void> {
+  const [user] = await db.select().from(users).where(ilike(users.email, email))
+  if (!user) {
+    log.info('magic link requested for unknown email; not sending')
+    return
+  }
+  if (user.authSource !== 'local') {
+    log.info({ userId: user.id }, 'magic link blocked for SSO user')
+    return
+  }
+  if (user.role !== 'contact') {
+    log.info({ userId: user.id }, 'magic link not enabled for staff account')
+    return
+  }
+  const [instanceRow] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, 'instance'))
+  const instanceName = ((instanceRow?.value as { name?: string } | null) ?? {}).name ?? 'Kipple'
+  const emailSettings = await loadEmailSettings()
+  const domain = emailSettings?.domain ?? 'kipple.local'
+  await enqueueOutbox({
+    to: user.email,
+    from: emailSettings?.smtp?.from ?? `no-reply@${domain}`,
+    fromName: emailSettings?.smtp?.fromName ?? instanceName,
+    subject: `Sign in to ${instanceName}`,
+    body: [
+      `Hi ${user.name || 'there'},`,
+      '',
+      'Use this link to sign in to your support portal:',
+      '',
+      url,
+      '',
+      'This link expires in 10 minutes and works only once.',
+      '',
+      'If you did not request this email you can safely ignore it.',
+    ].join('\n'),
+    messageId: `<${randomUUID()}@${domain}>`,
+  })
 }
 
 export type OutboxRowView = Omit<typeof emailOutbox.$inferSelect, 'body'>

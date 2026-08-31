@@ -1,11 +1,12 @@
-import { randomUUID } from 'node:crypto'
-import { and, eq, inArray, ne } from 'drizzle-orm'
+import { randomBytes, randomUUID } from 'node:crypto'
+import { and, eq, inArray, ilike, ne } from 'drizzle-orm'
+import { hashPassword } from 'better-auth/crypto'
 import { ContactClientLink, ContactCreate, ContactUpdate } from '@kipple/shared'
 import type { FastifyInstance } from 'fastify'
 import { badRequest, clientScope, inScope, notFound, requireRole, requireUser } from '../access'
 import { logAudit } from '../audit'
 import { db } from '../db'
-import { clients, contactClients, contacts } from '../db/schema'
+import { accounts, clients, contactClients, contacts, users } from '../db/schema'
 
 async function clientExists(id: string): Promise<boolean> {
   const [row] = await db.select({ id: clients.id }).from(clients).where(eq(clients.id, id))
@@ -124,6 +125,59 @@ export async function registerContactRoutes(app: FastifyInstance): Promise<void>
       .onConflictDoNothing()
     await logAudit(session.user.id, 'contact.link_client', 'contact', id, { clientId })
     return { ok: true }
+  })
+
+  // Give a contact a portal account (magic-link sign-in). The credential
+  // account stores a random password so email+password sign-in can never
+  // work; only the magic link does.
+  app.post('/api/contacts/:id/portal', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    const { id } = request.params as { id: string }
+    const scope = await clientScope(session.user)
+    const [contact] = await db.select().from(contacts).where(eq(contacts.id, id))
+    if (!contact) return reply.code(404).send(notFound())
+    const links = await db
+      .select({ clientId: contactClients.clientId })
+      .from(contactClients)
+      .where(eq(contactClients.contactId, id))
+    if (!links.some((link) => inScope(scope, link.clientId))) {
+      return reply.code(404).send(notFound())
+    }
+    const [existing] = await db.select().from(users).where(ilike(users.email, contact.email))
+    if (existing) {
+      if (existing.role === 'contact' && existing.contactId === contact.id) {
+        return { userId: existing.id, email: existing.email, name: existing.name, existing: true }
+      }
+      return reply
+        .code(409)
+        .send({ error: 'conflict', message: 'a user with this email already exists' })
+    }
+    const userId = randomUUID()
+    const password = randomBytes(24).toString('base64url')
+    await db
+      .insert(users)
+      .values({
+        id: userId,
+        name: contact.name,
+        email: contact.email,
+        role: 'contact',
+        contactId: contact.id,
+      })
+    await db
+      .insert(accounts)
+      .values({
+        id: randomUUID(),
+        providerId: 'credential',
+        issuer: 'local:credential',
+        accountId: userId,
+        userId,
+        password: await hashPassword(password),
+      })
+    await logAudit(session.user.id, 'contact.portal_provision', 'contact', contact.id, { userId })
+    return reply
+      .code(201)
+      .send({ userId, email: contact.email, name: contact.name, existing: false })
   })
 
   app.delete('/api/contacts/:id/clients/:clientId', async (request, reply) => {

@@ -60,8 +60,12 @@ mutations, `users.contact_id` for portal users, email outbound pipeline (§5b:
 provider queue + generic SMTP, `email_outbox` log, retry/backoff,
 encrypted at-rest SMTP creds). Email inbound is live (worker IMAP IDLE +
 thread matching: References → alias → subject tag → contact, Message-ID
-dedupe in `email_messages`, no match → new ticket). Next: client portal +
-magic-link login (plan item 8).
+dedupe in `email_messages`, no match → new ticket). Client portal +
+magic-link login are live (better-auth `magicLink` plugin wired to the
+outbox; only local contact accounts get a link; `POST /api/contacts/:id/portal`
+provisions portal users; public sign-up blocked at the route once users
+exist; web PortalView + role-based routing). Next: time tracking v1 (plan
+item 9).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

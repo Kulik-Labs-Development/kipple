@@ -8,8 +8,9 @@ chat or contributor can pick up where work left off. Deep design lives in
 ## Current phase
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
-Email outbound (§5b) and inbound are live.
-Next up: client portal + magic-link login for contacts (plan item 8).
+Email outbound (§5b), email inbound, and the client portal with
+magic-link login are live.
+Next up: time tracking v1 (plan item 9).
 
 ## What's live
 
@@ -62,12 +63,39 @@ Next up: client portal + magic-link login for contacts (plan item 8).
   exponential backoff (5 attempts, 30s→1h cap), permanent errors (535/550/553/
   554, auth failures) fail fast; staff public updates + staff ticket creates
   with a body enqueue a client reply (From = configured sender, Reply-To =
-  ticket alias, subject tagged `[KIP-{n}]`); SMTP password encrypted at rest
-  (AES-256-GCM keyed from AUTH_SECRET, `enc1:` prefix); API: `GET/POST
-  /api/email` (settings, masked), `POST /api/email/test-connection`,
-  `GET /api/outbox` (filterable activity log), `GET /api/outbox/provider`
-  (status), `POST /api/outbox/test` (one-click test send),
-  `POST /api/outbox/:id/retry`. M365/Google providers = Phase 2
+   ticket alias, subject tagged `[KIP-{n}]`); SMTP password encrypted at rest
+   (AES-256-GCM keyed from AUTH_SECRET, `enc1:` prefix); API: `GET/POST
+   /api/email` (settings, masked), `POST /api/email/test-connection`,
+   `GET /api/outbox` (filterable activity log), `GET /api/outbox/provider`
+   (status), `POST /api/outbox/test` (one-click test send),
+   `POST /api/outbox/:id/retry`. M365/Google providers = Phase 2
+ - Email inbound (§5.1): worker IMAP IDLE loop (imapflow `~1.0.200`,
+   `mailboxOpen`/`exists`/`fetch` API — the 1.7 line renamed the classic
+   API) with catch-up scan of unread (capped 100) + live `exists` pickup +
+   reconnect backoff 5s→5min; parsing in `packages/mail` (mailparser,
+   canonical Message-IDs) with fixture `.eml` tests; `email_messages` table
+   (`message_id` unique = idempotency key); match order alias → `[KIP-n]`
+   subject tag → References/In-Reply-To (inbound ∪ outbox ∪
+   `updates.email_meta.messageId`) → known contact creates a ticket on the
+   primary client; unknown sender logged, no ticket; inbound updates are
+   public, authored by the contact's portal user, `email_meta.messageId`
+   stamped; mail stays unseen (readOnly) so rescans are safe; `GET/POST
+   /api/imap` + test-connection (password encrypted at rest)
+ - Magic-link login + client portal (plan item 8): better-auth `magicLink`
+   plugin (hashed single-use tokens, 10 min expiry, 5/10min rate limit,
+   sign-up disabled) wired to our outbox via a `sendMagicLink` hook that only
+   emails LOCAL CONTACT accounts (unknown emails, SSO users, and staff get
+   nothing; the request response is identical either way — no enumeration);
+   verify redirects to `/portal` with a signed session cookie; public
+   `POST /api/auth/sign-up/email` intercepted at 403 once the instance has
+   users (the block moved out of a better-auth hook so server-side
+   provisioning can create users); `POST /api/contacts/:id/portal` lets staff
+   provision (idempotent) a contact's portal account (random credential
+   password — magic link is the only door); `/api/me` returns
+   `primaryClient` for contacts; web: login view with client (magic link) /
+   agent (password) tabs, new PortalView (request list with status chips +
+   search, thread view, reply, new-request modal, 30s polling), role-based
+   routing in App (contact → portal, staff → workspace)
 
 ## Phase 1 — active plan
 
@@ -80,14 +108,46 @@ Next up: client portal + magic-link login for contacts (plan item 8).
 | 5 | Email outbound: provider queue (§5b) — generic SMTP first, then M365 OAuth2 (adoption gate) | done (SMTP; M365/Google = Phase 2) |
 | 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | done |
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
-| 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | not started — NEXT |
-| 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | not started |
+| 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
+| 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | not started — NEXT |
 | 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | not started |
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started |
 
 ## Recent sessions
 
+- **2026-08-31 (client portal + magic link)** — Built plan item 8. Auth:
+  better-auth's built-in `magicLink` plugin (found in the 1.7.2 dist — it has
+  `sign-in/magic-link` + `magic-link/verify`, hashed tokens, single-use
+  atomic consumption, built-in rate limit; it mints the session + signed
+  cookie inside its own pipeline, so no hand-rolled cookies). Its one flaw —
+  `sendMagicLink` fires for ANY email — is neutralized in our hook
+  (`sendMagicLinkEmail` in `apps/api/src/mail.ts`): only existing local
+  contact users get a link (outbox-queued, subject "Sign in to {instance}"),
+  unknown/SSO/staff emails are silently skipped while the API still answers
+  `{status:true}` (no enumeration, no spam, no account probing).
+  `disableSignUp: true` + 600s expiry + 5/10min rate limit. The
+  "signups closed after first user" rule moved from a better-auth
+  databaseHook (which blocked ALL user creation) to an intercept in
+  `auth-routes.ts` (403 on public `sign-up/email` once users exist) so
+  staff can provision accounts server-side. New staff endpoint
+  `POST /api/contacts/:id/portal` provisions a contact's portal user
+  (idempotent; 409 if the email belongs to a different user; random
+  credential password so email+password sign-in can't work — magic link is
+  the only door). `/api/me` now returns `primaryClient` for contacts.
+  Web: login view gained client/agent tabs (client = email → magic link,
+  "check your inbox" state); new `PortalView` (request list with status
+  chips + `/` search, thread view, reply box, new-request modal, 30s
+  polling) and App routes by role (contact → portal, staff → workspace);
+  `Field` supports `type="textarea"`; `filterPortalTickets` helper + 3
+  tests. 8 new api e2e tests (provision idempotency, full
+  send→verify→/api/me round trip, token single-use, unknown/staff/no-portal
+  negative cases, sign-up block, contact-scoped list/create/reply-forced-
+  public). Verified: lint/typecheck/test (106 tests)/build green.
+  Follow-ups: no agent-UI for portal provisioning yet (endpoint is live +
+  tested); staff magic-link opt-in (per PLAN: per-account flag + superuser
+  policy) not implemented; domain-gated client self-registration (off by
+  default) not implemented — contacts without a portal account get no link.
 - **2026-08-31 (Portainer deploy session)** — Made `infra/docker-compose.yml`
   deployable as a Portainer CE stack. Key change: dropped the `./Caddyfile`
   bind mount (relative-path volumes are a Portainer Business Edition feature,

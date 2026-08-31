@@ -1,9 +1,9 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
-import { APIError, betterAuth } from 'better-auth'
-import { twoFactor } from 'better-auth/plugins'
+import { betterAuth } from 'better-auth'
+import { magicLink, twoFactor } from 'better-auth/plugins'
 import { db } from './db'
 import * as schema from './db/schema'
-import { users } from './db/schema'
+import { sendMagicLinkEmail } from './mail'
 
 const baseURL = process.env.PUBLIC_URL ?? 'http://localhost:3000'
 
@@ -47,24 +47,25 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
   },
-  databaseHooks: {
-    user: {
-      create: {
-        before: async () => {
-          const [existing] = await db.select({ id: users.id }).from(users).limit(1)
-          if (existing) {
-            throw new APIError('FORBIDDEN', {
-              message: 'Signups are closed on this instance',
-            })
-          }
-        },
-      },
-    },
-  },
   trustedOrigins: [
     baseURL,
     'http://localhost:5173',
     'http://127.0.0.1:5173',
   ],
-  plugins: [twoFactor({ issuer: 'Kipple' })],
+  plugins: [
+    twoFactor({ issuer: 'Kipple' }),
+    // Passwordless sign-in for client portal accounts. The hook below decides
+    // who actually receives an email (local contacts only); the plugin's
+    // request response is identical either way, so it cannot be used to
+    // probe which emails are accounts.
+    magicLink({
+      expiresIn: 600,
+      storeToken: 'hashed',
+      disableSignUp: true,
+      rateLimit: { window: 600, max: 5 },
+      sendMagicLink: async ({ email, url }) => {
+        await sendMagicLinkEmail(email, url)
+      },
+    }),
+  ],
 })

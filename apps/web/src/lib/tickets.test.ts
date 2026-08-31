@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { TicketRow } from './api'
-import { formatStamp, parseTags, priorityClass, queueStats, relativeTime, statusLedClass } from './tickets'
+import {
+  filterPortalTickets,
+  formatStamp,
+  parseTags,
+  priorityClass,
+  queueStats,
+  relativeTime,
+  statusLedClass,
+} from './tickets'
 
 function ticket(overrides: Partial<TicketRow>): TicketRow {
   return {
@@ -90,5 +98,31 @@ describe('parseTags', () => {
     const many = Array.from({ length: 25 }, (_, i) => `tag${i}`).join(',')
     expect(parseTags(many)).toHaveLength(20)
     expect(parseTags('  ')).toEqual([])
+  })
+})
+
+describe('filterPortalTickets', () => {
+  const rows = [
+    ticket({ id: 't1', subject: 'VPN down', status: 'open' }),
+    ticket({ id: 't2', subject: 'Password reset', status: 'pending' }),
+    ticket({ id: 't3', subject: 'vpn issue two', status: 'closed' }),
+  ]
+
+  it('filters by status', () => {
+    expect(filterPortalTickets(rows, { status: 'open', q: '' })).toHaveLength(1)
+    expect(filterPortalTickets(rows, { status: 'closed', q: '' })).toHaveLength(1)
+    expect(filterPortalTickets(rows, { status: 'all', q: '' })).toHaveLength(3)
+  })
+
+  it('filters by case-insensitive subject search', () => {
+    expect(filterPortalTickets(rows, { status: 'all', q: 'VPN' })).toHaveLength(2)
+    expect(filterPortalTickets(rows, { status: 'all', q: '   ' })).toHaveLength(3)
+    expect(filterPortalTickets(rows, { status: 'all', q: 'nope' })).toHaveLength(0)
+  })
+
+  it('combines status and search', () => {
+    expect(filterPortalTickets(rows, { status: 'open', q: 'vpn' })).toHaveLength(1)
+    expect(filterPortalTickets(rows, { status: 'closed', q: 'vpn' })).toHaveLength(1)
+    expect(filterPortalTickets(rows, { status: 'pending', q: 'vpn' })).toHaveLength(0)
   })
 })

@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify'
 import { badRequest, requireUser } from './access'
 import { auth } from './auth'
 import { db } from './db'
-import { settings, users } from './db/schema'
+import { clients, contactClients, settings, users } from './db/schema'
 import { registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerEmailRoutes } from './routes/email'
@@ -66,11 +66,29 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(settings.key, 'theme'))
     const instanceTheme =
       ((themeSetting?.value as { id?: string } | null) ?? {}).id ?? 'slate'
+    let primaryClient: { id: string; name: string; domain: string | null } | null = null
+    if (session.user.role === 'contact' && prefs?.contactId) {
+      const links = await db
+        .select({ clientId: contactClients.clientId, isPrimary: contactClients.isPrimary })
+        .from(contactClients)
+        .where(eq(contactClients.contactId, prefs.contactId))
+      const primary = links.find((link) => link.isPrimary) ?? links[0]
+      if (primary) {
+        const [client] = await db
+          .select()
+          .from(clients)
+          .where(eq(clients.id, primary.clientId))
+        if (client) {
+          primaryClient = { id: client.id, name: client.name, domain: client.domain }
+        }
+      }
+    }
     return {
       user: session.user,
       sessionId: session.session.id,
       instanceTheme,
       contactId: prefs?.contactId ?? null,
+      primaryClient,
       preferences: {
         theme: prefs?.theme ?? null,
         colorMode: prefs?.colorMode ?? 'system',

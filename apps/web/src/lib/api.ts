@@ -26,6 +26,7 @@ export interface MeResponse {
   sessionId: string
   instanceTheme: string
   contactId: string | null
+  primaryClient: { id: string; name: string; domain: string | null } | null
   preferences: {
     theme: string | null
     colorMode: ColorMode
@@ -161,6 +162,11 @@ export const api = {
     request('/api/auth/sign-in/email', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  requestMagicLink: (email: string) =>
+    request<{ status: boolean }>('/api/auth/sign-in/magic-link', {
+      method: 'POST',
+      body: JSON.stringify({ email, callbackURL: '/portal' }),
     }),
   signOut: () => request('/api/auth/sign-out', { method: 'POST' }),
   patchPreferences: (body: { theme?: string | null; colorMode?: ColorMode }) =>

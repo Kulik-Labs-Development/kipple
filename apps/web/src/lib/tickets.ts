@@ -76,6 +76,20 @@ export function queueStats(tickets: TicketRow[], me: string, now: Date = new Dat
   return { assignedToMe, inQueue, openedToday, closedToday }
 }
 
+export interface PortalFilters {
+  status: StatusFilter
+  q: string
+}
+
+export function filterPortalTickets(tickets: TicketRow[], filters: PortalFilters): TicketRow[] {
+  const query = filters.q.trim().toLowerCase()
+  return tickets.filter((ticket) => {
+    if (filters.status !== 'all' && ticket.status !== filters.status) return false
+    if (query && !ticket.subject.toLowerCase().includes(query)) return false
+    return true
+  })
+}
+
 export function parseTags(input: string): string[] {
   const seen = new Set<string>()
   const tags: string[] = []

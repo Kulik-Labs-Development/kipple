@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, type MeUser } from './lib/api'
 import { applyTheme, resolveThemeChoice, watchSystemScheme } from './lib/theme'
 import { LoginView } from './views/LoginView'
+import { PortalView } from './views/PortalView'
 import { SetupView } from './views/SetupView'
 import { WorkspaceView } from './views/WorkspaceView'
 
@@ -10,6 +11,11 @@ type Mode = 'loading' | 'setup' | 'login' | 'app'
 export default function App() {
   const [mode, setMode] = useState<Mode>('loading')
   const [user, setUser] = useState<MeUser | null>(null)
+  const [primaryClient, setPrimaryClient] = useState<{
+    id: string
+    name: string
+    domain: string | null
+  } | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -22,6 +28,7 @@ export default function App() {
         })
       }
       setUser(me.user)
+      setPrimaryClient(me.primaryClient)
       setMode('app')
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -37,6 +44,12 @@ export default function App() {
     refresh().catch(() => setMode('login'))
   }, [refresh])
 
+  const signedOut = () => {
+    setUser(null)
+    setPrimaryClient(null)
+    setMode('login')
+  }
+
   if (mode === 'loading') {
     return (
       <div className="grid min-h-full place-items-center text-xs tracking-widest text-dim">
@@ -49,13 +62,9 @@ export default function App() {
 
   if (mode === 'login' || !user) return <LoginView onDone={() => refresh()} />
 
-  return (
-    <WorkspaceView
-      user={user}
-      onSignedOut={() => {
-        setUser(null)
-        setMode('login')
-      }}
-    />
-  )
+  if (user.role === 'contact') {
+    return <PortalView user={user} primaryClient={primaryClient} onSignedOut={signedOut} />
+  }
+
+  return <WorkspaceView user={user} onSignedOut={signedOut} />
 }
