@@ -15,6 +15,39 @@ import { logAudit } from '../audit'
 import { db } from '../db'
 import { clients, tickets, updates, users } from '../db/schema'
 import { loadEmailSettings, queueTicketReply } from '../mail'
+import {
+  applySlaToTicket,
+  loadSlaEnabled,
+  markTicketResponded,
+  markTicketResolved,
+} from '../sla'
+
+// SLA internals are staff data; portal views never leak due times/states.
+type SlaFields = Pick<
+  typeof tickets.$inferSelect,
+  | 'slaPolicyId'
+  | 'slaResponseDueAt'
+  | 'slaResolveDueAt'
+  | 'slaResponseAt'
+  | 'slaResolvedAt'
+  | 'slaResponseState'
+  | 'slaResolveState'
+>
+
+function ticketView<T extends SlaFields>(ticket: T, role: string) {
+  if (role !== 'contact') return ticket
+  const {
+    slaPolicyId: _slaPolicyId,
+    slaResponseDueAt: _slaResponseDueAt,
+    slaResolveDueAt: _slaResolveDueAt,
+    slaResponseAt: _slaResponseAt,
+    slaResolvedAt: _slaResolvedAt,
+    slaResponseState: _slaResponseState,
+    slaResolveState: _slaResolveState,
+    ...visible
+  } = ticket
+  return visible
+}
 
 async function emailDomain(): Promise<string> {
   return (await loadEmailSettings())?.domain ?? 'kipple.local'
@@ -72,12 +105,13 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     if (clientId) filters.push(eq(tickets.clientId, clientId))
     if (assignedTo) filters.push(eq(tickets.assignedTo, assignedTo))
     if (q) filters.push(ilike(tickets.subject, `%${q}%`))
-    return db
+    const rows = await db
       .select()
       .from(tickets)
       .where(filters.length > 0 ? and(...filters) : undefined)
       .orderBy(desc(tickets.updatedAt))
       .limit(200)
+    return rows.map((row) => ticketView(row, session.user.role))
   })
 
   app.post('/api/tickets', async (request, reply) => {
@@ -107,6 +141,7 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
       .set({ alias })
       .where(eq(tickets.id, ticket.id))
       .returning()
+    if (await loadSlaEnabled()) await applySlaToTicket(updated.id, new Date(), session.user.id)
     if (parsed.data.body) {
       await db.insert(updates).values({
         id: randomUUID(),
@@ -117,14 +152,17 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
       })
       if (session.user.role !== 'contact') {
         await queueTicketReply({ ticket: updated, body: parsed.data.body, isReply: false })
+        await markTicketResponded(updated.id, new Date(), session.user.id)
       }
     }
+    // re-read: the SLA steps above updated the row after the insert
+    const [created] = await db.select().from(tickets).where(eq(tickets.id, updated.id))
     await logAudit(session.user.id, 'ticket.create', 'ticket', updated.id, {
       clientId: updated.clientId,
       number: updated.number,
       subject: updated.subject,
     })
-    return reply.code(201).send(updated)
+    return reply.code(201).send(ticketView(created, session.user.role))
   })
 
   app.get('/api/tickets/:id', async (request, reply) => {
@@ -137,6 +175,9 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     if (!inScope(scope, ticket.clientId)) return reply.code(404).send(notFound())
     if (session.user.role === 'contact' && ticket.status === 'deleted') {
       return reply.code(404).send(notFound())
+    }
+    if (session.user.role === 'contact') {
+      return { ...ticketView(ticket, 'contact'), updates: ticket.updates }
     }
     return ticket
   })
@@ -151,10 +192,13 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     if (parsed.data.clientId && !inScope(scope, parsed.data.clientId)) {
       return reply.code(404).send(notFound())
     }
-    const [row] = await db
+    const [existing] = await db.select().from(tickets).where(eq(tickets.id, id))
+    const wasClosed = existing?.status === 'closed'
+    const [patched] = await db
       .update(tickets)
       .set({
         clientId: parsed.data.clientId ?? undefined,
+        slaPolicyId: parsed.data.slaPolicyId !== undefined ? parsed.data.slaPolicyId : undefined,
         subject: parsed.data.subject ?? undefined,
         status: parsed.data.status ?? undefined,
         priority: parsed.data.priority ?? undefined,
@@ -163,7 +207,26 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
       })
       .where(eq(tickets.id, id))
       .returning()
-    if (!row) return reply.code(404).send(notFound())
+    if (!patched) return reply.code(404).send(notFound())
+    let row = patched
+    const slaChanged =
+      (await loadSlaEnabled()) &&
+      (parsed.data.slaPolicyId !== undefined ||
+        (parsed.data.priority !== undefined && parsed.data.priority !== existing?.priority))
+    const slaTouched =
+      (parsed.data.status === 'closed' && !wasClosed) ||
+      (slaChanged && row.status !== 'closed' && row.status !== 'deleted')
+    if (slaTouched) {
+      if (parsed.data.status === 'closed' && !wasClosed) {
+        await markTicketResolved(id, new Date(), session.user.id)
+      }
+      if (slaChanged && row.status !== 'closed' && row.status !== 'deleted') {
+        await applySlaToTicket(id, new Date(), session.user.id)
+      }
+      // re-read: the SLA steps above updated the row after the patch
+      const [fresh] = await db.select().from(tickets).where(eq(tickets.id, id))
+      if (fresh) row = fresh
+    }
     await logAudit(session.user.id, 'ticket.update', 'ticket', id, {
       fields: Object.keys(parsed.data),
     })
@@ -193,6 +256,7 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
       .returning()
     if (kind === 'public' && session.user.role !== 'contact') {
       await queueTicketReply({ ticket, body: parsed.data.body, isReply: true })
+      await markTicketResponded(id, new Date(), session.user.id)
     }
     await logAudit(session.user.id, 'update.create', 'update', row.id, {
       ticketId: id,

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SlaTargets } from './sla'
 
 export const TicketStatus = z.enum(['open', 'pending', 'hold', 'closed', 'deleted'])
 export type TicketStatus = z.infer<typeof TicketStatus>
@@ -23,6 +24,7 @@ export type SetupRequest = z.infer<typeof SetupRequest>
 export const ClientCreate = z.object({
   name: z.string().min(1).max(200),
   domain: z.string().max(253).optional().or(z.literal('')),
+  slaPolicyId: z.string().min(1).nullable().optional(),
 })
 export type ClientCreate = z.infer<typeof ClientCreate>
 
@@ -55,6 +57,7 @@ export type TicketCreate = z.infer<typeof TicketCreate>
 
 export const TicketUpdate = z.object({
   clientId: z.string().min(1).optional(),
+  slaPolicyId: z.string().min(1).nullable().optional(),
   subject: z.string().min(1).max(300).optional(),
   status: TicketStatus.optional(),
   priority: TicketPriority.optional(),
@@ -178,3 +181,21 @@ export const TimeEntryView = z.object({
   note: z.string(),
 })
 export type TimeEntryView = z.infer<typeof TimeEntryView>
+
+// --- SLA management (item 10) ---
+export const SlaPolicyCreate = z.object({
+  name: z.string().min(1).max(100),
+  targets: SlaTargets,
+  isDefault: z.boolean().optional().default(false),
+})
+export type SlaPolicyCreate = z.infer<typeof SlaPolicyCreate>
+
+export const SlaPolicyUpdate = z.object({
+  name: z.string().min(1).max(100).optional(),
+  targets: SlaTargets.optional(),
+  isDefault: z.boolean().optional(),
+})
+export type SlaPolicyUpdate = z.infer<typeof SlaPolicyUpdate>
+
+export const SlaSettings = z.object({ enabled: z.boolean() })
+export type SlaSettings = z.infer<typeof SlaSettings>

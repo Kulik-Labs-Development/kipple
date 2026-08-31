@@ -27,7 +27,12 @@ export async function registerClientRoutes(app: FastifyInstance): Promise<void> 
     if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
     const [row] = await db
       .insert(clients)
-      .values({ id: randomUUID(), name: parsed.data.name, domain: parsed.data.domain || null })
+      .values({
+        id: randomUUID(),
+        name: parsed.data.name,
+        domain: parsed.data.domain || null,
+        slaPolicyId: parsed.data.slaPolicyId ?? null,
+      })
       .returning()
     await logAudit(session.user.id, 'client.create', 'client', row.id, { name: row.name })
     return reply.code(201).send(row)
@@ -56,6 +61,8 @@ export async function registerClientRoutes(app: FastifyInstance): Promise<void> 
       .set({
         name: parsed.data.name ?? undefined,
         domain: parsed.data.domain !== undefined ? parsed.data.domain || null : undefined,
+        slaPolicyId:
+          parsed.data.slaPolicyId !== undefined ? parsed.data.slaPolicyId : undefined,
       })
       .where(eq(clients.id, id))
       .returning()

@@ -40,9 +40,17 @@ export const DEFAULT_BUSINESS_HOURS: BusinessHours = {
 
 const MAX_TARGET_MINUTES = 90 * 24 * 60
 
+const targetMinutes = z.number().int().min(5).max(MAX_TARGET_MINUTES)
+const targetSet = z.object({
+  low: targetMinutes,
+  normal: targetMinutes,
+  high: targetMinutes,
+  urgent: targetMinutes,
+})
+
 export const SlaTargets = z.object({
-  responseMinutes: z.record(z.enum(SLA_PRIORITIES), z.number().int().min(5).max(MAX_TARGET_MINUTES)),
-  resolveMinutes: z.record(z.enum(SLA_PRIORITIES), z.number().int().min(5).max(MAX_TARGET_MINUTES)),
+  responseMinutes: targetSet,
+  resolveMinutes: targetSet,
 })
 export type SlaTargets = z.infer<typeof SlaTargets>
 

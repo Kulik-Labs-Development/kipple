@@ -67,8 +67,13 @@ provisions portal users; public sign-up blocked at the route once users
 exist; web PortalView + role-based routing). Time tracking v1 is live
 (`time_entries`, one running timer per agent = `duration_s IS NULL`,
 billable flag, manual entries, client-scoped API + TimePanel in the
-workspace with a `T` shortcut). Next: SLA feature (plan item 10,
-enable-able, OFF by default).
+workspace with a `T` shortcut). The SLA backend is live (plan item 10):
+enable-able, OFF by default, `sla_policies` with per-priority
+response/resolve targets in business minutes, precedence
+ticket > client > instance default, minute-stepped business-hours math in
+`@kipple/shared`, at-risk/breach/met state machine driven by a 60s worker
+tick, `system` timeline events + audit rows, SLA fields stripped from
+contact responses. Next: SLA display in the workspace UI, then item 11.
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

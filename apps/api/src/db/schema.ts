@@ -91,11 +91,24 @@ export const twoFactor = pgTable('twoFactor', {
   updatedAt: updatedAt(),
 })
 
+// Named SLA policies (PLAN item 10). targets = per-priority response/resolve
+// targets in business minutes (see SlaTargets in @kipple/shared). Exactly one
+// policy may be the instance default.
+export const slaPolicies = pgTable('sla_policies', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  targets: jsonb('targets').notNull(),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
 export const clients = pgTable('clients', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   domain: text('domain').unique(),
   branding: jsonb('branding'),
+  slaPolicyId: text('sla_policy_id').references(() => slaPolicies.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
@@ -140,6 +153,18 @@ export const tickets = pgTable('tickets', {
   assignedTo: text('assigned_to').references(() => users.id),
   createdBy: text('created_by').references(() => users.id),
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+  // SLA (item 10). The resolved policy id is recorded when the due times are
+  // computed (ticket override > client policy > instance default), so due
+  // times survive policy edits/deletes. States: pending | at_risk |
+  // breached | met — response tracks the first staff reply, resolve tracks
+  // the status reaching closed.
+  slaPolicyId: text('sla_policy_id').references(() => slaPolicies.id, { onDelete: 'set null' }),
+  slaResponseDueAt: timestamp('sla_response_due_at', { withTimezone: true }),
+  slaResolveDueAt: timestamp('sla_resolve_due_at', { withTimezone: true }),
+  slaResponseAt: timestamp('sla_response_at', { withTimezone: true }),
+  slaResolvedAt: timestamp('sla_resolved_at', { withTimezone: true }),
+  slaResponseState: text('sla_response_state').notNull().default('pending'),
+  slaResolveState: text('sla_resolve_state').notNull().default('pending'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

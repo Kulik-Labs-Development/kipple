@@ -9,8 +9,8 @@ chat or contributor can pick up where work left off. Deep design lives in
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
 Email outbound (§5b), email inbound, the client portal with magic-link
-login, and time tracking v1 are live.
-Next up: SLA feature (plan item 10).
+login, time tracking v1, and the SLA backend are live.
+Next up: SLA display in the workspace UI, then item 11.
 
 ## What's live
 
@@ -21,7 +21,7 @@ Next up: SLA feature (plan item 10).
   `COMPOSE_PROFILES=proxy|dev`) — full guide in `docs/DEPLOYMENT.md`
 - Postgres schema (Drizzle, migrations auto-run on api boot): users, sessions,
   accounts, verification, twoFactor, clients, contacts, contact_clients, tickets,
-  updates, settings, email_outbox
+  updates, settings, email_outbox, email_messages, time_entries, sla_policies
 - better-auth: email+password, TOTP 2FA plugin (UI not built yet), signups closed
   after first user; first-run setup wizard makes owner a superuser
 - RBAC: `role` column + `requireUser`/`requireRole` helpers
@@ -108,6 +108,31 @@ Next up: SLA feature (plan item 10).
   start/stop with live tick, entry list with billable toggles + delete,
   manual-entry form), active-timer chip in the workspace header, `T`
   shortcut toggles the timer for the selected ticket
+  - SLA feature backend (plan item 10): enable-able, OFF by default
+    (`settings` key `sla`). `sla_policies` (migration 0006): named policies
+    with per-priority response/resolve targets in business minutes; exactly
+    one instance default. Precedence per ticket: ticket override
+    (`tickets.sla_policy_id`, PATCH-able) > client policy
+    (`clients.sla_policy_id`) > instance default; the resolved id is recorded
+    on the ticket so due times survive policy edits/deletes. Business hours
+    are an IANA timezone + per-day windows (`settings` key `business_hours`,
+    default Mon–Fri 09:00–17:00 UTC); all math is minute-stepped in
+    `@kipple/shared` (`addBusinessMinutes`/`businessMinutesBetween`, exact
+    across DST, 12 unit tests). Due times = `sla_response_due_at` /
+    `sla_resolve_due_at` computed from ticket creation (or re-creation on
+    priority/policy change); states `pending | at_risk | breached | met`
+    (at risk = ≥75% of the business time elapsed). Events fire once each via
+    the state machine: a staff first reply (or close) settles response/
+    resolve met-or-breached immediately; a BullMQ `sla` queue repeatable
+    `sla-tick` job (worker, 60s) walks open tickets for at-risk/breach
+    transitions. Every event writes a `system` update (visible in the
+    timeline) + an audit row (`sla.response.at_risk` etc.). API:
+    `GET /api/sla/config` (staff), `POST /api/sla/settings` +
+    `POST /api/sla/business-hours` (superuser), `GET/POST /api/sla/policies`
+    + `PATCH/DELETE /api/sla/policies/:id` (list/read staff, writes
+    superuser; duplicate name = 409). SLA fields are stripped from ticket
+    responses for contact users (no portal leakage). 9 new api e2e tests.
+    Web display (countdowns, badges, policy manager) = next step
 
 ## Phase 1 — active plan
 
@@ -122,12 +147,45 @@ Next up: SLA feature (plan item 10).
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | done |
-| 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | not started — NEXT |
+| 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | backend done — web display NEXT |
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started |
 
 ## Recent sessions
 
+- **2026-08-31 (SLA backend)** — Built the backend half of plan item 10.
+  Shared: `sla.ts` — `BusinessHours` (IANA tz + per-day windows, ISO days
+  Mon=1..Sun=7; default Mon–Fri 09:00–17:00 UTC), `isBusinessMinute`,
+  `businessMinutesBetween`, `addBusinessMinutes` — minute-stepped so DST
+  shifts are exact; a whole minute counts when it overlaps the range by ≥30s
+  (minute-aligned due times are exact, `now` rounds at the 30s mark);
+  `SlaTargets` (per-priority response/resolve targets, 5 min–90 days).
+  Schema (migration 0006): `sla_policies` (unique name, targets jsonb, one
+  `is_default`), `clients.sla_policy_id`, tickets gain `sla_policy_id`,
+  `sla_response_due_at`/`sla_resolve_due_at`, `sla_response_at`/
+  `sla_resolved_at`, `sla_response_state`/`sla_resolve_state`. API
+  `src/sla.ts`: settings load/save (`sla` + `business_hours` keys), policy
+  CRUD (default demotion), `applySlaToTicket` (resolve precedence
+  ticket > client > default, recompute from now; clears fields when off /
+  no policy), `markTicketResponded` (first staff reply: met = instant
+  event, late = state only so the tick announces the breach once),
+  `markTicketResolved` (close: met/breached both emitted — a closed ticket
+  leaves the tick scope), `tickSla` (open tickets: at risk at ≥75% elapsed,
+  breach past due; each transition = one `system` update + audit row).
+  Routes `routes/sla.ts`: `/api/sla/config`, `/api/sla/settings`,
+  `/api/sla/business-hours`, `/api/sla/policies` CRUD (writes superuser-only,
+  duplicate name 409 via `error.cause.code 23505`). Ticket routes: create
+  applies SLA + staff body replies count as the first response; patch
+  recomputes on priority or `slaPolicyId` change and settles resolve on
+  close; both re-read the row so responses carry the fresh due times;
+  contact responses strip all SLA fields. Worker: `sla` BullMQ queue with a
+  60s `upsertJobScheduler` repeatable `tick` job. 9 new api e2e tests
+  (off by default, CRUD + RBAC + business-hours validation, precedence,
+  recompute, met-on-reply, deterministic past-date at-risk→breached tick,
+  met-on-close, contact field hiding, disable). Verified: lint/typecheck/
+  api tests (70)/shared tests (21) green; build pending with the web half.
+  Next: SLA display in the workspace (detail countdown + queue badges) and a
+  superuser policy/business-hours/enable modal.
 - **2026-08-31 (time tracking v1)** — Built plan item 9. Schema:
   `time_entries` (migration 0005) — ticket/agent/client refs, `started_at`,
   nullable `duration_s` (NULL = running timer), `billable`, `note`;
