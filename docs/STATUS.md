@@ -8,8 +8,9 @@ chat or contributor can pick up where work left off. Deep design lives in
 ## Current phase
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
-Next up: email outbound pipeline (§5b) — generic SMTP provider first,
-then M365 OAuth2.
+Next up: email inbound (plan item 6) — worker IMAP IDLE + mailparser,
+Message-ID dedupe, thread matching (References → alias → subject tag →
+contact), no match → new ticket.
 
 ## What's live
 
@@ -55,6 +56,19 @@ then M365 OAuth2.
   new-ticket modal, live stats tiles, 30s polling
 - Ticket alias scheme locked: plus-addressed `support+{number}@{domain}`, no
   subdomains/catch-alls (PLAN.md §5, §12 #10)
+- Email outbound (§5b): pluggable provider interface (`send`/`testConnection`/
+  `status`) in `packages/mail` with a generic SMTP provider (nodemailer;
+  no-auth/basic-auth, STARTTLS/TLS); delivery pipeline = `email_outbox` row
+  (audit log) + BullMQ `email-outbox` queue → worker delivery with retry +
+  exponential backoff (5 attempts, 30s→1h cap), permanent errors (535/550/553/
+  554, auth failures) fail fast; staff public updates + staff ticket creates
+  with a body enqueue a client reply (From = configured sender, Reply-To =
+  ticket alias, subject tagged `[KIP-{n}]`); SMTP password encrypted at rest
+  (AES-256-GCM keyed from AUTH_SECRET, `enc1:` prefix); API: `GET/POST
+  /api/email` (settings, masked), `POST /api/email/test-connection`,
+  `GET /api/outbox` (filterable activity log), `GET /api/outbox/provider`
+  (status), `POST /api/outbox/test` (one-click test send),
+  `POST /api/outbox/:id/retry`. M365/Google providers = Phase 2
 
 ## Phase 1 — active plan
 
@@ -64,8 +78,8 @@ then M365 OAuth2.
 | 2 | Client scoping in query layer + mandatory client-scoping tests (contact users only ever see their own client's data) | done |
 | 3 | Audit log on all mutations | done |
 | 4 | `users.contact_id` link so portal users map to contact records | done |
-| 5 | Email outbound: provider queue (§5b) — generic SMTP first, then M365 OAuth2 (adoption gate) | not started — NEXT |
-| 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | not started |
+| 5 | Email outbound: provider queue (§5b) — generic SMTP first, then M365 OAuth2 (adoption gate) | done (SMTP; M365/Google = Phase 2) |
+| 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | not started — NEXT |
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | not started |
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | not started |
@@ -93,6 +107,31 @@ then M365 OAuth2.
   MCP-as-stdio note) and a `COMPOSE_PROFILES` section in `.env.example`.
   Another session's in-flight `packages/mail` + `packages/shared` crypto files
   were left untouched and uncommitted.
+- **2026-08-31 (email outbound)** — Built the §5b outbound pipeline.
+  `@kipple/mail`: provider interface (`send`/`testConnection`/`status`),
+  generic SMTP provider (nodemailer), `deliverOutbox()` status machine
+  (queued→sent/failed, 5 attempts, exponential backoff 30s→1h, permanent
+  errors fail fast) — 21 unit tests incl. live round-trips against a local
+  `smtp-server`. `@kipple/shared`: `EmailSettings`/`StoredEmailSettings`
+  schemas, outbox job/status schemas, queue name, AES-256-GCM at-rest
+  encryption (key derived from AUTH_SECRET, `enc1:` prefix). API: extended
+  `email_outbox` (from/from_name/body/reply_to/message_id/attempts/
+  next_try_at, migration 0003), `src/mail.ts` (enqueue is DB-first — the row
+  is the audit log; BullMQ is the trigger, so a Redis blip loses no mail),
+  `routes/email.ts` (`/api/email` GET/POST + test-connection, `/api/outbox`
+  list/provider/test/retry), staff public updates + staff ticket-creates with
+  a body enqueue the client reply (Reply-To = ticket alias, `[KIP-{n}]`
+  subject tag, recipient = primary contact then any contact with an email;
+  no email settings or no contact email = silent no-op — nothing auto-sends).
+  Worker: `email-outbox` BullMQ worker reuses the API's `processOutboxJob`
+  wiring (workspace dep on `@kipple/api`, imports `@kipple/api/src/mail`);
+  keeps the `email-ingest` placeholder. CI: added Redis service (BullMQ).
+  API e2e: 10 new outbox tests (encrypt at rest, masking, enqueue, no-op
+  cases, SMTP delivery with header assertions, idempotency, retry). Verified:
+  lint/typecheck/test (78 tests)/build green; worker bundles (2.6MB).
+  Open: inbound (item 6) — needs the `updates.email_meta` thread id wired
+  from Message-ID, and bounce handling (item 5 follow-up, marks contact
+  bounced) when inbound lands.
 - **2026-08-31 (audit follow-up)** — Cleared the `pnpm audit` job failures
   (was 11 vulns: 1 critical, 2 high, 8 moderate). Bumped `vitest` ^2.1.0 →
   ^3.2.6 (resolved 3.2.7; clears the critical Vitest-UI advisory and the

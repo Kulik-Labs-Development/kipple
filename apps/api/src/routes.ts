@@ -7,6 +7,7 @@ import { db } from './db'
 import { settings, users } from './db/schema'
 import { registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
+import { registerEmailRoutes } from './routes/email'
 import { registerTicketRoutes } from './routes/tickets'
 import { registerUserRoutes } from './routes/users'
 
@@ -97,6 +98,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
 
   await registerClientRoutes(app)
   await registerContactRoutes(app)
+  await registerEmailRoutes(app)
   await registerTicketRoutes(app)
   await registerUserRoutes(app)
 }

@@ -68,3 +68,58 @@ export const UpdateCreate = z.object({
   body: z.string().min(1).max(100000),
 })
 export type UpdateCreate = z.infer<typeof UpdateCreate>
+
+// --- Email outbound (§5b) -------------------------------------------------
+
+export const SmtpAuthConfig = z.object({
+  username: z.string().min(1).max(254),
+  password: z.string().max(512).optional().or(z.literal('')),
+})
+export type SmtpAuthConfig = z.infer<typeof SmtpAuthConfig>
+
+export const SmtpEmailConfig = z.object({
+  host: z.string().min(1).max(253),
+  port: z.number().int().min(1).max(65535).default(587),
+  secure: z.boolean().default(false),
+  startTls: z.boolean().default(true),
+  auth: SmtpAuthConfig.nullable().optional(),
+  from: z.string().email().max(254),
+  fromName: z.string().max(200).optional().or(z.literal('')),
+})
+export type SmtpEmailConfig = z.infer<typeof SmtpEmailConfig>
+
+export const EmailSettings = z.object({
+  domain: z.string().max(253).default('kipple.local'),
+  provider: z.enum(['smtp']).default('smtp'),
+  smtp: SmtpEmailConfig.nullable().optional(),
+})
+export type EmailSettings = z.infer<typeof EmailSettings>
+
+// Persisted shape: the SMTP password is stored as an at-rest ciphertext
+// (enc1:...), so it is just a string here.
+export const StoredSmtpAuth = z.object({
+  username: z.string().min(1).max(254),
+  password: z.string(),
+})
+export type StoredSmtpAuth = z.infer<typeof StoredSmtpAuth>
+
+export const StoredSmtpEmailConfig = SmtpEmailConfig.extend({
+  auth: StoredSmtpAuth.nullable().optional(),
+})
+export type StoredSmtpEmailConfig = z.infer<typeof StoredSmtpEmailConfig>
+
+export const StoredEmailSettings = EmailSettings.extend({
+  smtp: StoredSmtpEmailConfig.nullable().optional(),
+})
+export type StoredEmailSettings = z.infer<typeof StoredEmailSettings>
+
+export const OutboxStatus = z.enum(['queued', 'sent', 'failed', 'bounced'])
+export type OutboxStatus = z.infer<typeof OutboxStatus>
+
+export const OutboxJobPayload = z.object({ outboxId: z.string().min(1) })
+export type OutboxJobPayload = z.infer<typeof OutboxJobPayload>
+
+export const OutboxTestSend = z.object({ to: z.string().email().max(254) })
+export type OutboxTestSend = z.infer<typeof OutboxTestSend>
+
+export const EMAIL_OUTBOX_QUEUE = 'email-outbox'

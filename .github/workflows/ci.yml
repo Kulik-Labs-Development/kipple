@@ -26,10 +26,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgres://kipple:kipple@localhost:5432/kipple_test
       AUTH_SECRET: ci-test-secret-0123456789abcdef0123456789abcdef
       PUBLIC_URL: http://localhost:3000
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

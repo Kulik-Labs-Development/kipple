@@ -13,15 +13,11 @@ import {
 } from '../access'
 import { logAudit } from '../audit'
 import { db } from '../db'
-import { clients, settings, tickets, updates, users } from '../db/schema'
+import { clients, tickets, updates, users } from '../db/schema'
+import { loadEmailSettings, queueTicketReply } from '../mail'
 
 async function emailDomain(): Promise<string> {
-  const [row] = await db
-    .select({ value: settings.value })
-    .from(settings)
-    .where(eq(settings.key, 'email'))
-  const value = row?.value as { domain?: string } | null
-  return value?.domain ?? 'kipple.local'
+  return (await loadEmailSettings())?.domain ?? 'kipple.local'
 }
 
 async function loadTicket(id: string, role: string) {
@@ -119,6 +115,9 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
         kind: 'public',
         body: parsed.data.body,
       })
+      if (session.user.role !== 'contact') {
+        await queueTicketReply({ ticket: updated, body: parsed.data.body, isReply: false })
+      }
     }
     await logAudit(session.user.id, 'ticket.create', 'ticket', updated.id, {
       clientId: updated.clientId,
@@ -192,6 +191,9 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
         body: parsed.data.body,
       })
       .returning()
+    if (kind === 'public' && session.user.role !== 'contact') {
+      await queueTicketReply({ ticket, body: parsed.data.body, isReply: true })
+    }
     await logAudit(session.user.id, 'update.create', 'update', row.id, {
       ticketId: id,
       kind,

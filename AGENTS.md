@@ -56,8 +56,10 @@ the web setup/login/workspace screens.
 M2M client links + primary, tickets with sequence numbers + plus-addressed
 aliases, public/internal updates), client scoping enforced in the query
 layer (`apps/api/src/access.ts`, out-of-scope = 404), audit log on
-mutations, `users.contact_id` for portal users. Next: email outbound
-pipeline (§5b).
+mutations, `users.contact_id` for portal users, email outbound pipeline (§5b:
+provider queue + generic SMTP, `email_outbox` log, retry/backoff,
+encrypted at-rest SMTP creds). Next: email inbound (§5: worker IMAP
+IDLE + thread matching).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

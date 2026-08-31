@@ -11,5 +11,14 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@kipple/shared": "workspace:*",
+    "nodemailer": "^7.0.3"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^7.0.4",
+    "@types/smtp-server": "^3.5.13",
+    "smtp-server": "^3.14.0"
   }
 }

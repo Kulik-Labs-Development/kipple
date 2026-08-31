@@ -1,0 +1,108 @@
+import { randomUUID } from 'node:crypto'
+import type { FastifyInstance } from 'fastify'
+import { EmailSettings, OutboxTestSend } from '@kipple/shared'
+import { badRequest, notFound, requireRole } from '../access'
+import { logAudit } from '../audit'
+import {
+  describeEmailSettings,
+  enqueueOutbox,
+  listOutbox,
+  loadEmailSettings,
+  providerFromSettings,
+  retryOutbox,
+  saveEmailSettings,
+} from '../mail'
+import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { settings } from '../db/schema'
+
+export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/email', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    return describeEmailSettings(await loadEmailSettings())
+  })
+
+  app.post('/api/email', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser'])
+    if (!session) return null
+    const parsed = EmailSettings.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+    await saveEmailSettings(parsed.data, session.user.id)
+    return describeEmailSettings(parsed.data)
+  })
+
+  app.post('/api/email/test-connection', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser'])
+    if (!session) return null
+    const parsed = EmailSettings.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+    if (!parsed.data.smtp) {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'no smtp configuration to test' })
+    }
+    const provider = providerFromSettings(parsed.data)
+    const result = await provider.testConnection()
+    await logAudit(session.user.id, 'email.test_connection', 'setting', 'email', {
+      ok: result.ok,
+    })
+    return result
+  })
+
+  app.get('/api/outbox', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    const query = request.query as Record<string, string | undefined>
+    const limit = Math.min(Number(query.limit) || 100, 500)
+    return listOutbox({ status: query.status, provider: query.provider, limit })
+  })
+
+  app.get('/api/outbox/provider', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    const settingsValue = await loadEmailSettings()
+    if (!settingsValue?.smtp) {
+      return { configured: false, status: { ok: false, detail: 'email not configured' } }
+    }
+    return { configured: true, status: providerFromSettings(settingsValue).status() }
+  })
+
+  app.post('/api/outbox/test', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    const parsed = OutboxTestSend.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+    const settingsValue = await loadEmailSettings()
+    if (!settingsValue?.smtp) {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'email not configured' })
+    }
+    const [instance] = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, 'instance'))
+    const instanceName = (instance?.value as { name?: string } | null)?.name ?? 'Kipple'
+    const id = await enqueueOutbox({
+      to: parsed.data.to,
+      from: settingsValue.smtp.from,
+      fromName: settingsValue.smtp.fromName || null,
+      subject: `[${instanceName}] Test email`,
+      body: `This is a test send from ${instanceName}.\n\nIf you can read this, outbound email is working.`,
+      messageId: `<${randomUUID()}@${settingsValue.domain}>`,
+    })
+    await logAudit(session.user.id, 'outbox.test_send', 'outbox', id, { to: parsed.data.to })
+    return reply.code(202).send({ id, status: 'queued' })
+  })
+
+  app.post('/api/outbox/:id/retry', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    const { id } = request.params as { id: string }
+    const row = await retryOutbox(id)
+    if (!row) return reply.code(404).send(notFound())
+    await logAudit(session.user.id, 'outbox.retry', 'outbox', id)
+    return row
+  })
+}

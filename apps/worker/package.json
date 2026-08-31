@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@kipple/api": "workspace:^",
     "@kipple/shared": "workspace:*",
     "bullmq": "^5.0.0",
     "pino": "^9.5.0"
