@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AutomationManager } from '../components/AutomationManager'
+import { NotificationBell } from '../components/NotificationBell'
 import { QueuePane } from '../components/QueuePane'
 import { SlaManager } from '../components/SlaManager'
+import { Sparkline } from '../components/Sparkline'
 import { TicketDetail, type TicketPatch } from '../components/TicketDetail'
 import { TicketForm, type TicketFormValues } from '../components/TicketForm'
 import { TimePanel } from '../components/TimePanel'
@@ -15,11 +18,14 @@ import {
   type TimeEntryRow,
 } from '../lib/api'
 import {
+  dailySeries,
   formatClock,
   queueStats,
   TICKET_STATUSES,
   type StatusFilter,
 } from '../lib/tickets'
+
+const PRESENCE_VALUES = ['online', 'away', 'busy', 'offline'] as const
 
 const POLL_MS = 30_000
 
@@ -50,6 +56,8 @@ export function WorkspaceView({
   const [activeNumber, setActiveNumber] = useState<number | null>(null)
   const [slaConfig, setSlaConfig] = useState<SlaConfig | null>(null)
   const [showSlaManager, setShowSlaManager] = useState(false)
+  const [showAutomation, setShowAutomation] = useState(false)
+  const [presence, setPresence] = useState(user.presence)
   const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -228,6 +236,17 @@ export function WorkspaceView({
 
   const stats = useMemo(() => queueStats(allTickets, user.id), [allTickets, user.id])
 
+  const series = useMemo(() => dailySeries(allTickets, 14), [allTickets])
+
+  async function changePresence(next: string) {
+    setPresence(next)
+    try {
+      await api.setPresence(next)
+    } catch (err) {
+      setError(errorMessage(err, 'failed to update presence'))
+    }
+  }
+
   async function selectTicket(id: string) {
     setError(null)
     setSelectedId(id)
@@ -295,6 +314,9 @@ export function WorkspaceView({
         </div>
         <div className="flex items-center gap-4 text-xs">
           {isStaff && (
+            <NotificationBell onOpenTicket={selectTicket} />
+          )}
+          {isStaff && (
             <button
               onClick={
                 user.role === 'superuser' ? () => setShowSlaManager(true) : undefined
@@ -307,6 +329,21 @@ export function WorkspaceView({
               }`}
             >
               sla
+            </button>
+          )}
+          {isStaff && (
+            <button
+              onClick={
+                user.role === 'superuser' ? () => setShowAutomation(true) : undefined
+              }
+              title={
+                user.role === 'superuser'
+                  ? 'email templates + rules (superuser)'
+                  : 'automation (superuser only)'
+              }
+              className="border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+            >
+              auto
             </button>
           )}
           {isStaff && activeEntry && (
@@ -324,6 +361,18 @@ export function WorkspaceView({
             <span className="text-dim">·</span>{' '}
             <span className="uppercase text-dim">{user.role}</span>
           </span>
+          <select
+            value={presence}
+            onChange={(event) => void changePresence(event.target.value)}
+            title="presence"
+            className="border border-line bg-panel px-1 py-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
+          >
+            {PRESENCE_VALUES.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
           <button
             onClick={signOut}
             disabled={signingOut}
@@ -334,20 +383,33 @@ export function WorkspaceView({
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 p-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 p-3 md:grid-cols-5">
         {(
           [
             ['assigned to me', stats.assignedToMe],
             ['in queue', stats.inQueue],
             ['opened today', stats.openedToday],
             ['closed today', stats.closedToday],
+            ['overdue', stats.overdue],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="border border-line bg-panel p-3">
-            <div className="text-2xl text-fg tabular-nums">{value}</div>
+            <div
+              className={`text-2xl tabular-nums ${
+                label === 'overdue' && value > 0 ? 'text-danger' : 'text-fg'
+              }`}
+            >
+              {value}
+            </div>
             <div className="mt-1 text-xs uppercase tracking-widest text-dim">{label}</div>
           </div>
         ))}
+      </div>
+
+      <div className="mx-3 mb-3 flex flex-wrap items-center gap-6 border border-line bg-panel px-3 py-2">
+        <span className="text-xs uppercase tracking-widest text-dim">14 days</span>
+        <Sparkline label="opened" values={series.opened} barClass="bg-accent" />
+        <Sparkline label="closed" values={series.closed} barClass="bg-ok" />
       </div>
 
       {error && (
@@ -437,9 +499,23 @@ export function WorkspaceView({
         />
       )}
 
+      {showAutomation && (
+        <AutomationManager
+          clients={clients}
+          staff={staff}
+          ticketId={selectedId}
+          onTicketId={setSelectedId}
+          onClose={() => setShowAutomation(false)}
+          onChanged={() => {
+            void refreshList()
+            if (selectedId) void refreshDetail(selectedId)
+          }}
+        />
+      )}
+
       <footer className="flex items-center justify-between border-t border-line bg-panel px-4 py-2 text-xs text-dim">
         <span>
-          kipple v0.1.0 · presence: <span className="uppercase">{user.presence}</span>
+          kipple v0.1.0 · presence: <span className="uppercase">{presence}</span>
         </span>
         <span>{user.email}</span>
       </footer>

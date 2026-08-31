@@ -118,6 +118,95 @@ export interface SlaConfig {
   policies: SlaPolicy[]
 }
 
+export interface EmailTemplate {
+  id: string
+  key: string
+  name: string
+  subject: string
+  body: string
+  enabled: boolean
+}
+
+export interface EmailTemplateInput {
+  key: string
+  name: string
+  subject?: string
+  body?: string
+  enabled?: boolean
+}
+
+export const RULE_EVENTS = [
+  'ticket.created',
+  'ticket.status_changed',
+  'ticket.reply',
+  'ticket.updated',
+] as const
+export type RuleEventName = (typeof RULE_EVENTS)[number]
+
+export type RuleAction =
+  | { type: 'send_template'; templateKey: string }
+  | { type: 'assign'; userId: string }
+  | { type: 'add_tag'; tags: string[] }
+  | { type: 'set_status'; status: string }
+  | { type: 'webhook'; url: string; secret?: string }
+
+export interface RuleMatch {
+  event: RuleEventName
+  status?: string
+  fromStatus?: string
+  priority?: string
+  clientId?: string
+  tags?: string[]
+  staffOnly?: boolean
+}
+
+export interface RuleRow {
+  id: string
+  name: string
+  enabled: boolean
+  match: RuleMatch
+  action: RuleAction
+  createdAt: string
+  updatedAt: string
+}
+
+export interface RuleInput {
+  name: string
+  enabled?: boolean
+  match: RuleMatch
+  action: RuleAction
+}
+
+export interface RuleRunRow {
+  id: string
+  ruleId: string
+  event: string
+  ticketId: string | null
+  result: 'ok' | 'noop' | 'error'
+  error: string | null
+  meta: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface RuleTestMatch {
+  ruleId: string
+  name: string
+  enabled: boolean
+  matches: boolean
+  match: RuleMatch
+  action: RuleAction
+}
+
+export interface NotificationRow {
+  id: string
+  userId: string
+  event: string
+  ticketId: string | null
+  message: string
+  read: boolean
+  createdAt: string
+}
+
 export interface TicketUpdateRow {
   id: string
   ticketId: string
@@ -285,4 +374,55 @@ export const api = {
       body: JSON.stringify(body),
     }),
   slaDeletePolicy: (id: string) => request<void>(`/api/sla/policies/${id}`, { method: 'DELETE' }),
+  listTemplates: () => request<EmailTemplate[]>('/api/email/templates'),
+  createTemplate: (body: EmailTemplateInput) =>
+    request<EmailTemplate>('/api/email/templates', { method: 'POST', body: JSON.stringify(body) }),
+  patchTemplate: (key: string, body: Partial<EmailTemplateInput>) =>
+    request<EmailTemplate>(`/api/email/templates/${key}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteTemplate: (key: string) =>
+    request<void>(`/api/email/templates/${key}`, { method: 'DELETE' }),
+  previewTemplate: (key: string, ticketId?: string | null) =>
+    request<{ subject: string; body: string }>('/api/email/templates/preview', {
+      method: 'POST',
+      body: JSON.stringify({ key, ticketId: ticketId ?? undefined }),
+    }),
+  listRules: () => request<RuleRow[]>('/api/rules'),
+  createRule: (body: RuleInput) =>
+    request<RuleRow>('/api/rules', { method: 'POST', body: JSON.stringify(body) }),
+  patchRule: (id: string, body: Partial<RuleInput>) =>
+    request<RuleRow>(`/api/rules/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteRule: (id: string) => request<void>(`/api/rules/${id}`, { method: 'DELETE' }),
+  testRules: (body: {
+    ticketId: string
+    event: string
+    fromStatus?: string
+    actorRole?: string
+  }) =>
+    request<{ ticketId: string; event: string; matches: RuleTestMatch[] }>('/api/rules/test', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  listRuleRuns: (ruleId?: string) =>
+    request<RuleRunRow[]>(`/api/rules/runs${ruleId ? `?ruleId=${ruleId}` : ''}`),
+  listNotifications: (opts: { limit?: number; unread?: boolean } = {}) => {
+    const params = new URLSearchParams()
+    if (opts.limit) params.set('limit', String(opts.limit))
+    if (opts.unread) params.set('unread', '1')
+    const qs = params.toString()
+    return request<NotificationRow[]>(`/api/notifications${qs ? `?${qs}` : ''}`)
+  },
+  notificationCount: () => request<{ unread: number }>('/api/notifications/count'),
+  markNotificationsRead: (body: { ids?: string[]; all?: boolean }) =>
+    request<{ updated: number; unread: number }>('/api/notifications/read', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  setPresence: (presence: string) =>
+    request<{ presence: string }>('/api/me/presence', {
+      method: 'PATCH',
+      body: JSON.stringify({ presence }),
+    }),
 }

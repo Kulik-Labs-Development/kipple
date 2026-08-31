@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TicketRow } from './api'
 import {
+  dailySeries,
   filterPortalTickets,
   formatClock,
   formatDuration,
@@ -97,7 +98,45 @@ describe('queueStats', () => {
       inQueue: 2,
       openedToday: 4,
       closedToday: 1,
+      overdue: 0,
     })
+  })
+
+  it('counts active tickets with a breached SLA line as overdue', () => {
+    const tickets = [
+      ticket({ id: 'a', status: 'open', slaResponseState: 'breached' }),
+      ticket({ id: 'b', status: 'hold', slaResolveState: 'breached' }),
+      ticket({ id: 'c', status: 'closed', slaResponseState: 'breached' }), // closed: not overdue
+      ticket({ id: 'd', status: 'open', slaResponseState: 'at_risk' }), // at risk: not yet
+    ]
+    expect(queueStats(tickets, 'me', now).overdue).toBe(2)
+  })
+})
+
+describe('dailySeries', () => {
+  it('buckets opened by createdAt and closed by updatedAt over the last N days', () => {
+    // now = 2026-08-30T15:00Z -> 14-day window ends on 2026-08-30
+    const day = (offset: number) =>
+      new Date(Date.UTC(2026, 7, 30) - offset * 86_400_000).toISOString()
+    const tickets = [
+      ticket({ id: 'a', createdAt: day(0), updatedAt: day(0) }),
+      ticket({ id: 'b', createdAt: day(1), updatedAt: day(1) }),
+      ticket({
+        id: 'c',
+        status: 'closed',
+        createdAt: day(3),
+        updatedAt: day(0),
+      }),
+      ticket({ id: 'd', createdAt: day(20), updatedAt: day(20) }), // outside window
+    ]
+    const { opened, closed } = dailySeries(tickets, 14, now)
+    expect(opened).toHaveLength(14)
+    expect(opened[13]).toBe(1) // today (index 13 = last)
+    expect(opened[12]).toBe(1) // yesterday
+    expect(opened[10]).toBe(1) // 3 days ago
+    expect(opened.reduce((a, b) => a + b, 0)).toBe(3)
+    expect(closed.reduce((a, b) => a + b, 0)).toBe(1)
+    expect(closed[13]).toBe(1) // closed today
   })
 })
 

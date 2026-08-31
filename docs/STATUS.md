@@ -11,10 +11,9 @@ chat or contributor can pick up where work left off. Deep design lives in
 Email outbound (§5b), email inbound, the client portal with magic-link
 login, time tracking v1, and the SLA feature (backend + workspace UI) are
 live.
-Next up: item 11 — backend is live (email templates, rules engine,
-in-app notification center, presence API); the workspace UI (template
-editor, rules editor, notification bell, presence picker, dashboard stats)
-is the next step.
+Item 11 (email templates + rules, notification center, dashboard stats +
+presence) is live end-to-end.
+Next up: item 12 (per-client branding override for the portal theme).
 
 ## What's live
 
@@ -138,7 +137,7 @@ is the next step.
      superuser; duplicate name = 409). SLA fields are stripped from ticket
      responses for contact users (no portal leakage). 9 new api e2e tests.
      Web display (countdowns, badges, policy manager) = next step
-   - Item 11 backend (plan item 11): **email templates** — `email_templates`
+    - Item 11 (plan item 11): **email templates** — `email_templates`
      (migration 0007); 4 defaults (ticket_new, ticket_reply, ticket_close,
      csat) seeded at first-run setup, ALL disabled — nothing auto-sends.
      `{{dotted.path}}` rendering (unknown vars → empty). API:
@@ -160,9 +159,19 @@ is the next step.
      actor): assigned (create/reassignment), staff reply, status change, and
      SLA breach (via `emitSlaEvent`). API: `GET /api/notifications[?unread]`,
      `GET /api/notifications/count`, `POST /api/notifications/read`
-     (self-scoped). **Presence** — `PATCH /api/me/presence`
-     (online/away/busy/offline, self-only; column pre-existed). 10 new api
-     e2e tests. Web UI = next step.
+      (self-scoped). **Presence** — `PATCH /api/me/presence`
+      (online/away/busy/offline, self-only; column pre-existed). **Web** —
+      `NotificationBell` (30s poll, unread badge, dropdown, mark-all-read,
+      click-through marks the item read and opens the ticket),
+      `AutomationManager` (superuser modal, two tabs): templates tab
+      (list/enable/edit with `{{var}}` hints, rendered preview against the
+      selected ticket, create/delete) and rules tab (list with match/action
+      summaries + on/off, editor for event/conditions/action, "test — what
+      would fire" dry-run panel driven by `POST /api/rules/test`); header
+      presence picker; dashboard stats gain an **overdue** tile (active
+      tickets on a breached SLA line, danger colored) + a 14-day
+      opened/closed bar strip (`dailySeries` + `Sparkline`). 10 new api e2e
+      tests + 2 new web unit tests.
 
 ## Phase 1 — active plan
 
@@ -178,11 +187,20 @@ is the next step.
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | done |
 | 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | done |
-| 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | backend done — web UI next (template/rules editors, bell, presence picker, stats tiles) |
-| 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started |
+| 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | done |
+| 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started — NEXT |
 
 ## Recent sessions
 
+- **2026-08-31 (item 11 web — done)** — Finished plan item 11.
+  `NotificationBell` (30s poll, unread badge, mark-all-read, click →
+  ticket + mark read). `AutomationManager` superuser modal with two
+  tabs: templates (edit/enable/create/delete + rendered preview against
+  the selected ticket) and rules (list + on/off, editor for event/
+  match/action, "what would fire" dry-run via `/api/rules/test`).
+  Header presence picker. Dashboard: `overdue` tile (breached SLA lines
+  on active tickets) + 14-day opened/closed `Sparkline` strip
+  (`dailySeries`). 2 new web unit tests; full gate green (152 tests).
 - **2026-08-31 (item 11 backend)** — Email templates, rules engine,
   in-app notification center, presence API (all backend, no web UI yet).
   `email_templates`/`rules`/`rule_runs`/`notifications` (migration 0007).

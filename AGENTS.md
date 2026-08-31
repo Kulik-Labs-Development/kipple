@@ -76,16 +76,18 @@ tick, `system` timeline events + audit rows, SLA fields stripped from
 contact responses; workspace UI shows response/resolve chips with
 business-minutes countdown, per-ticket policy override, queue SLA badges,
  and a superuser SLA manager (enable, business hours, policies).
-The item 11 backend is live: email templates (`email_templates`, 4
-defaults seeded at setup, all disabled, `{{dotted.path}}` rendering,
-preview endpoint), a rules engine (`rules`/`rule_runs`: event match →
-one action send_template/assign/add_tag/set_status/webhook-HMAC, fired
-from the ticket routes, `POST /api/rules/test` dry-run preview), the
-in-app notification center (`notifications`, fan-out to the assignee
-only — assigned/reply/status change/SLA breach), and self-service
-presence (`PATCH /api/me/presence`).
-Next: item 11 web UI (template + rules editors, notification bell,
-presence picker, dashboard stats).
+Item 11 is live: email templates (`email_templates`, 4 defaults seeded
+at setup, all disabled, `{{dotted.path}}` rendering, preview endpoint),
+a rules engine (`rules`/`rule_runs`: event match → one action
+send_template/assign/add_tag/set_status/webhook-HMAC, fired from the
+ticket routes, `POST /api/rules/test` dry-run preview), the in-app
+notification center (`notifications`, fan-out to the assignee only —
+assigned/reply/status change/SLA breach), self-service presence
+(`PATCH /api/me/presence`), and the workspace UI (notification bell,
+superuser Automation manager with template + rules editors and a
+"what would fire" test panel, presence picker, overdue tile + 14-day
+opened/closed sparklines).
+Next: item 12 (per-client branding override for the portal theme).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
