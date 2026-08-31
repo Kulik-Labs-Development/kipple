@@ -1,0 +1,19 @@
+Return-Path: <support+12@kuliklabs.dev>
+Received: from mail.acme.test (mail.acme.test [203.0.113.10])
+	by mx.kuliklabs.dev with ESMTPS for <support+12@kuliklabs.dev>;
+	Mon, 31 Aug 2026 09:15:22 +0000
+Delivered-To: support+12@kuliklabs.dev
+From: =?UTF-8?B?QWRhIENsaWVudA==?= <ada@acme.test>
+To: support+12@kuliklabs.dev
+Subject: Re: [KIP-12] Printer is on fire
+References: <out-0001@kuliklabs.dev>
+In-Reply-To: <out-0001@kuliklabs.dev>
+Message-ID: <in-1001@acme.test>
+MIME-Version: 1.0
+Date: Mon, 31 Aug 2026 09:15:20 +0000
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Thanks Max, it was a paper jam. Fixed.
+
+Ada

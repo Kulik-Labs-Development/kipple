@@ -113,6 +113,21 @@ export const StoredEmailSettings = EmailSettings.extend({
 })
 export type StoredEmailSettings = z.infer<typeof StoredEmailSettings>
 
+// Inbound mail (IMAP) — same shape as the SMTP provider config.
+export const ImapSettings = z.object({
+  host: z.string().min(1).max(253),
+  port: z.number().int().min(1).max(65535).default(993),
+  secure: z.boolean().default(true),
+  auth: SmtpAuthConfig.nullable().optional(),
+  mailbox: z.string().min(1).max(100).default('INBOX'),
+})
+export type ImapSettings = z.infer<typeof ImapSettings>
+
+export const StoredImapSettings = ImapSettings.extend({
+  auth: StoredSmtpAuth.nullable().optional(),
+})
+export type StoredImapSettings = z.infer<typeof StoredImapSettings>
+
 export const OutboxStatus = z.enum(['queued', 'sent', 'failed', 'bounced'])
 export type OutboxStatus = z.infer<typeof OutboxStatus>
 

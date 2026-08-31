@@ -58,8 +58,10 @@ aliases, public/internal updates), client scoping enforced in the query
 layer (`apps/api/src/access.ts`, out-of-scope = 404), audit log on
 mutations, `users.contact_id` for portal users, email outbound pipeline (§5b:
 provider queue + generic SMTP, `email_outbox` log, retry/backoff,
-encrypted at-rest SMTP creds). Next: email inbound (§5: worker IMAP
-IDLE + thread matching).
+encrypted at-rest SMTP creds). Email inbound is live (worker IMAP IDLE +
+thread matching: References → alias → subject tag → contact, Message-ID
+dedupe in `email_messages`, no match → new ticket). Next: client portal +
+magic-link login (plan item 8).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

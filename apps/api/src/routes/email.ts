@@ -1,16 +1,20 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
-import { EmailSettings, OutboxTestSend } from '@kipple/shared'
+import { testImapConnection } from '@kipple/mail'
+import { EmailSettings, ImapSettings, OutboxTestSend } from '@kipple/shared'
 import { badRequest, notFound, requireRole } from '../access'
 import { logAudit } from '../audit'
 import {
   describeEmailSettings,
+  describeImapSettings,
   enqueueOutbox,
   listOutbox,
   loadEmailSettings,
+  loadImapSettings,
   providerFromSettings,
   retryOutbox,
   saveEmailSettings,
+  saveImapSettings,
 } from '../mail'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
@@ -45,6 +49,33 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     const provider = providerFromSettings(parsed.data)
     const result = await provider.testConnection()
     await logAudit(session.user.id, 'email.test_connection', 'setting', 'email', {
+      ok: result.ok,
+    })
+    return result
+  })
+
+  app.get('/api/imap', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
+    if (!session) return null
+    return describeImapSettings(await loadImapSettings())
+  })
+
+  app.post('/api/imap', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser'])
+    if (!session) return null
+    const parsed = ImapSettings.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+    await saveImapSettings(parsed.data, session.user.id)
+    return describeImapSettings(parsed.data)
+  })
+
+  app.post('/api/imap/test-connection', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser'])
+    if (!session) return null
+    const parsed = ImapSettings.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+    const result = await testImapConnection(parsed.data)
+    await logAudit(session.user.id, 'imap.test_connection', 'setting', 'imap', {
       ok: result.ok,
     })
     return result

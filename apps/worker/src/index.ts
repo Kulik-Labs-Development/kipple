@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq'
 import pino from 'pino'
 import { createOutboxWorker } from './outbox'
+import { runIngestLoop } from './ingest'
 
 const log = pino({ name: 'worker' })
 
@@ -24,4 +25,6 @@ outbox.on('failed', (job, error) => {
   log.error({ jobId: job?.id, err: error.message }, 'outbox job failed')
 })
 
-log.info({ redisUrl }, 'worker ready: email-ingest (placeholder) + email-outbox')
+void runIngestLoop()
+
+log.info({ redisUrl }, 'worker ready: email-ingest (IMAP IDLE) + email-outbox')

@@ -1,0 +1,15 @@
+Return-Path: <support@kuliklabs.dev>
+Received: from mail.acme.test (mail.acme.test [203.0.113.10])
+	by mx.kuliklabs.dev with ESMTPS for <support@kuliklabs.dev>;
+	Mon, 31 Aug 2026 10:02:11 +0000
+Delivered-To: support@kuliklabs.dev
+From: "Ada Client" <ada@acme.test>
+To: support@kuliklabs.dev
+Subject: [KIP-42] Password reset not arriving
+Message-ID: <in-1002@acme.test>
+MIME-Version: 1.0
+Date: Mon, 31 Aug 2026 10:02:10 +0000
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+I clicked the reset link but nothing arrived in my inbox or spam.

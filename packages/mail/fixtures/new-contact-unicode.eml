@@ -1,0 +1,15 @@
+Return-Path: <support@kuliklabs.dev>
+Received: from mail.acme.test (mail.acme.test [203.0.113.10])
+	by mx.kuliklabs.dev with ESMTPS for <support@kuliklabs.dev>;
+	Mon, 31 Aug 2026 12:45:09 +0000
+Delivered-To: support@kuliklabs.dev
+From: =?UTF-8?B?QWRhIENsaWVudA==?= <ada@acme.test>
+To: support@kuliklabs.dev
+Subject: =?UTF-8?Q?=C3=9Cbermorgen:_Neues_Ticket?=
+Message-ID: <in-1004@acme.test>
+MIME-Version: 1.0
+Date: Mon, 31 Aug 2026 12:45:08 +0000
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+The VPN is down again =E2=80=94 can't connect at all.

@@ -10,7 +10,9 @@ import {
 import {
   EMAIL_OUTBOX_QUEUE,
   EmailSettings,
+  ImapSettings,
   StoredEmailSettings,
+  StoredImapSettings,
   decryptAtRest,
   encryptAtRest,
   isEncryptedValue,
@@ -115,6 +117,61 @@ export function describeEmailSettings(settingsValue: EmailSettings | null) {
           from: settingsValue.smtp.from,
           fromName: settingsValue.smtp.fromName ?? '',
           hasAuth: Boolean(settingsValue.smtp.auth?.username),
+        }
+      : null,
+  }
+}
+
+export async function loadStoredImapSettings(): Promise<StoredImapSettings | null> {
+  const [row] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, 'imap'))
+  if (!row) return null
+  const parsed = StoredImapSettings.safeParse(row.value)
+  return parsed.success ? parsed.data : null
+}
+
+export async function loadImapSettings(): Promise<ImapSettings | null> {
+  const stored = await loadStoredImapSettings()
+  if (!stored) return null
+  if (!stored.auth?.password || !isEncryptedValue(stored.auth.password)) return stored
+  return {
+    ...stored,
+    auth: { ...stored.auth, password: decryptAtRest(stored.auth.password, authSecret()) },
+  }
+}
+
+export async function saveImapSettings(input: ImapSettings, actorId: string): Promise<void> {
+  const value = {
+    ...input,
+    auth: input.auth
+      ? {
+          username: input.auth.username,
+          password: input.auth.password ? encryptAtRest(input.auth.password, authSecret()) : '',
+        }
+      : null,
+  }
+  await db
+    .insert(settings)
+    .values({ key: 'imap', value })
+    .onConflictDoUpdate({ target: settings.key, set: { value } })
+  await logAudit(actorId, 'imap.settings.update', 'setting', 'imap', {
+    host: input.host,
+    hasAuth: Boolean(input.auth?.username),
+  })
+}
+
+export function describeImapSettings(settingsValue: ImapSettings | null) {
+  return {
+    configured: Boolean(settingsValue),
+    imap: settingsValue
+      ? {
+          host: settingsValue.host,
+          port: settingsValue.port,
+          secure: settingsValue.secure,
+          mailbox: settingsValue.mailbox,
+          hasAuth: Boolean(settingsValue.auth?.username),
         }
       : null,
   }

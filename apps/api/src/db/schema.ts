@@ -181,6 +181,22 @@ export const emailOutbox = pgTable('email_outbox', {
   createdAt: createdAt(),
 })
 
+// Inbound email dedupe + processing log. message_id is the idempotency key:
+// the same Message-ID is only ever processed once (PLAN §5.1, AGENTS email
+// rules).
+export const emailMessages = pgTable('email_messages', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id').notNull().unique(),
+  fromName: text('from_name'),
+  fromAddress: text('from_address').notNull(),
+  toAddresses: text('to_addresses').array().notNull().default(sql`'{}'::text[]`),
+  subject: text('subject').notNull(),
+  ticketId: text('ticket_id').references(() => tickets.id),
+  status: text('status').notNull().default('received'),
+  error: text('error'),
+  createdAt: createdAt(),
+})
+
 export const audit = pgTable('audit', {
   id: text('id').primaryKey(),
   actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),

@@ -1,3 +1,6 @@
 export * from './alias'
 export * from './deliver'
+export * from './imap'
+export * from './parse'
 export * from './providers'
+export * from './thread'

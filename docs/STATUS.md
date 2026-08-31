@@ -8,9 +8,8 @@ chat or contributor can pick up where work left off. Deep design lives in
 ## Current phase
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
-Next up: email inbound (plan item 6) — worker IMAP IDLE + mailparser,
-Message-ID dedupe, thread matching (References → alias → subject tag →
-contact), no match → new ticket.
+Email outbound (§5b) and inbound are live.
+Next up: client portal + magic-link login for contacts (plan item 8).
 
 ## What's live
 
@@ -79,9 +78,9 @@ contact), no match → new ticket.
 | 3 | Audit log on all mutations | done |
 | 4 | `users.contact_id` link so portal users map to contact records | done |
 | 5 | Email outbound: provider queue (§5b) — generic SMTP first, then M365 OAuth2 (adoption gate) | done (SMTP; M365/Google = Phase 2) |
-| 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | not started — NEXT |
+| 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | done |
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
-| 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | not started |
+| 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | not started — NEXT |
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | not started |
 | 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | not started |
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started |
@@ -107,6 +106,34 @@ contact), no match → new ticket.
   MCP-as-stdio note) and a `COMPOSE_PROFILES` section in `.env.example`.
   Another session's in-flight `packages/mail` + `packages/shared` crypto files
   were left untouched and uncommitted.
+- **2026-08-31 (email inbound)** — Built plan item 6. `@kipple/mail`:
+  `parseEmail`/`parseSimpleMail` (mailparser; Message-IDs normalized
+  case-insensitive, brackets stripped), `extractThreadSignals` (alias in To,
+  `[KIP-n]` subject tag, References/In-Reply-To set), `cleanEmailSubject`,
+  IMAP helper (imapflow pinned `~1.0.200` — the 1.7 line renamed the API:
+  `mailboxOpen`/`exists`/`fetch`, no `message` event); 5 fixture `.eml`
+  files (alias reply, subject tag, references-only chain, unicode
+  Q-encoding, unknown sender) + 30 tests. API: `email_messages` table
+  (migration 0004, `message_id` unique = the idempotency key), `src/ingest.ts`
+  — dedupe via onConflictDoNothing, match order alias → subject → thread
+  (inbound message ids ∪ outbound `email_outbox.message_id` normalized in
+  SQL ∪ `updates.email_meta->>'messageId'`) → known contact creates a ticket
+  on the primary client (alias assigned, Re:/Fwd: stripped from subject);
+  unknown sender = no ticket (logged as `unknown_sender`); contact without a
+  client = `skipped_no_client`; every result audit-logged. Inbound updates
+  are public, authored by the contact's portal user when one exists, and
+  stamp `email_meta.messageId` so future threads match. Mail stays unseen
+  (readOnly box) — rescans are safe because of the dedupe. `GET/POST /api/imap`
+  + test-connection (password encrypted at rest like SMTP). Worker:
+  `runIngestLoop` — connect → catch-up scan of unread (capped 100) →
+  `exists`-event live pickup (prevCount+1..count) → IDLE (imapflow
+  re-issues), exponential reconnect backoff 5s→5min, 30s poll when not
+  configured. 8 new api e2e tests. Verified: lint/typecheck/test (95
+  tests)/build green + worker bundle smoke (boots, both workers ready).
+  Open follow-ups: no retry path for `unknown_sender` messages (add contact
+  later, message stays logged); bounce handling (marks contact bounced)
+  still needs inbound feedback; `email-ingest` BullMQ queue now only holds
+  the scaffold placeholder (IMAP runs in-process in the worker).
 - **2026-08-31 (email outbound)** — Built the §5b outbound pipeline.
   `@kipple/mail`: provider interface (`send`/`testConnection`/`status`),
   generic SMTP provider (nodemailer), `deliverOutbox()` status machine
