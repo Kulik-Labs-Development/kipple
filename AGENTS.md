@@ -43,7 +43,7 @@ Core capabilities (see `docs/PLAN.md` for the full roadmap):
 
 ## Status
 
-**Phase 0 in progress.** Live: monorepo scaffold, CI/CD + GHCR image
+**Phase 0 complete.** Live: monorepo scaffold, CI/CD + GHCR image
 builds, Postgres schema (Drizzle, migrations auto-run on api boot),
 better-auth (email+password, TOTP 2FA plugin, sessions, signups closed
 after first user), first-run setup wizard (owner account → superuser,

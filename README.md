@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://img.shields.io/badge/status-phase%200%20%7C%20in%20progress-2ea44f?style=flat-square"><img src="https://img.shields.io/badge/status-phase%200%20%7C%20in%20progress-2ea44f?style=flat-square" alt="status" /></a>
+  <a href="https://img.shields.io/badge/status-phase%201%20%7C%20in%20progress-2ea44f?style=flat-square"><img src="https://img.shields.io/badge/status-phase%201%20%7C%20in%20progress-2ea44f?style=flat-square" alt="status" /></a>
   <a href="https://img.shields.io/badge/stack-TypeScript%20%7C%20Postgres%20%7C%20Docker-3178c6?style=flat-square"><img src="https://img.shields.io/badge/stack-TypeScript%20%7C%20Postgres%20%7C%20Docker-3178c6?style=flat-square" alt="stack" /></a>
   <a href="https://img.shields.io/badge/email-native%20by%20default-9c51b6?style=flat-square"><img src="https://img.shields.io/badge/email-native%20by%20default-9c51b6?style=flat-square" alt="email-native" /></a>
 </p>
@@ -125,8 +125,8 @@ it doesn't belong.
 
 | Phase | What lands | Status |
 |---|---|---|
-| **0 — Foundations** | Monorepo, CI/CD + GHCR images, schema + auth (MFA, setup wizard, RBAC), setup/login/workspace screens | **in progress** |
-| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine | planned |
+| **0 — Foundations** | Monorepo, CI/CD + GHCR images, schema + auth (MFA, setup wizard, RBAC), setup/login/workspace screens | **done** |
+| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine | **in progress** (11 of 12 items shipped) |
 | **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | planned |
 | **3 — Power features** | Assets, reports, SSO (OIDC/SAML), notification streams, CSAT, osTickets importer | planned |
 | **4 — Productization** | License decision, docs site, demo instance, Helm — deliberately last | deferred |
@@ -135,10 +135,19 @@ Exit criteria for every phase live in [docs/PLAN.md](docs/PLAN.md).
 
 ## Status
 
-**Phase 0 in progress.** Live today: monorepo scaffold, CI/CD with GHCR image
-builds, Postgres schema (Drizzle, auto-migrations on boot), better-auth
-(email+password, TOTP 2FA, signups closed after first user), the first-run
-setup wizard, RBAC skeleton, and the web setup/login/workspace screens.
+**Phase 1 in progress — 11 of 12 plan items shipped.** Live today: the full
+email ticket loop (IMAP IDLE ingest → thread matching → one ticket, threaded
+SMTP replies, and zero automated emails unless you configure a rule), the
+agent workspace (queue, ticket detail, reply/notes, status/priority/assign/
+tags, live stats with sparklines, time tracking, SLA countdowns with a
+superuser SLA manager), the client portal with passwordless magic-link
+login, email templates + a rules engine with a "what would fire" dry-run,
+the in-app notification center, and per-agent presence. Remaining Phase 1
+item: per-client branding override for the portal theme.
+
+Phase 0 (monorepo, CI/CD + GHCR images, schema + auth with TOTP MFA,
+setup wizard, RBAC, theme system) is complete — see the rolling build state
+in [docs/STATUS.md](docs/STATUS.md) for the full detail.
 
 ## More
 

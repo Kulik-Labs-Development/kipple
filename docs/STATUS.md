@@ -17,7 +17,8 @@ Next up: item 12 (per-client branding override for the portal theme).
 
 ## What's live
 
-- Monorepo (pnpm + Turborepo); CI (lint/typecheck/test) + GHCR image builds on push
+- Monorepo (pnpm + Turborepo); CI (lint/typecheck/test + dependency audit) +
+  GHCR image builds on push
   (`ghcr.io/kulik-labs-development/kipple/{api,worker,mcp}`, public → anonymous pull);
   `infra/docker-compose.yml` deploys via CLI or as a Portainer CE/BE stack
   (needs `AUTH_SECRET` + `PUBLIC_URL`; optional `KIPPLE_TAG`, `TRUST_PROXY`,
@@ -73,10 +74,10 @@ Next up: item 12 (per-client branding override for the portal theme).
    `GET /api/outbox` (filterable activity log), `GET /api/outbox/provider`
    (status), `POST /api/outbox/test` (one-click test send),
    `POST /api/outbox/:id/retry`. M365/Google providers = Phase 2
- - Email inbound (§5.1): worker IMAP IDLE loop (imapflow `~1.0.200`,
-   `mailboxOpen`/`exists`/`fetch` API — the 1.7 line renamed the classic
-   API) with catch-up scan of unread (capped 100) + live `exists` pickup +
-   reconnect backoff 5s→5min; parsing in `packages/mail` (mailparser,
+ - Email inbound (§5.1): worker IMAP IDLE loop (imapflow 1.7.6,
+    `mailboxOpen`/`fetchAll`/`idle`/`exists` events) with catch-up scan of
+    unread (capped 100) + live `exists` pickup + reconnect backoff 5s→5min;
+    parsing in `packages/mail` (mailparser,
    canonical Message-IDs) with fixture `.eml` tests; `email_messages` table
    (`message_id` unique = idempotency key); match order alias → `[KIP-n]`
    subject tag → References/In-Reply-To (inbound ∪ outbox ∪
@@ -137,41 +138,41 @@ Next up: item 12 (per-client branding override for the portal theme).
      superuser; duplicate name = 409). SLA fields are stripped from ticket
      responses for contact users (no portal leakage). 9 new api e2e tests.
      Web display (countdowns, badges, policy manager) = next step
-    - Item 11 (plan item 11): **email templates** — `email_templates`
-     (migration 0007); 4 defaults (ticket_new, ticket_reply, ticket_close,
-     csat) seeded at first-run setup, ALL disabled — nothing auto-sends.
-     `{{dotted.path}}` rendering (unknown vars → empty). API:
-     `GET /api/email/templates` (staff), `POST/PATCH/DELETE`
-     `/api/email/templates[/:key]` (superuser; dup key = 409),
-     `POST /api/email/templates/preview` (staff — render against a real
-     ticket). **Rules engine** — `rules` + `rule_runs` (every execution
-     logged). Match: event (ticket.created / ticket.status_changed /
-     ticket.reply / ticket.updated) + status/fromStatus/priority/clientId/
-     tags (all must match)/staffOnly. Action (one per rule):
-     send_template (rendered → outbox via the provider queue) | assign |
-     add_tag | set_status (close also settles SLA) | webhook (HMAC-SHA256
-     `x-kipple-signature` when a secret is set, 10s timeout). Disabled until
-     enabled. Events fire from the ticket routes after the main writes;
-     create/patch responses re-read the row so rule mutations are visible.
-     `POST /api/rules/test` = dry-run "what would fire" preview (never
-     executes). `GET /api/rules/runs` = execution log. **Notification
-     center** — `notifications`; fan-out to the ticket's assignee (never the
-     actor): assigned (create/reassignment), staff reply, status change, and
-     SLA breach (via `emitSlaEvent`). API: `GET /api/notifications[?unread]`,
-     `GET /api/notifications/count`, `POST /api/notifications/read`
-      (self-scoped). **Presence** — `PATCH /api/me/presence`
-      (online/away/busy/offline, self-only; column pre-existed). **Web** —
-      `NotificationBell` (30s poll, unread badge, dropdown, mark-all-read,
-      click-through marks the item read and opens the ticket),
-      `AutomationManager` (superuser modal, two tabs): templates tab
-      (list/enable/edit with `{{var}}` hints, rendered preview against the
-      selected ticket, create/delete) and rules tab (list with match/action
-      summaries + on/off, editor for event/conditions/action, "test — what
-      would fire" dry-run panel driven by `POST /api/rules/test`); header
-      presence picker; dashboard stats gain an **overdue** tile (active
-      tickets on a breached SLA line, danger colored) + a 14-day
-      opened/closed bar strip (`dailySeries` + `Sparkline`). 10 new api e2e
-      tests + 2 new web unit tests.
+- Item 11 (plan item 11): **email templates** — `email_templates`
+   (migration 0007); 4 defaults (ticket_new, ticket_reply, ticket_close,
+   csat) seeded at first-run setup, ALL disabled — nothing auto-sends.
+   `{{dotted.path}}` rendering (unknown vars → empty). API:
+   `GET /api/email/templates` (staff), `POST/PATCH/DELETE`
+   `/api/email/templates[/:key]` (superuser; dup key = 409),
+   `POST /api/email/templates/preview` (staff — render against a real
+   ticket). **Rules engine** — `rules` + `rule_runs` (every execution
+   logged). Match: event (ticket.created / ticket.status_changed /
+   ticket.reply / ticket.updated) + status/fromStatus/priority/clientId/
+   tags (all must match)/staffOnly. Action (one per rule):
+   send_template (rendered → outbox via the provider queue) | assign |
+   add_tag | set_status (close also settles SLA) | webhook (HMAC-SHA256
+   `x-kipple-signature` when a secret is set, 10s timeout). Disabled until
+   enabled. Events fire from the ticket routes after the main writes;
+   create/patch responses re-read the row so rule mutations are visible.
+   `POST /api/rules/test` = dry-run "what would fire" preview (never
+   executes). `GET /api/rules/runs` = execution log. **Notification
+   center** — `notifications`; fan-out to the ticket's assignee (never the
+   actor): assigned (create/reassignment), staff reply, status change, and
+   SLA breach (via `emitSlaEvent`). API: `GET /api/notifications[?unread]`,
+   `GET /api/notifications/count`, `POST /api/notifications/read`
+   (self-scoped). **Presence** — `PATCH /api/me/presence`
+   (online/away/busy/offline, self-only; column pre-existed). **Web** —
+   `NotificationBell` (30s poll, unread badge, dropdown, mark-all-read,
+   click-through marks the item read and opens the ticket),
+   `AutomationManager` (superuser modal, two tabs): templates tab
+   (list/enable/edit with `{{var}}` hints, rendered preview against the
+   selected ticket, create/delete) and rules tab (list with match/action
+   summaries + on/off, editor for event/conditions/action, "test — what
+   would fire" dry-run panel driven by `POST /api/rules/test`); header
+   presence picker; dashboard stats gain an **overdue** tile (active
+   tickets on a breached SLA line, danger colored) + a 14-day
+   opened/closed bar strip (`dailySeries` + `Sparkline`). 10 new api e2e
+   tests + 2 new web unit tests.
 
 ## Phase 1 — active plan
 
@@ -192,6 +193,26 @@ Next up: item 12 (per-client branding override for the portal theme).
 
 ## Recent sessions
 
+- **2026-08-31 (dep audit cleanup)** — `pnpm audit` was reporting 13
+  findings, all in nodemailer (addressparser DoS, SMTP command injection,
+  CRLF header injection, jsonTransport disableFileAccess bypass, OAuth2 TLS
+  validation — collectively requiring ≥9.0.1), reachable two ways: our
+  direct `^7.0.3` (SMTP provider) and transitively via
+  `imapflow@1.0.200`'s pinned nodemailer 7.0.9. Bumped `@kipple/mail` to
+  nodemailer `^9.1.0` and imapflow `^1.0.200 → ^1.7.6` (1.7.x dropped its
+  nodemailer dependency entirely, so the vulnerable transitive copy is
+  gone). Our usage is stable core API only — no code changes. Gate green:
+  `pnpm audit` clean, lint, typecheck 7/7, 152 tests (incl. the live-IMAP
+  ingest e2e and live-SMTP outbox e2e that exercise both libs), build 4/4.
+  Pushed `774cbdb`.
+- **2026-08-31 (Docker image build fix)** — All three `docker/*.Dockerfile`
+  build stages copied only a subset of workspace `package.json` files before
+  `pnpm install --frozen-lockfile`; pnpm links `workspace:^` deps only for
+  members present at install time, so `@kipple/mail`/`@kipple/api` were
+  unresolvable and esbuild failed ("Could not resolve mailparser"). Every
+  build stage now copies all seven workspace manifests before install.
+  Verified by stage simulation (web+api+worker+mcp all build); the GHCR
+  image workflow now produces working images. Pushed `c568e00`.
 - **2026-08-31 (item 11 web — done)** — Finished plan item 11.
   `NotificationBell` (30s poll, unread badge, mark-all-read, click →
   ticket + mark read). `AutomationManager` superuser modal with two
