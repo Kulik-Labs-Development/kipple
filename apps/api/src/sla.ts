@@ -14,6 +14,7 @@ import {
 import { logAudit } from './audit'
 import { db } from './db'
 import { clients, settings, slaPolicies, tickets, updates } from './db/schema'
+import { notifySlaBreach } from './notifications'
 
 const log = pino({ name: 'sla' })
 
@@ -248,6 +249,7 @@ async function emitSlaEvent(
     ticketNumber: ticket.number,
     dueAt: dueText,
   })
+  if (state === 'breached') await notifySlaBreach(ticket.id, ticket.number, kind)
 }
 
 function atRiskFrom(

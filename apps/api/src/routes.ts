@@ -8,10 +8,13 @@ import { clients, contactClients, settings, users } from './db/schema'
 import { registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerEmailRoutes } from './routes/email'
+import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
+import { registerRuleRoutes } from './routes/rules'
 import { registerSlaRoutes } from './routes/sla'
 import { registerTicketRoutes } from './routes/tickets'
 import { registerTimeRoutes } from './routes/time'
 import { registerUserRoutes } from './routes/users'
+import { seedDefaultTemplates } from './templates'
 
 async function instanceSetupRequired(): Promise<boolean> {
   const [row] = await db.select({ id: users.id }).from(users).limit(1)
@@ -40,6 +43,10 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .insert(settings)
       .values({ key: 'instance', value: { name: instanceName } })
       .onConflictDoNothing()
+
+    // default email templates, all disabled — nothing auto-sends until the
+    // admin enables one (PLAN item 11)
+    await seedDefaultTemplates()
 
     const { response, headers: responseHeaders } = await auth.api.signUpEmail({
       body: { name: ownerName, email: ownerEmail, password },
@@ -119,6 +126,9 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerClientRoutes(app)
   await registerContactRoutes(app)
   await registerEmailRoutes(app)
+  await registerNotificationRoutes(app)
+  await registerPresenceRoutes(app)
+  await registerRuleRoutes(app)
   await registerSlaRoutes(app)
   await registerTicketRoutes(app)
   await registerTimeRoutes(app)

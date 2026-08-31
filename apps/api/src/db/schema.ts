@@ -244,6 +244,61 @@ export const timeEntries = pgTable('time_entries', {
   createdAt: createdAt(),
 })
 
+// Email templates (PLAN item 11). All optional — none are enabled by default;
+// automated email only happens when a rule (send_template action) references
+// an enabled template. Body/subject support {{dotted.var}} placeholders.
+export const emailTemplates = pgTable('email_templates', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  name: text('name').notNull(),
+  subject: text('subject').notNull().default(''),
+  body: text('body').notNull().default(''),
+  enabled: boolean('enabled').notNull().default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
+// Automation rules v1 (PLAN item 11). match: { event, status?, fromStatus?,
+// priority?, clientId?, tags?, staffOnly? }; action: one of
+// send_template | assign | add_tag | set_status | webhook. Disabled until the
+// user enables one.
+export const rules = pgTable('rules', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  enabled: boolean('enabled').notNull().default(false),
+  match: jsonb('match').notNull(),
+  action: jsonb('action').notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
+// Rule execution log — powers the "what would fire" test preview UI and
+// auditability of every rule action.
+export const ruleRuns = pgTable('rule_runs', {
+  id: text('id').primaryKey(),
+  ruleId: text('rule_id').references(() => rules.id, { onDelete: 'cascade' }),
+  event: text('event').notNull(),
+  ticketId: text('ticket_id').references(() => tickets.id, { onDelete: 'set null' }),
+  result: text('result').notNull().default('ok'), // ok | noop | error
+  error: text('error'),
+  meta: jsonb('meta'),
+  createdAt: createdAt(),
+})
+
+// In-app notification center (PLAN §8d, item 11). One row per (user, event);
+// the bell shows unread. SSE is a documented follow-up (polling for v1).
+export const notifications = pgTable('notifications', {
+  id: text('id').primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  event: text('event').notNull(),
+  ticketId: text('ticket_id').references(() => tickets.id, { onDelete: 'cascade' }),
+  message: text('message').notNull().default(''),
+  read: boolean('read').notNull().default(false),
+  createdAt: createdAt(),
+})
+
 export const audit = pgTable('audit', {
   id: text('id').primaryKey(),
   actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),

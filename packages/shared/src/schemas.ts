@@ -199,3 +199,77 @@ export type SlaPolicyUpdate = z.infer<typeof SlaPolicyUpdate>
 
 export const SlaSettings = z.object({ enabled: z.boolean() })
 export type SlaSettings = z.infer<typeof SlaSettings>
+
+// --- Email templates (item 11) ---
+export const TEMPLATE_KEY = /^[a-z0-9][a-z0-9_]{0,59}$/
+
+export const EmailTemplateCreate = z.object({
+  key: z.string().regex(TEMPLATE_KEY, 'lowercase letters, digits, underscores'),
+  name: z.string().min(1).max(100),
+  subject: z.string().max(300).default(''),
+  body: z.string().max(20_000).default(''),
+  enabled: z.boolean().optional().default(false),
+})
+export type EmailTemplateCreate = z.infer<typeof EmailTemplateCreate>
+
+export const EmailTemplateUpdate = z.object({
+  name: z.string().min(1).max(100).optional(),
+  subject: z.string().max(300).optional(),
+  body: z.string().max(20_000).optional(),
+  enabled: z.boolean().optional(),
+})
+export type EmailTemplateUpdate = z.infer<typeof EmailTemplateUpdate>
+
+// --- Rules (item 11) ---
+export const RULE_EVENTS = [
+  'ticket.created',
+  'ticket.status_changed',
+  'ticket.reply',
+  'ticket.updated',
+] as const
+export type RuleEventName = (typeof RULE_EVENTS)[number]
+
+export const RuleMatch = z.object({
+  event: z.enum(RULE_EVENTS),
+  // status = the ticket's status at the moment of the event (for
+  // ticket.status_changed: the NEW status); fromStatus = previous status
+  status: TicketStatus.optional(),
+  fromStatus: TicketStatus.optional(),
+  priority: TicketPriority.optional(),
+  clientId: z.string().min(1).optional(),
+  // every listed tag must be present on the ticket
+  tags: z.array(z.string().min(1).max(50)).max(10).optional(),
+  // the event actor must be staff (not a contact)
+  staffOnly: z.boolean().optional(),
+})
+export type RuleMatch = z.infer<typeof RuleMatch>
+
+export const RuleAction = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('send_template'), templateKey: z.string().regex(TEMPLATE_KEY) }),
+  z.object({ type: z.literal('assign'), userId: z.string().min(1) }),
+  z.object({ type: z.literal('add_tag'), tags: z.array(z.string().min(1).max(50)).min(1).max(10) }),
+  z.object({ type: z.literal('set_status'), status: TicketStatus }),
+  z.object({
+    type: z.literal('webhook'),
+    url: z.string().url().max(2000),
+    // HMAC-SHA256 signature secret (x-kipple-signature header)
+    secret: z.string().min(8).max(200).optional(),
+  }),
+])
+export type RuleAction = z.infer<typeof RuleAction>
+
+export const RuleCreate = z.object({
+  name: z.string().min(1).max(100),
+  enabled: z.boolean().optional().default(false),
+  match: RuleMatch,
+  action: RuleAction,
+})
+export type RuleCreate = z.infer<typeof RuleCreate>
+
+export const RuleUpdate = z.object({
+  name: z.string().min(1).max(100).optional(),
+  enabled: z.boolean().optional(),
+  match: RuleMatch.optional(),
+  action: RuleAction.optional(),
+})
+export type RuleUpdate = z.infer<typeof RuleUpdate>

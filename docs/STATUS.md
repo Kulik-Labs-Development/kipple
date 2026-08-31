@@ -11,8 +11,10 @@ chat or contributor can pick up where work left off. Deep design lives in
 Email outbound (§5b), email inbound, the client portal with magic-link
 login, time tracking v1, and the SLA feature (backend + workspace UI) are
 live.
-Next up: item 11 (email templates + rules, notification center, dashboard
-stats + presence).
+Next up: item 11 — backend is live (email templates, rules engine,
+in-app notification center, presence API); the workspace UI (template
+editor, rules editor, notification bell, presence picker, dashboard stats)
+is the next step.
 
 ## What's live
 
@@ -23,7 +25,8 @@ stats + presence).
   `COMPOSE_PROFILES=proxy|dev`) — full guide in `docs/DEPLOYMENT.md`
 - Postgres schema (Drizzle, migrations auto-run on api boot): users, sessions,
   accounts, verification, twoFactor, clients, contacts, contact_clients, tickets,
-  updates, settings, email_outbox, email_messages, time_entries, sla_policies
+  updates, settings, email_outbox, email_messages, time_entries, sla_policies,
+  email_templates, rules, rule_runs, notifications
 - better-auth: email+password, TOTP 2FA plugin (UI not built yet), signups closed
   after first user; first-run setup wizard makes owner a superuser
 - RBAC: `role` column + `requireUser`/`requireRole` helpers
@@ -132,9 +135,34 @@ stats + presence).
     `GET /api/sla/config` (staff), `POST /api/sla/settings` +
     `POST /api/sla/business-hours` (superuser), `GET/POST /api/sla/policies`
     + `PATCH/DELETE /api/sla/policies/:id` (list/read staff, writes
-    superuser; duplicate name = 409). SLA fields are stripped from ticket
-    responses for contact users (no portal leakage). 9 new api e2e tests.
-    Web display (countdowns, badges, policy manager) = next step
+     superuser; duplicate name = 409). SLA fields are stripped from ticket
+     responses for contact users (no portal leakage). 9 new api e2e tests.
+     Web display (countdowns, badges, policy manager) = next step
+   - Item 11 backend (plan item 11): **email templates** — `email_templates`
+     (migration 0007); 4 defaults (ticket_new, ticket_reply, ticket_close,
+     csat) seeded at first-run setup, ALL disabled — nothing auto-sends.
+     `{{dotted.path}}` rendering (unknown vars → empty). API:
+     `GET /api/email/templates` (staff), `POST/PATCH/DELETE`
+     `/api/email/templates[/:key]` (superuser; dup key = 409),
+     `POST /api/email/templates/preview` (staff — render against a real
+     ticket). **Rules engine** — `rules` + `rule_runs` (every execution
+     logged). Match: event (ticket.created / ticket.status_changed /
+     ticket.reply / ticket.updated) + status/fromStatus/priority/clientId/
+     tags (all must match)/staffOnly. Action (one per rule):
+     send_template (rendered → outbox via the provider queue) | assign |
+     add_tag | set_status (close also settles SLA) | webhook (HMAC-SHA256
+     `x-kipple-signature` when a secret is set, 10s timeout). Disabled until
+     enabled. Events fire from the ticket routes after the main writes;
+     create/patch responses re-read the row so rule mutations are visible.
+     `POST /api/rules/test` = dry-run "what would fire" preview (never
+     executes). `GET /api/rules/runs` = execution log. **Notification
+     center** — `notifications`; fan-out to the ticket's assignee (never the
+     actor): assigned (create/reassignment), staff reply, status change, and
+     SLA breach (via `emitSlaEvent`). API: `GET /api/notifications[?unread]`,
+     `GET /api/notifications/count`, `POST /api/notifications/read`
+     (self-scoped). **Presence** — `PATCH /api/me/presence`
+     (online/away/busy/offline, self-only; column pre-existed). 10 new api
+     e2e tests. Web UI = next step.
 
 ## Phase 1 — active plan
 
@@ -150,11 +178,28 @@ stats + presence).
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | done |
 | 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | done |
-| 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | not started — NEXT |
+| 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | backend done — web UI next (template/rules editors, bell, presence picker, stats tiles) |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started |
 
 ## Recent sessions
 
+- **2026-08-31 (item 11 backend)** — Email templates, rules engine,
+  in-app notification center, presence API (all backend, no web UI yet).
+  `email_templates`/`rules`/`rule_runs`/`notifications` (migration 0007).
+  Templates: 4 defaults seeded at setup, all disabled; `{{dotted.path}}`
+  rendering; preview endpoint renders against a real ticket. Rules:
+  event match (created/status_changed/reply/updated + status/priority/
+  client/tags/staffOnly) → one action (send_template/assign/add_tag/
+  set_status/webhook-HMAC); fired from ticket routes, every run logged to
+  `rule_runs`, `POST /api/rules/test` dry-run preview. Notifications fan
+  out to the assignee only (never the actor): assigned/reply/status
+  change + SLA breach (hooked into `emitSlaEvent`). Presence:
+  `PATCH /api/me/presence`. Gotchas found: const-destructured row
+  reassignment crashes the route (re-read after rule actions, return the
+  fresh row); test `wipe()` must delete `slaPolicies` too (leftover
+  defaults from earlier runs break later suites); outbox rows share
+  `createdAt` ties — test by ticketId, not list position. 10 new e2e
+  tests; full gate green (150 tests).
 - **2026-08-31 (SLA workspace UI)** — Finished plan item 10. `lib/sla.ts`
   (web): `queueSlaState` (breached > at_risk > pending, closed = none),
   `slaRemainingMinutes` (business minutes left, clamped at 0),

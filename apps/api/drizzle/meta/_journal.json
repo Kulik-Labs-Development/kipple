@@ -50,6 +50,13 @@
       "when": 1788161637215,
       "tag": "0006_bitter_spacker_dave",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788179498354,
+      "tag": "0007_overconfident_kingpin",
+      "breakpoints": true
     }
   ]
 }
