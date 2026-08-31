@@ -6,10 +6,31 @@
       "outputs": ["dist/**"]
     },
     "typecheck": {},
-    "test": {},
+    "test": {
+      "env": [
+        "DATABASE_URL",
+        "AUTH_SECRET",
+        "PUBLIC_URL",
+        "REDIS_URL",
+        "MIGRATIONS_FOLDER",
+        "SPA_ROOT",
+        "PORT",
+        "HOST"
+      ]
+    },
     "dev": {
       "cache": false,
-      "persistent": true
+      "persistent": true,
+      "env": [
+        "DATABASE_URL",
+        "AUTH_SECRET",
+        "PUBLIC_URL",
+        "REDIS_URL",
+        "MIGRATIONS_FOLDER",
+        "SPA_ROOT",
+        "PORT",
+        "HOST"
+      ]
     }
   }
 }

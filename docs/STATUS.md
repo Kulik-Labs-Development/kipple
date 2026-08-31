@@ -73,6 +73,28 @@ then M365 OAuth2.
 
 ## Recent sessions
 
+- **2026-08-31** — Fixed the failing CI build (run 6 on `dd8e23e`: `pnpm test`
+  → `database "kipple" does not exist`). Root cause: `10ca00b` replaced the
+  `env` block in `apps/api/vitest.config.ts` (which injected
+  `DATABASE_URL`/`AUTH_SECRET`/`PUBLIC_URL` into test workers) with just
+  `fileParallelism: false`, and turbo only passes env vars to tasks that are
+  declared in the task config — so the CI job's `DATABASE_URL` never reached
+  the api test workers and they fell back to the default
+  `postgres://kipple:kipple@localhost:5432/kipple`, which exists on dev
+  machines (masking it) but not in CI (service container only creates
+  `kipple_test`). Verified the stripping empirically (undeclared var →
+  dropped; declared via task `env` → passed). Fix: declared
+  `DATABASE_URL`/`AUTH_SECRET`/`PUBLIC_URL`/`REDIS_URL`/`MIGRATIONS_FOLDER`/
+  `SPA_ROOT`/`PORT`/`HOST` in the `test` + `dev` task env in `turbo.json`,
+  and restored `testTimeout: 30000` / `hookTimeout: 60000` in the vitest
+  config. Verified with a cold repo copy: with CI env the api tests migrate +
+  run against `kipple_test` (13 tables); without env they use the local
+  `kipple` dev DB. lint/typecheck/test/build all green. Open follow-up: the
+  `audit` job (non-blocking, `continue-on-error`) reports 11 vulnerabilities
+  — vitest 2.1.9 (critical, UI server file read, patched in 3.2.6), vite
+  5.4.21 via vitest (high), `@fastify/static` 8.3.0 (high path traversal +
+  moderate, patched in 10.1.1/10.1.2); clearing needs a vitest 3.x +
+  `@fastify/static` 10.x bump.
 - **2026-08-30 (second session)** — Finished the ticket domain API. Fixed the
   red domain test: better-auth signs session tokens (`{random}.{sig}`), so the
   fixture now inserts a credential account (issuer `local:credential`,
