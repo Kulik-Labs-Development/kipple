@@ -1,11 +1,11 @@
 import { eq } from 'drizzle-orm'
-import { PreferencesPatch, SetupRequest } from '@kipple/shared'
+import { PreferencesPatch, SetupRequest, type ClientBranding } from '@kipple/shared'
 import type { FastifyInstance } from 'fastify'
 import { badRequest, requireUser } from './access'
 import { auth } from './auth'
 import { db } from './db'
 import { clients, contactClients, settings, users } from './db/schema'
-import { registerClientRoutes } from './routes/clients'
+import { normalizeBranding, registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerEmailRoutes } from './routes/email'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
@@ -75,7 +75,12 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(settings.key, 'theme'))
     const instanceTheme =
       ((themeSetting?.value as { id?: string } | null) ?? {}).id ?? 'slate'
-    let primaryClient: { id: string; name: string; domain: string | null } | null = null
+    let primaryClient: {
+      id: string
+      name: string
+      domain: string | null
+      branding: ClientBranding | null
+    } | null = null
     if (session.user.role === 'contact' && prefs?.contactId) {
       const links = await db
         .select({ clientId: contactClients.clientId, isPrimary: contactClients.isPrimary })
@@ -88,7 +93,13 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
           .from(clients)
           .where(eq(clients.id, primary.clientId))
         if (client) {
-          primaryClient = { id: client.id, name: client.name, domain: client.domain }
+          primaryClient = {
+            id: client.id,
+            name: client.name,
+            domain: client.domain,
+            // the contact's own primary client only — no cross-client data
+            branding: normalizeBranding(client.branding as ClientBranding | null),
+          }
         }
       }
     }

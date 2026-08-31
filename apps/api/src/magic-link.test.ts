@@ -195,6 +195,7 @@ describe('magic link login + client portal access', () => {
       id: expect.any(String),
       name: 'Acme Corp',
       domain: 'acme.test',
+      branding: null,
     })
   })
 

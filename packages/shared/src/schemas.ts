@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SlaTargets } from './sla'
+import { ClientBranding } from './themes'
 
 export const TicketStatus = z.enum(['open', 'pending', 'hold', 'closed', 'deleted'])
 export type TicketStatus = z.infer<typeof TicketStatus>
@@ -25,10 +26,13 @@ export const ClientCreate = z.object({
   name: z.string().min(1).max(200),
   domain: z.string().max(253).optional().or(z.literal('')),
   slaPolicyId: z.string().min(1).nullable().optional(),
+  branding: ClientBranding.optional(),
 })
 export type ClientCreate = z.infer<typeof ClientCreate>
 
-export const ClientUpdate = ClientCreate.partial()
+export const ClientUpdate = ClientCreate.partial().extend({
+  branding: ClientBranding.nullable().optional(),
+})
 
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),

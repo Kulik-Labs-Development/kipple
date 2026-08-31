@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AutomationManager } from '../components/AutomationManager'
+import { ClientManager } from '../components/ClientManager'
 import { NotificationBell } from '../components/NotificationBell'
 import { QueuePane } from '../components/QueuePane'
 import { SlaManager } from '../components/SlaManager'
@@ -57,6 +58,7 @@ export function WorkspaceView({
   const [slaConfig, setSlaConfig] = useState<SlaConfig | null>(null)
   const [showSlaManager, setShowSlaManager] = useState(false)
   const [showAutomation, setShowAutomation] = useState(false)
+  const [showClients, setShowClients] = useState(false)
   const [presence, setPresence] = useState(user.presence)
   const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
@@ -91,6 +93,14 @@ export function WorkspaceView({
       setSlaConfig(null)
     }
   }, [isStaff])
+
+  const refreshClients = useCallback(async () => {
+    try {
+      setClients(await api.listClients())
+    } catch {
+      /* keep the previous list */
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -346,6 +356,23 @@ export function WorkspaceView({
               auto
             </button>
           )}
+          {isStaff && (
+            <button
+              onClick={
+                user.role === 'superuser' || user.role === 'admin'
+                  ? () => setShowClients(true)
+                  : undefined
+              }
+              title={
+                user.role === 'superuser' || user.role === 'admin'
+                  ? 'clients + portal branding'
+                  : 'clients (admin or superuser only)'
+              }
+              className="border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+            >
+              clients
+            </button>
+          )}
           {isStaff && activeEntry && (
             <button
               onClick={toggleTimer}
@@ -496,6 +523,15 @@ export function WorkspaceView({
             if (selectedId) void refreshDetail(selectedId)
           }}
           onClose={() => setShowSlaManager(false)}
+        />
+      )}
+
+      {showClients && (
+        <ClientManager
+          onSaved={() => {
+            void refreshClients()
+          }}
+          onClose={() => setShowClients(false)}
         />
       )}
 

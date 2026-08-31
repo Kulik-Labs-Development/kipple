@@ -1,4 +1,4 @@
-import type { ColorMode } from '@kipple/shared'
+import type { ClientBranding, ColorMode } from '@kipple/shared'
 
 export class ApiError extends Error {
   constructor(
@@ -26,7 +26,12 @@ export interface MeResponse {
   sessionId: string
   instanceTheme: string
   contactId: string | null
-  primaryClient: { id: string; name: string; domain: string | null } | null
+  primaryClient: {
+    id: string
+    name: string
+    domain: string | null
+    branding: ClientBranding | null
+  } | null
   preferences: {
     theme: string | null
     colorMode: ColorMode
@@ -51,6 +56,7 @@ export interface ClientSummary {
   id: string
   name: string
   domain: string | null
+  branding: ClientBranding | null
 }
 
 export interface ContactSummary {
@@ -273,8 +279,13 @@ function ticketQuery(filters: TicketFilters): string {
 export const api = {
   me: () => request<MeResponse>('/api/me'),
   listClients: () => request<ClientSummary[]>('/api/clients'),
-  createClient: (body: { name: string; domain?: string }) =>
+  createClient: (body: { name: string; domain?: string; branding?: ClientBranding }) =>
     request<ClientSummary>('/api/clients', { method: 'POST', body: JSON.stringify(body) }),
+  updateClient: (id: string, body: { branding: ClientBranding | null }) =>
+    request<ClientSummary>(`/api/clients/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   listContacts: (clientId: string) =>
     request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),
   listStaff: () => request<StaffUser[]>('/api/users'),

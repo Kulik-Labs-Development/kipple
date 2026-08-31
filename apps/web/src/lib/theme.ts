@@ -5,6 +5,7 @@ const STORAGE_KEY = 'kipple.theme'
 export interface ThemeChoice {
   theme: string
   colorMode: ColorMode
+  accent?: string | null
 }
 
 export function resolveMode(colorMode: ColorMode): 'light' | 'dark' {
@@ -15,6 +16,11 @@ export function resolveMode(colorMode: ColorMode): 'light' | 'dark' {
 export function applyTheme(choice: ThemeChoice): void {
   document.documentElement.dataset.theme = choice.theme
   document.documentElement.dataset.mode = resolveMode(choice.colorMode)
+  if (choice.accent) {
+    document.documentElement.style.setProperty('--color-accent', choice.accent)
+  } else {
+    document.documentElement.style.removeProperty('--color-accent')
+  }
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(choice))
   } catch {
@@ -38,13 +44,26 @@ export function applyStoredTheme(): void {
   }
 }
 
+export interface ClientBrandingChoice {
+  themeId?: string | null
+  accent?: string | null
+}
+
+// Portal theme precedence: user preference > client branding > instance theme.
+// Accent comes from client branding only and applies to the portal (contacts).
 export function resolveThemeChoice(
   preferences: { theme: string | null; colorMode: ColorMode },
   instanceTheme: string,
   role: string,
+  branding: ClientBrandingChoice | null = null,
 ): ThemeChoice {
-  const fallback = role === 'contact' ? instanceTheme : 'console'
-  return { theme: preferences.theme ?? fallback, colorMode: preferences.colorMode }
+  const fallback =
+    role === 'contact' ? branding?.themeId ?? instanceTheme : 'console'
+  return {
+    theme: preferences.theme ?? fallback,
+    colorMode: preferences.colorMode,
+    accent: role === 'contact' ? branding?.accent ?? null : null,
+  }
 }
 
 export function watchSystemScheme(onChange: (dark: boolean) => void): void {

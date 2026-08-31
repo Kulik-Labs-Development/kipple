@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { ClientBranding } from '@kipple/shared/themes'
 import { api, ApiError, type MeUser } from './lib/api'
 import { applyTheme, resolveThemeChoice, watchSystemScheme } from './lib/theme'
 import { LoginView } from './views/LoginView'
@@ -15,12 +16,18 @@ export default function App() {
     id: string
     name: string
     domain: string | null
+    branding: ClientBranding | null
   } | null>(null)
 
   const refresh = useCallback(async () => {
     try {
       const me = await api.me()
-      const choice = resolveThemeChoice(me.preferences, me.instanceTheme, me.user.role)
+      const choice = resolveThemeChoice(
+        me.preferences,
+        me.instanceTheme,
+        me.user.role,
+        me.primaryClient?.branding ?? null,
+      )
       applyTheme(choice)
       if (choice.colorMode === 'system') {
         watchSystemScheme((dark) => {

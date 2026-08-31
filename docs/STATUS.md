@@ -9,11 +9,14 @@ chat or contributor can pick up where work left off. Deep design lives in
 
 **Phase 1 — Core ticketing.** Phase 0 (foundation) is complete.
 Email outbound (§5b), email inbound, the client portal with magic-link
-login, time tracking v1, and the SLA feature (backend + workspace UI) are
-live.
-Item 11 (email templates + rules, notification center, dashboard stats +
-presence) is live end-to-end.
-Next up: item 12 (per-client branding override for the portal theme).
+login, time tracking v1, the SLA feature (backend + workspace UI), and
+item 11 (email templates + rules, notification center, dashboard stats +
+presence) are live end-to-end.
+All 12 items in the plan table below are shipped — including per-client
+branding for the portal (item 12). The remaining Phase 1 scope from
+PLAN.md (attachments, hold states, staff client restriction, agent
+invites, client self-registration) is tracked as backlog rows 13–17;
+after those, Phase 2 (API + MCP + integrations) is next.
 
 ## What's live
 
@@ -173,6 +176,22 @@ Next up: item 12 (per-client branding override for the portal theme).
    tickets on a breached SLA line, danger colored) + a 14-day
    opened/closed bar strip (`dailySeries` + `Sparkline`). 10 new api e2e
    tests + 2 new web unit tests.
+- Per-client branding (plan item 12): `clients.branding` (jsonb, column
+  has existed since migration 0000) is now `{ themeId?, accent?, logoUrl? }`
+  validated by `ClientBranding` in `@kipple/shared` (themeId must be a
+  portal-surface theme from the THEMES registry, accent = hex color,
+  logoUrl = URL). `POST/PATCH /api/clients` accept it (`{}`/`null` store
+  as null; duplicate rules unchanged); `GET /api/me` returns the contact's
+  OWN primary client's branding (never another client's — scoping test
+  included). Web: portal theme precedence = user preference > client
+  branding.themeId > instance theme; branding.accent overrides the
+  `--color-accent` token for the portal only (staff workspace untouched);
+  PortalView renders the client logo in the header (+ browser favicon and
+  document title) with a broken-image fallback. `ClientManager` workspace
+  modal (superuser/admin, "clients" header button): client list + create,
+  branding editor (theme picker limited to portal themes, accent with
+  color picker, logo URL with live preview), save/clear. 9 new api e2e
+  tests + 5 new web unit tests.
 
 ## Phase 1 — active plan
 
@@ -189,10 +208,31 @@ Next up: item 12 (per-client branding override for the portal theme).
 | 9 | Time tracking v1 (billable/non-billable per ticket/agent/client) | done |
 | 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | done |
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | done |
-| 12 | Per-client branding override for portal theme (uses `clients.branding`) | not started — NEXT |
+| 12 | Per-client branding override for portal theme (uses `clients.branding`) | done |
+| 13 | Attachments on updates (chunked/tus uploads, client-scoped) | backlog |
+| 14 | Hold states "waiting on client/vendor" + hold timers, auto-close with pre-close warning (template + rule) | backlog |
+| 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | backlog |
+| 16 | Agent signups: admin-invited via email token link, MFA on first login | backlog |
+| 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | backlog |
 
 ## Recent sessions
 
+- **2026-08-31 (item 12 — per-client portal branding, done)** — Last of
+  the 12-item Phase 1 plan table. `clients.branding` (existing jsonb
+  column) is now `{ themeId?, accent?, logoUrl? }` via a new
+  `ClientBranding` schema in `@kipple/shared` (+ `portalThemes()`/
+  `isPortalTheme()` helpers and a new `@kipple/shared/themes` subpath
+  export so the browser bundle never loads the node:crypto index).
+  Client create/patch validate `themeId` against the portal-surface
+  themes and normalize `{}`/null; `/api/me` returns the contact's own
+  primary client branding. Web: `resolveThemeChoice` takes branding
+  (precedence: user pref > client branding > instance theme), accent
+  overrides `--color-accent` portal-only, PortalView shows the client
+  logo + favicon, and a new `ClientManager` modal (superuser/admin)
+  edits theme/accent/logo per client and can create clients. 9 api e2e
+  tests (incl. cross-client scoping), 5 web unit tests; full gate green
+  (166 tests, build 4/4). Remaining Phase 1 PLAN.md scope tracked as
+  backlog rows 13–17.
 - **2026-08-31 (dep audit cleanup)** — `pnpm audit` was reporting 13
   findings, all in nodemailer (addressparser DoS, SMTP command injection,
   CRLF header injection, jsonTransport disableFileAccess bypass, OAuth2 TLS

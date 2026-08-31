@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ClientBranding } from '@kipple/shared/themes'
 import { Field } from '../components/Field'
 import {
   api,
@@ -27,7 +28,12 @@ export function PortalView({
   onSignedOut,
 }: {
   user: MeUser
-  primaryClient: { id: string; name: string; domain: string | null } | null
+  primaryClient: {
+    id: string
+    name: string
+    domain: string | null
+    branding: ClientBranding | null
+  } | null
   onSignedOut: () => void
 }) {
   const [tickets, setTickets] = useState<TicketRow[]>([])
@@ -44,6 +50,24 @@ export function PortalView({
   const [signingOut, setSigningOut] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const clientId = primaryClient?.id ?? null
+  const branding = primaryClient?.branding ?? null
+  const [logoBroken, setLogoBroken] = useState(false)
+
+  useEffect(() => {
+    const logo = branding?.logoUrl?.trim()
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
+    if (logo) {
+      const target = link ?? document.createElement('link')
+      target.rel = 'icon'
+      target.href = logo
+      if (!link) document.head.appendChild(target)
+      document.title = `${primaryClient?.name ?? 'Support'} · Client Portal`
+    } else {
+      link?.remove()
+      document.title = 'Kipple'
+    }
+    setLogoBroken(false)
+  }, [branding?.logoUrl, primaryClient?.name])
 
   const refreshList = useCallback(async () => {
     try {
@@ -154,11 +178,21 @@ export function PortalView({
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line bg-panel px-5 py-3">
-        <div className="flex items-baseline gap-3">
-          <span className="text-base font-semibold text-fg">
-            {primaryClient?.name ?? 'Support'}
-          </span>
-          <span className="text-xs text-dim">client portal</span>
+        <div className="flex items-center gap-3">
+          {branding?.logoUrl && !logoBroken && (
+            <img
+              src={branding.logoUrl}
+              alt=""
+              onError={() => setLogoBroken(true)}
+              className="h-5 max-w-40 object-contain"
+            />
+          )}
+          <div className="flex items-baseline gap-3">
+            <span className="text-base font-semibold text-fg">
+              {primaryClient?.name ?? 'Support'}
+            </span>
+            <span className="text-xs text-dim">client portal</span>
+          </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-dim">{user.name}</span>

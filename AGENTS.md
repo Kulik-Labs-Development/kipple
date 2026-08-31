@@ -82,12 +82,19 @@ a rules engine (`rules`/`rule_runs`: event match → one action
 send_template/assign/add_tag/set_status/webhook-HMAC, fired from the
 ticket routes, `POST /api/rules/test` dry-run preview), the in-app
 notification center (`notifications`, fan-out to the assignee only —
-assigned/reply/status change/SLA breach), self-service presence
+ assigned/reply/status change/SLA breach), self-service presence
 (`PATCH /api/me/presence`), and the workspace UI (notification bell,
 superuser Automation manager with template + rules editors and a
 "what would fire" test panel, presence picker, overdue tile + 14-day
-opened/closed sparklines).
-Next: item 12 (per-client branding override for the portal theme).
+opened/closed sparklines). Per-client portal branding is live (plan item
+12): `clients.branding` = `{themeId?, accent?, logoUrl?}` (portal-surface
+themes only, validated at the API); the portal resolves
+user-pref > client branding > instance theme, the accent token and client
+logo apply to the portal only, and a superuser/admin `ClientManager`
+modal edits it. That completes the 12-item Phase 1 plan table; the
+remaining PLAN.md Phase 1 scope (attachments, hold states, staff client
+restriction, agent invites, client self-registration) is backlog, then
+Phase 2 (API + MCP + integrations).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session

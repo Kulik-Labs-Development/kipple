@@ -47,6 +47,26 @@ export const THEMES: ThemeMeta[] = [
   },
 ]
 
+export const ClientBranding = z.object({
+  themeId: ThemeId.optional(),
+  accent: z
+    .string()
+    .regex(/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, {
+      message: 'accent must be a hex color like #0b5fff',
+    })
+    .optional(),
+  logoUrl: z.string().url().max(2048).optional(),
+})
+export type ClientBranding = z.infer<typeof ClientBranding>
+
+export function portalThemes(): ThemeMeta[] {
+  return THEMES.filter((theme) => theme.surfaces.includes('portal'))
+}
+
+export function isPortalTheme(id: ThemeId): boolean {
+  return THEMES.some((theme) => theme.id === id && theme.surfaces.includes('portal'))
+}
+
 export const PreferencesPatch = z
   .object({
     theme: ThemeId.nullable().optional(),
