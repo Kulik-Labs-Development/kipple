@@ -14,8 +14,10 @@ then M365 OAuth2.
 ## What's live
 
 - Monorepo (pnpm + Turborepo); CI (lint/typecheck/test) + GHCR image builds on push
-  (`ghcr.io/kulik-labs-development/kipple/{api,worker,mcp}`; Portainer deploys from
-  `infra/docker-compose.yml`, needs `KIPPLE_TAG` + GHCR PAT `read:packages` + `AUTH_SECRET`)
+  (`ghcr.io/kulik-labs-development/kipple/{api,worker,mcp}`, public → anonymous pull);
+  `infra/docker-compose.yml` deploys via CLI or as a Portainer CE/BE stack
+  (needs `AUTH_SECRET` + `PUBLIC_URL`; optional `KIPPLE_TAG`, `TRUST_PROXY`,
+  `COMPOSE_PROFILES=proxy|dev`) — full guide in `docs/DEPLOYMENT.md`
 - Postgres schema (Drizzle, migrations auto-run on api boot): users, sessions,
   accounts, verification, twoFactor, clients, contacts, contact_clients, tickets,
   updates, settings, email_outbox
@@ -73,6 +75,24 @@ then M365 OAuth2.
 
 ## Recent sessions
 
+- **2026-08-31 (Portainer deploy session)** — Made `infra/docker-compose.yml`
+  deployable as a Portainer CE stack. Key change: dropped the `./Caddyfile`
+  bind mount (relative-path volumes are a Portainer Business Edition feature,
+  so CE uploads of the proxy profile would fail) — the Caddyfile is now
+  inlined in the caddy service's `CADDYFILE` env var, written at container
+  start; `infra/Caddyfile` stays as the documented copy-paste config for
+  BYO-proxy hosts (keep the two in sync). Verified against Portainer
+  docs/issues which compose features its stack deployer supports:
+  `depends_on: condition: service_healthy` works (portainer/portainer#11757),
+  profiles activate via the `COMPOSE_PROFILES` stack env var (one value or `*`;
+  comma lists are a known bug, #13033), and `healthcheck.start_interval` must
+  be avoided. Added compose-level healthchecks to api (`/healthz`) and worker
+  (node-process liveness — placeholder until the email pipeline adds a real
+  endpoint) so every service has one. Wrote `docs/DEPLOYMENT.md` (env var
+  reference, CLI + Portainer CE/BE deploys, Mode A/B proxy recipes, backups,
+  MCP-as-stdio note) and a `COMPOSE_PROFILES` section in `.env.example`.
+  Another session's in-flight `packages/mail` + `packages/shared` crypto files
+  were left untouched and uncommitted.
 - **2026-08-31 (audit follow-up)** — Cleared the `pnpm audit` job failures
   (was 11 vulns: 1 critical, 2 high, 8 moderate). Bumped `vitest` ^2.1.0 →
   ^3.2.6 (resolved 3.2.7; clears the critical Vitest-UI advisory and the
