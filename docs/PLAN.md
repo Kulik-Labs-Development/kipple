@@ -276,16 +276,16 @@ updates(id, ticket_id, author_id, kind: public|internal|system,
 attachments(id, update_id|ticket_id, storage_key, filename, size, mime)
 time_entries(id, ticket_id, agent_id, client_id, started_at, duration_s,
              billable, note)
-integrations(id, provider, config jsonb (enc), enabled)
-sync_logs(id, integration_id, status, details jsonb)
-api_keys(id, scopes[], hashed_secret, last_used_at)
-webhooks(id, url, events[], secret)
-audit_logs(id, actor_id, action, target, meta jsonb)
+integrations(id, provider, config jsonb (enc), enabled) -- Phase 2
+sync_logs(id, integration_id, status, details jsonb)  -- Phase 2
+api_keys(id, scopes[], hashed_secret, last_used_at)     -- Phase 2
+webhooks(id, url, events[], secret)                  -- Phase 2
+audit(id, actor_id, action, target, meta jsonb)
 settings(key, value jsonb)                    -- instance settings (superuser, §6b)
 email_outbox(id, ticket_id?, to, subject, provider, status, error, sent_at)  -- §5b
 notification_streams(id, channel, target jsonb, events[], client_filter jsonb,
-                    min_priority, quiet_hours jsonb, rate_cap, dedup_s, enabled)  -- §8d
-notification_log(id, stream_id?, channel, event, status, error, created_at)   -- §8d
+                    min_priority, quiet_hours jsonb, rate_cap, dedup_s, enabled)  -- §8d (Phase 3)
+notification_log(id, stream_id?, channel, event, status, error, created_at)   -- §8d (Phase 3)
 assets, services, rules, request_forms        -- Phase 3
 bookstack: no local tables — external; clients carry the shelf/book ref
 ```

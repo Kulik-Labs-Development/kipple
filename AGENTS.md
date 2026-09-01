@@ -91,7 +91,7 @@ opened/closed sparklines). Per-client portal branding is live (plan item
 themes only, validated at the API); the portal resolves
 user-pref > client branding > instance theme, the accent token and client
 logo apply to the portal only, and a superuser/admin `ClientManager`
-modal edits it. That completes the 12-item Phase 1 plan table.
+modal edits it. That completes the original 12-item Phase 1 plan table.
 Attachments on updates are live at v1 (plan item 13): multipart uploads
 on `POST /api/tickets/:id/updates` (1–10 files, `ATTACHMENT_MAX_MB`
 per-file cap), local-disk storage on the `storage-data` volume, and
@@ -122,7 +122,7 @@ kipple/
   docker/       Dockerfiles (api, worker, mcp)
   deploy/       docker-compose.yml (BYO proxy), docker-compose.proxy.yml
                 (bundled Caddy), Caddyfile, .env.example
-  docs/         PLAN.md, API reference, deployment guides
+  docs/         PLAN.md (design), STATUS.md (rolling build state), DEPLOYMENT.md
   .github/      CI (lint/typecheck/test) + image builds to GHCR
   logos/        Brand assets
 ```
