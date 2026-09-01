@@ -15,7 +15,9 @@ import {
   StoredImapSettings,
   decryptAtRest,
   encryptAtRest,
+  htmlToText,
   isEncryptedValue,
+  isHtmlBody,
 } from '@kipple/shared'
 import { desc, eq, ilike } from 'drizzle-orm'
 import { logAudit } from './audit'
@@ -209,7 +211,9 @@ export async function enqueueOutbox(input: EnqueueOutboxInput): Promise<string> 
     from: input.from,
     fromName: input.fromName ?? null,
     subject: input.subject,
-    body: input.body,
+    // Email transport is plain text: strip html bodies to their plain-text
+    // version for the wire (the web timeline keeps the full html).
+    body: isHtmlBody(input.body) ? htmlToText(input.body) : input.body,
     replyTo: input.replyTo ?? null,
     messageId: input.messageId,
     provider: 'smtp',

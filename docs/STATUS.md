@@ -19,7 +19,9 @@ file). The remaining Phase 1 scope from PLAN.md
 (chunked/tus uploads + S3 backend, hold states, staff client
 restriction, agent invites, client self-registration) is tracked as
 backlog rows 14–18; after those, Phase 2 (API + MCP + integrations) is
-next.
+next. Update composers (workspace + portal) are now a rich text editor
+(TipTap): headings, lists, code, quotes, links, image embeds by URL, font
+size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## What's live
 
@@ -216,6 +218,25 @@ next.
   e2e tests + 4 web unit tests. Follow-ups (backlog row 18): chunked/tus
   uploads, S3 adapter, editable MIME allowlist, superuser upload
   settings.
+- Rich text editor for ticket updates (post-Phase-1 follow-up, 09-01): TipTap v3
+  editor in the workspace + portal update composers (replaces the plain
+  textarea). Toolbar: bold/italic/strikethrough/underline/inline code, h1-h3 +
+  paragraph, font-size marks (fs-sm/base/lg/xl utility classes — rendered via CSS,
+  never inline styles, so the sanitizer stays closed), bullet/numbered lists,
+  blockquote, code block, links (autolink, `target=_blank`), image embeds by URL
+  (v1 — inline file upload = follow-up; attachments stay on the chips), horizontal
+  rule, clear formatting, undo/redo. Bodies store sanitized-friendly HTML; every
+  render (workspace timeline + portal thread) runs `toRenderable()` — legacy plain
+  text is escaped + line-broken, HTML is DOMPurify-sanitized (tag/attr allowlist,
+  URI-scheme allowlist + attribute hook stripping data:/javascript:). Email egress
+  strips HTML at the `enqueueOutbox` seam (shared `htmlToText`: blocks to newlines,
+  tight lists kept tight, entities decoded) so the plain-text transport never
+  carries tags. New files: `packages/shared/src/rich.ts` (+ `./rich` subpath export
+  — keeps node-only shared code out of the web bundle), `apps/web/src/lib/rich.ts`,
+  `apps/web/src/lib/fontSize.ts`, `apps/web/src/components/RichTextEditor.tsx`,
+  rich-text CSS in `apps/web/src/index.css` (semantic tokens only). Tests: shared
+  rich 6, web rich 8 (XSS cases, legacy pass-through, emptiness checks); gates
+  4/4 tasks green.
 
 ## Phase 1 — active plan
 
@@ -242,6 +263,25 @@ next.
 
 ## Recent sessions
 
+- **2026-09-01 (rich text editor — workspace + portal composers)** — TipTap v3 editor
+  for ticket updates (request from #kipple-work: the plain textarea was too plain
+  — image embeds, font control, full formatting). See the "Rich text editor" bullet
+  in What's live for the full shape. Storage stays `updates.body` (now
+  sanitized-friendly HTML); no new table, no migration. Sanitizer = DOMPurify
+  allowlist + URI-scheme allowlist + attribute hook (data:/javascript: stripped)
+  — stored bodies are re-sanitized on every render, legacy plain text keeps
+  rendering via the escape path. Email egress: `enqueueOutbox` now strips HTML to
+  plain text (shared `htmlToText`) so the SMTP transport never carries markup.
+  Images v1 = URL embeds (absolute app paths work for existing attachments); inline
+  upload endpoint = follow-up. Deps added to @kipple/web: @tiptap/{react,starter-kit,
+  core,extension-image,extension-placeholder}, dompurify, jsdom (dev) — link +
+  underline are configured through StarterKit v3 (which bundles them; importing
+  the extensions separately double-registered and threw duplicate-extension
+  warnings). Editor CSS targets `.tiptap.rich-editor-area` (the editor root is
+  one node carrying both classes — a descendant selector never matched, so list/
+  paragraph/code styling was silently dropped in the editor while the rendered
+  `.rich-text` body was fine). Gates: lint/typecheck/test/build green (195 tests).
+  Screenshots + PR follow in #kipple-work.
 - **2026-09-01 (docs audit pass + merge records — this fix)** — Post-merge audit of README/AGENTS/PLAN/STATUS against the code + commit history (triggered from #kipple-work after PR #2). Findings + fixes: README was stale on attachments v1 (roadmap row + Status section still listed it as remaining — shipped as item 13, merged 1a1b36b 06:56 CDT; plus the apps/mcp Phase 2 marker in "The stack") · AGENTS.md "12-item plan table" wording predates the item-13 row (the table is now 18 rows: 13 done + 14–18 backlog) + the layout line named a nonexistent docs "API reference" · PLAN §4 data model had `audit_logs` (actual table = `audit`) and no phase markers on the unbuilt tables (api_keys/webhooks/integrations/sync_logs = Phase 2; notification_streams/notification_log = Phase 3). This pass also records the docker-deploy fix session (bullet below), which never made it into this file, and both 09-01 merges: PR #1 (docker deploy, 8871703) merged 02:00 CDT (bdbcf1a); PR #2 (attachments, 3d9b563) merged 06:56 CDT (1a1b36b). Docs only, no code changes.
 - **2026-09-01 (docker deploy fix — PR #1, merged 02:00 CDT, bdbcf1a)** — "Won't launch" from a fresh clone, three root causes: (1) Mode A compose (BYO proxy) published no ports — stack came up but was unreachable outside the compose network → `API_PORT` published (`${API_PORT:-3000}:3000`) + `.env.example` entry; (2) the api image shipped without the Drizzle migrations — zero tables on first boot, setup wizard 500 → COPY `apps/api/drizzle` into the image; (3) the worker healthcheck ran `ps -p 1` on BusyBox alpine (no procps) → `grep -q node /proc/1/comm`. Verified from scratch: 4 containers healthy, /healthz 200 from host, 13 tables migrated, full UI pass (wizard → client → ticket #1). Committed 8871703 (branch fix/docker-launch), merged 02:00 CDT (bdbcf1a).
 - **2026-09-01 (item 13 — attachments on updates, v1, done)** — First

@@ -29,3 +29,143 @@ body {
   color: var(--color-fg);
   font-family: var(--font-app);
 }
+
+
+/* Rich text — editor area + rendered update bodies (semantic tokens only) */
+.rich-editor-area,
+.rich-text {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.tiptap.rich-editor-area {
+  min-height: 72px;
+  padding: 8px 12px;
+  outline: none;
+}
+
+.tiptap.rich-editor-area p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-dim);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.rich-text p,
+.tiptap.rich-editor-area p {
+  margin: 0.3em 0;
+}
+
+.rich-text h1,
+.rich-text h2,
+.rich-text h3,
+.tiptap.rich-editor-area h1,
+.tiptap.rich-editor-area h2,
+.tiptap.rich-editor-area h3 {
+  margin: 0.6em 0 0.3em;
+  font-weight: 600;
+}
+
+.rich-text h1,
+.tiptap.rich-editor-area h1 {
+  font-size: 1.25rem;
+}
+
+.rich-text h2,
+.tiptap.rich-editor-area h2 {
+  font-size: 1.1rem;
+}
+
+.rich-text h3,
+.tiptap.rich-editor-area h3 {
+  font-size: 1rem;
+}
+
+.rich-text ul,
+.tiptap.rich-editor-area ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0.3em 0;
+}
+
+.rich-text ol,
+.tiptap.rich-editor-area ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0.3em 0;
+}
+
+.rich-text li,
+.tiptap.rich-editor-area li {
+  margin: 0.1em 0;
+}
+
+.rich-text blockquote,
+.tiptap.rich-editor-area blockquote {
+  border-left: 2px solid var(--color-line);
+  padding-left: 0.75rem;
+  margin: 0.3em 0;
+  color: var(--color-dim);
+}
+
+.rich-text pre,
+.tiptap.rich-editor-area pre {
+  background: var(--color-ink);
+  border: 1px solid var(--color-line);
+  padding: 0.5rem 0.75rem;
+  margin: 0.3em 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.rich-text code,
+.tiptap.rich-editor-area code {
+  background: var(--color-ink);
+  border: 1px solid var(--color-line);
+  padding: 0 0.25em;
+}
+
+.rich-text pre code,
+.tiptap.rich-editor-area pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.rich-text img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-line);
+  margin: 0.3em 0;
+}
+
+.rich-text a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.rich-text hr,
+.tiptap.rich-editor-area hr {
+  border: none;
+  border-top: 1px solid var(--color-line);
+  margin: 0.5em 0;
+}
+
+/* Inline font-size marks (see src/lib/fontSize.ts) */
+.fs-sm {
+  font-size: 0.75rem;
+}
+
+.fs-base {
+  font-size: 0.875rem;
+}
+
+.fs-lg {
+  font-size: 1rem;
+}
+
+.fs-xl {
+  font-size: 1.125rem;
+}
+

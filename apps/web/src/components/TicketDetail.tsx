@@ -1,6 +1,8 @@
 import { useRef, useState, type FormEvent } from 'react'
 import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { RichTextEditor } from './RichTextEditor'
+import { textOfHtml, toRenderable } from '../lib/rich'
 import {
   formatRemainingMinutes,
   slaRemainingMinutes,
@@ -69,6 +71,7 @@ export function TicketDetail({
   onDelete,
 }: TicketDetailProps) {
   const [body, setBody] = useState('')
+  const [editorKey, setEditorKey] = useState(0)
   const [kind, setKind] = useState<'public' | 'internal'>('public')
   const [tagsDraft, setTagsDraft] = useState(detail.tags.join(', '))
   const [sending, setSending] = useState(false)
@@ -85,12 +88,13 @@ export function TicketDetail({
   async function submit(event: FormEvent) {
     event.preventDefault()
     const text = body.trim()
-    if ((!text && files.length === 0) || sending) return
+    if ((!textOfHtml(text) && files.length === 0) || sending) return
     setSending(true)
     try {
       await onReply(detail.id, kind, text, files)
       setBody('')
       setFiles([])
+      setEditorKey((k) => k + 1)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {
       setSending(false)
@@ -252,7 +256,10 @@ export function TicketDetail({
                   {update.kind}
                 </span>
               </div>
-              <div className="mt-2 whitespace-pre-wrap text-sm text-fg">{update.body}</div>
+              <div
+                className="rich-text mt-2 text-sm text-fg"
+                dangerouslySetInnerHTML={{ __html: toRenderable(update.body) }}
+              />
               {update.attachments.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
                   {update.attachments.map((attachment) => (
@@ -289,16 +296,14 @@ export function TicketDetail({
               </label>
             </div>
           )}
-          <textarea
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-            rows={3}
+          <RichTextEditor
+            key={editorKey}
             placeholder={
               isStaff && kind === 'internal'
                 ? 'internal note — never emailed'
                 : 'reply — sent to the client by email'
             }
-            className="w-full resize-y border border-line bg-ink px-3 py-2 text-sm text-fg outline-none placeholder:text-dim focus:border-accent"
+            onHtmlChange={setBody}
           />
           {files.length > 0 && (
             <div className="flex flex-wrap gap-1">
@@ -357,7 +362,7 @@ export function TicketDetail({
               </button>
               <button
                 type="submit"
-                disabled={sending || (!body.trim() && files.length === 0)}
+                disabled={sending || (!textOfHtml(body) && files.length === 0)}
                 className="border border-accent px-3 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink disabled:opacity-40"
               >
                 {kind === 'internal' ? 'add note' : 'send reply'}
