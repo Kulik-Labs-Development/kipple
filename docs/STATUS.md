@@ -12,10 +12,10 @@ Email outbound (§5b), email inbound, the client portal with magic-link
 login, time tracking v1, the SLA feature (backend + workspace UI), and
 item 11 (email templates + rules, notification center, dashboard stats +
 presence) are live end-to-end.
-All 12 items in the plan table below are shipped — including per-client
-branding for the portal (item 12). Attachments on updates (item 13) are
-live at v1 (local-disk storage, multipart uploads capped at
-ATTACHMENT_MAX_MB per file); the remaining Phase 1 scope from PLAN.md
+All 13 items in the plan table below are shipped — including per-client
+branding for the portal (item 12) and attachments on updates v1 (item 13:
+local-disk storage, multipart uploads capped at ATTACHMENT_MAX_MB per
+file). The remaining Phase 1 scope from PLAN.md
 (chunked/tus uploads + S3 backend, hold states, staff client
 restriction, agent invites, client self-registration) is tracked as
 backlog rows 14–18; after those, Phase 2 (API + MCP + integrations) is
@@ -242,6 +242,8 @@ next.
 
 ## Recent sessions
 
+- **2026-09-01 (docs audit pass + merge records — this fix)** — Post-merge audit of README/AGENTS/PLAN/STATUS against the code + commit history (triggered from #kipple-work after PR #2). Findings + fixes: README was stale on attachments v1 (roadmap row + Status section still listed it as remaining — shipped as item 13, merged 1a1b36b 06:56 CDT; plus the apps/mcp Phase 2 marker in "The stack") · AGENTS.md "12-item plan table" wording predates the item-13 row (the table is now 18 rows: 13 done + 14–18 backlog) + the layout line named a nonexistent docs "API reference" · PLAN §4 data model had `audit_logs` (actual table = `audit`) and no phase markers on the unbuilt tables (api_keys/webhooks/integrations/sync_logs = Phase 2; notification_streams/notification_log = Phase 3). This pass also records the docker-deploy fix session (bullet below), which never made it into this file, and both 09-01 merges: PR #1 (docker deploy, 8871703) merged 02:00 CDT (bdbcf1a); PR #2 (attachments, 3d9b563) merged 06:56 CDT (1a1b36b). Docs only, no code changes.
+- **2026-09-01 (docker deploy fix — PR #1, merged 02:00 CDT, bdbcf1a)** — "Won't launch" from a fresh clone, three root causes: (1) Mode A compose (BYO proxy) published no ports — stack came up but was unreachable outside the compose network → `API_PORT` published (`${API_PORT:-3000}:3000`) + `.env.example` entry; (2) the api image shipped without the Drizzle migrations — zero tables on first boot, setup wizard 500 → COPY `apps/api/drizzle` into the image; (3) the worker healthcheck ran `ps -p 1` on BusyBox alpine (no procps) → `grep -q node /proc/1/comm`. Verified from scratch: 4 containers healthy, /healthz 200 from host, 13 tables migrated, full UI pass (wizard → client → ticket #1). Committed 8871703 (branch fix/docker-launch), merged 02:00 CDT (bdbcf1a).
 - **2026-09-01 (item 13 — attachments on updates, v1, done)** — First
   backlog row of Phase 1. `attachments` table (migration 0008,
   cascade-deletes with the update) + local-disk storage under

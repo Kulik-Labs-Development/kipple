@@ -103,7 +103,7 @@ it doesn't belong.
  apps/api       Fastify 5 + Drizzle + Postgres 16 — REST v1, sessions, RBAC
  apps/worker    BullMQ on Redis — IMAP ingest, SLA ticks, webhooks, syncs
  apps/web       React 19 + Vite — agent workspace (Console theme) + client portal
- apps/mcp       MCP server (stdio + streamable HTTP) over scoped API keys
+ apps/mcp       MCP server (stdio + streamable HTTP) over scoped API keys (Phase 2)
  packages/*     shared (Zod = source of truth) · ui (design tokens) · mail
 ```
 
@@ -126,7 +126,7 @@ it doesn't belong.
 | Phase | What lands | Status |
 |---|---|---|
 | **0 — Foundations** | Monorepo, CI/CD + GHCR images, schema + auth (MFA, setup wizard, RBAC), setup/login/workspace screens | **done** |
-| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine | **core complete** (12/12; backlog: attachments, holds, staff scoping, invites, self-registration) |
+| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine, attachments | **core complete** (13/13; backlog: holds, staff scoping, invites, self-registration, attachments v2) |
 | **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | planned |
 | **3 — Power features** | Assets, reports, SSO (OIDC/SAML), notification streams, CSAT, osTickets importer | planned |
 | **4 — Productization** | License decision, docs site, demo instance, Helm — deliberately last | deferred |
@@ -135,7 +135,7 @@ Exit criteria for every phase live in [docs/PLAN.md](docs/PLAN.md).
 
 ## Status
 
-**Phase 1 core complete — all 12 plan items shipped.** Live today: the full
+**Phase 1 core complete — all 13 plan items shipped.** Live today: the full
 email ticket loop (IMAP IDLE ingest → thread matching → one ticket, threaded
 SMTP replies, and zero automated emails unless you configure a rule), the
 agent workspace (queue, ticket detail, reply/notes, status/priority/assign/
@@ -143,10 +143,10 @@ tags, live stats with sparklines, time tracking, SLA countdowns with a
 superuser SLA manager, a clients + per-client portal branding manager), the
 client portal with passwordless magic-link login and per-client branding
 (theme, accent, logo), email templates + a rules engine with a "what would
-fire" dry-run, the in-app notification center, and per-agent presence.
-Remaining Phase 1 scope (tracked in the status doc): attachments, hold
-states with auto-close, staff per-client restriction, agent invites, and
-optional domain-gated client self-registration.
+fire" dry-run, the in-app notification center, per-agent presence, and file attachments on updates (v1: multipart uploads, local disk, client-scoped).
+Remaining Phase 1 scope (tracked in the status doc): hold states with auto-close,
+staff per-client restriction, agent invites, optional domain-gated client
+self-registration, and attachments v2 (chunked/tus uploads + S3).
 
 Phase 0 (monorepo, CI/CD + GHCR images, schema + auth with TOTP MFA,
 setup wizard, RBAC, theme system) is complete — see the rolling build state
