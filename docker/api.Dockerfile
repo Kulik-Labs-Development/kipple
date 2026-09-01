@@ -26,6 +26,7 @@ WORKDIR /app
 RUN addgroup -S kipple && adduser -S kipple -G kipple
 COPY --from=build --chown=kipple:kipple /app/apps/api/dist ./dist
 COPY --from=build --chown=kipple:kipple /app/apps/web/dist ./public
+COPY --from=build --chown=kipple:kipple /app/apps/api/drizzle ./drizzle
 USER kipple
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s \
