@@ -27,6 +27,10 @@ RUN addgroup -S kipple && adduser -S kipple -G kipple
 COPY --from=build --chown=kipple:kipple /app/apps/api/dist ./dist
 COPY --from=build --chown=kipple:kipple /app/apps/web/dist ./public
 COPY --from=build --chown=kipple:kipple /app/apps/api/drizzle ./drizzle
+# Attachment storage (plan item 13): a named volume (storage-data) is
+# mounted at /app/storage in the compose files; the image owns the dir so
+# the non-root user can write to the fresh volume on first boot.
+RUN mkdir -p /app/storage && chown kipple:kipple /app/storage
 USER kipple
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s \

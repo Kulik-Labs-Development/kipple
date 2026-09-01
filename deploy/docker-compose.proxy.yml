@@ -58,7 +58,12 @@ services:
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (openssl rand -base64 32)}
       DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      STORAGE_DIR: ${STORAGE_DIR:-/app/storage}
+      ATTACHMENT_MAX_MB: ${ATTACHMENT_MAX_MB:-25}
       PORT: "3000"
+    volumes:
+      # Attachment files (plan item 13) — back up with the db volume.
+      - storage-data:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -85,7 +90,9 @@ services:
     # Process liveness only: the worker has no HTTP endpoint yet. Replace with
     # a real health check when the email pipeline adds one.
     healthcheck:
-      test: ["CMD-SHELL", "ps -o comm= -p 1 | grep -q node"]
+      # Same fix as the Mode A file: BusyBox ps has no -p flag, so the old
+      # check failed every interval.
+      test: ["CMD-SHELL", "grep -q node /proc/1/comm"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -133,5 +140,6 @@ services:
 
 volumes:
   db-data:
+  storage-data:
   caddy-data:
   caddy-config:

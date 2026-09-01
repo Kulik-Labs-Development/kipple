@@ -272,10 +272,14 @@ export function WorkspaceView({
     }
   }
 
-  async function reply(id: string, kind: 'public' | 'internal', body: string) {
+  async function reply(id: string, kind: 'public' | 'internal', body: string, files: File[]) {
     setError(null)
     try {
-      await api.addTicketUpdate(id, { kind, body })
+      if (files.length > 0) {
+        await api.uploadUpdate(id, { kind, body }, files)
+      } else {
+        await api.addTicketUpdate(id, { kind, body })
+      }
       await Promise.all([refreshDetail(id), refreshList()])
     } catch (err) {
       setError(errorMessage(err, 'failed to send update'))

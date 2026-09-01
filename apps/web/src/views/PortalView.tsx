@@ -7,6 +7,7 @@ import {
   type TicketDetail as TicketDetailData,
   type TicketRow,
 } from '../lib/api'
+import { formatFileSize } from '../lib/format'
 import {
   filterPortalTickets,
   formatStamp,
@@ -42,7 +43,9 @@ export function PortalView({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
   const [reply, setReply] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [showNew, setShowNew] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [newSubject, setNewSubject] = useState('')
   const [newBody, setNewBody] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -93,6 +96,7 @@ export function PortalView({
   useEffect(() => {
     if (selectedId) void refreshDetail(selectedId)
     else setDetail(null)
+    setFiles([])
   }, [selectedId, refreshDetail])
 
   useEffect(() => {
@@ -129,12 +133,18 @@ export function PortalView({
   )
 
   async function sendReply() {
-    if (!selectedId || !reply.trim()) return
+    if (!selectedId || (!reply.trim() && files.length === 0)) return
     setBusy(true)
     setError(null)
     try {
-      await api.addTicketUpdate(selectedId, { body: reply.trim() })
+      if (files.length > 0) {
+        await api.uploadUpdate(selectedId, { body: reply.trim() }, files)
+      } else {
+        await api.addTicketUpdate(selectedId, { body: reply.trim() })
+      }
       setReply('')
+      setFiles([])
+      if (fileInputRef.current) fileInputRef.current.value = ''
       await Promise.all([refreshDetail(selectedId), refreshList()])
     } catch (err) {
       setError(errorMessage(err, 'failed to send reply'))
@@ -292,6 +302,20 @@ export function PortalView({
                       {formatStamp(update.createdAt)}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-fg">{update.body}</p>
+                    {update.attachments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {update.attachments.map((attachment) => (
+                          <a
+                            key={attachment.id}
+                            href={`/api/attachments/${attachment.id}`}
+                            download
+                            className="border border-line px-2 py-0.5 text-xs text-accent hover:border-accent"
+                          >
+                            {attachment.filename} ({formatFileSize(attachment.size)})
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -303,10 +327,50 @@ export function PortalView({
                   placeholder="Write a reply…"
                   className="w-full resize-none border border-line bg-transparent p-2 text-sm outline-none placeholder:text-dim"
                 />
-                <div className="mt-2 flex justify-end">
+                {files.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {files.map((file, index) => (
+                      <span
+                        key={`${file.name}-${index}`}
+                        className="flex items-center gap-1 border border-line px-2 py-0.5 text-xs text-dim"
+                      >
+                        <span className="max-w-52 truncate">{file.name}</span>
+                        <span className="tabular-nums">{formatFileSize(file.size)}</span>
+                        <button
+                          type="button"
+                          onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                          className="hover:text-danger"
+                          aria-label={`remove ${file.name}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        const picked = Array.from(e.target.files ?? [])
+                        setFiles((current) => [...current, ...picked].slice(0, 10))
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border border-line px-2 py-1 text-xs text-dim hover:border-accent hover:text-accent"
+                    >
+                      attach
+                    </button>
+                  </div>
                   <button
                     onClick={sendReply}
-                    disabled={busy || !reply.trim()}
+                    disabled={busy || (!reply.trim() && files.length === 0)}
                     className="border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
                   >
                     send reply
