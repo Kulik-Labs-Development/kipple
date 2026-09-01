@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { and, desc, eq, ilike, inArray, ne } from 'drizzle-orm'
-import { TicketCreate, TicketUpdate, UpdateCreate } from '@kipple/shared'
+import { TicketCreate, TicketUpdate, UpdateCreate, type AttachmentView } from '@kipple/shared'
 import { ticketAliasAddress } from '@kipple/mail'
 import type { FastifyInstance } from 'fastify'
 import {
@@ -13,7 +13,15 @@ import {
 } from '../access'
 import { logAudit } from '../audit'
 import { db } from '../db'
-import { clients, tickets, updates, users } from '../db/schema'
+import { attachments, clients, tickets, updates, users } from '../db/schema'
+import {
+  AttachmentSizeError,
+  MAX_ATTACHMENTS_PER_UPDATE,
+  cleanFilename,
+  deleteAttachmentFile,
+  maxAttachmentBytes,
+  writeAttachmentFile,
+} from '../storage'
 import { loadEmailSettings, queueTicketReply } from '../mail'
 import {
   applySlaToTicket,
@@ -74,6 +82,32 @@ async function loadTicket(id: string, role: string) {
     .leftJoin(users, eq(updates.authorId, users.id))
     .where(updateFilter)
     .orderBy(updates.createdAt)
+  let updatesWithFiles = ticketUpdates
+  if (ticketUpdates.length > 0) {
+    const fileRows = await db
+      .select()
+      .from(attachments)
+      .where(inArray(attachments.updateId, ticketUpdates.map((u) => u.id)))
+      .orderBy(attachments.createdAt)
+    const filesByUpdate = new Map<string, AttachmentView[]>()
+    for (const file of fileRows) {
+      const view: AttachmentView = {
+        id: file.id,
+        updateId: file.updateId,
+        filename: file.filename,
+        size: file.size,
+        mime: file.mime,
+        createdAt: file.createdAt,
+      }
+      const list = filesByUpdate.get(file.updateId) ?? []
+      list.push(view)
+      filesByUpdate.set(file.updateId, list)
+    }
+    updatesWithFiles = ticketUpdates.map((update) => ({
+      ...update,
+      attachments: filesByUpdate.get(update.id) ?? [],
+    }))
+  }
   const [client] = await db
     .select({ name: clients.name })
     .from(clients)
@@ -86,7 +120,7 @@ async function loadTicket(id: string, role: string) {
       .where(eq(users.id, ticket.assignedTo))
     assignedName = assignee?.name ?? null
   }
-  return { ...ticket, clientName: client?.name ?? null, assignedName, updates: ticketUpdates }
+  return { ...ticket, clientName: client?.name ?? null, assignedName, updates: updatesWithFiles }
 }
 
 export async function registerTicketRoutes(app: FastifyInstance): Promise<void> {
@@ -275,43 +309,150 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     const session = await requireUser(request, reply)
     if (!session) return null
     const { id } = request.params as { id: string }
-    const parsed = UpdateCreate.safeParse(request.body)
-    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
     const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id))
     if (!ticket) return reply.code(404).send(notFound())
     const scope = await clientScope(session.user)
     if (!inScope(scope, ticket.clientId)) return reply.code(404).send(notFound())
-    const kind = session.user.role === 'contact' ? 'public' : parsed.data.kind
-    const [row] = await db
-      .insert(updates)
-      .values({
-        id: randomUUID(),
-        ticketId: id,
-        authorId: session.user.id,
-        kind,
-        body: parsed.data.body,
+
+    // Dual mode: multipart = an update with file attachments (fields kind/
+    // body plus at least one file part, at most MAX per update); JSON = the
+    // original body-only update. Contact uploads are forced public, same as
+    // contact text updates.
+    //
+    // Files are written to disk WHILE parsing the body: busboy cannot emit
+    // the next part until the current file stream is drained, so collecting
+    // streams and writing them later would deadlock the request.
+    let kind: 'public' | 'internal'
+    let body: string
+    let writtenKeys: string[] = []
+    let createdAttachments: Array<{
+      id: string
+      filename: string
+      mime: string
+      size: number
+    }> = []
+    let tooManyFiles = false
+    if (request.isMultipart()) {
+      let rawKind: string | undefined
+      let rawBody = ''
+      try {
+        for await (const part of request.parts()) {
+          if (part.type === 'file') {
+            if (createdAttachments.length >= MAX_ATTACHMENTS_PER_UPDATE) {
+              tooManyFiles = true
+              part.file.destroy()
+              break
+            }
+            const storageKey = randomUUID()
+            const size = await writeAttachmentFile(storageKey, part.file, maxAttachmentBytes())
+            createdAttachments.push({
+              id: storageKey,
+              filename: cleanFilename(part.filename ?? ''),
+              mime: (part.mimetype || 'application/octet-stream').slice(0, 128),
+              size,
+            })
+            writtenKeys.push(storageKey)
+          } else if (part.fieldname === 'kind') {
+            rawKind = String(part.value)
+          } else if (part.fieldname === 'body') {
+            rawBody += String(part.value)
+          }
+        }
+      } catch (error) {
+        for (const key of writtenKeys) await deleteAttachmentFile(key)
+        writtenKeys = []
+        createdAttachments = []
+        if (error instanceof AttachmentSizeError) {
+          return reply.code(413).send({
+            error: 'file_too_large',
+            message: `attachment exceeds the ${error.limitMb}MB limit`,
+          })
+        }
+        throw error
+      }
+      if (createdAttachments.length === 0) {
+        return reply
+          .code(400)
+          .send({ error: 'bad_request', message: 'multipart updates need at least one file' })
+      }
+      if (tooManyFiles) {
+        for (const key of writtenKeys) await deleteAttachmentFile(key)
+        writtenKeys = []
+        createdAttachments = []
+        return reply.code(400).send({
+          error: 'bad_request',
+          message: `at most ${MAX_ATTACHMENTS_PER_UPDATE} files per update`,
+        })
+      }
+      if (rawKind !== undefined && rawKind !== 'public' && rawKind !== 'internal') {
+        for (const key of writtenKeys) await deleteAttachmentFile(key)
+        return reply.code(400).send({
+          error: 'bad_request',
+          message: "kind must be 'public' or 'internal'",
+        })
+      }
+      kind = session.user.role === 'contact' ? 'public' : rawKind ?? 'public'
+      body = rawBody.slice(0, 100_000)
+    } else {
+      const parsed = UpdateCreate.safeParse(request.body)
+      if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+      kind = session.user.role === 'contact' ? 'public' : parsed.data.kind
+      body = parsed.data.body
+    }
+
+    // The update row and its attachment rows commit together; if the insert
+    // fails, the files already on disk get cleaned up.
+    let row: typeof updates.$inferSelect
+    try {
+      row = await db.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(updates)
+          .values({
+            id: randomUUID(),
+            ticketId: id,
+            authorId: session.user.id,
+            kind,
+            body,
+          })
+          .returning()
+        for (const file of createdAttachments) {
+          await tx.insert(attachments).values({
+            id: file.id,
+            updateId: created.id,
+            filename: file.filename,
+            size: file.size,
+            mime: file.mime,
+            storageKey: file.id,
+          })
+        }
+        return created
       })
-      .returning()
+    } catch (error) {
+      for (const key of writtenKeys) await deleteAttachmentFile(key)
+      throw error
+    }
+
     if (kind === 'public' && session.user.role !== 'contact') {
-      await queueTicketReply({ ticket, body: parsed.data.body, isReply: true })
+      await queueTicketReply({ ticket, body, isReply: true })
       await markTicketResponded(id, new Date(), session.user.id)
     }
     await logAudit(session.user.id, 'update.create', 'update', row.id, {
       ticketId: id,
       kind,
+      attachments: createdAttachments,
     })
     if (kind === 'public' && session.user.role !== 'contact') {
       await runRules({
         type: 'ticket.reply',
         ticket: ticketSnapshot(ticket),
         actor: { id: session.user.id, name: session.user.name, role: session.user.role },
-        body: parsed.data.body,
+        body,
       })
       await notifyTicketEvent({
         type: 'ticket.reply',
         ticket: ticketSnapshot(ticket),
         actor: { id: session.user.id, name: session.user.name, role: session.user.role },
-        body: parsed.data.body,
+        body,
       })
     }
     return reply.code(201).send(row)

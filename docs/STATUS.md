@@ -13,10 +13,13 @@ login, time tracking v1, the SLA feature (backend + workspace UI), and
 item 11 (email templates + rules, notification center, dashboard stats +
 presence) are live end-to-end.
 All 12 items in the plan table below are shipped — including per-client
-branding for the portal (item 12). The remaining Phase 1 scope from
-PLAN.md (attachments, hold states, staff client restriction, agent
-invites, client self-registration) is tracked as backlog rows 13–17;
-after those, Phase 2 (API + MCP + integrations) is next.
+branding for the portal (item 12). Attachments on updates (item 13) are
+live at v1 (local-disk storage, multipart uploads capped at
+ATTACHMENT_MAX_MB per file); the remaining Phase 1 scope from PLAN.md
+(chunked/tus uploads + S3 backend, hold states, staff client
+restriction, agent invites, client self-registration) is tracked as
+backlog rows 14–18; after those, Phase 2 (API + MCP + integrations) is
+next.
 
 ## What's live
 
@@ -193,6 +196,26 @@ after those, Phase 2 (API + MCP + integrations) is next.
   branding editor (theme picker limited to portal themes, accent with
   color picker, logo URL with live preview), save/clear. 9 new api e2e
   tests + 5 new web unit tests.
+- Attachments on updates (plan item 13, v1): `attachments` table
+  (migration 0008, cascade-deletes with the update) + local-disk storage
+  under `STORAGE_DIR` (default `/app/storage` in the api image, backed by
+  the `storage-data` named volume in both compose files; per-file cap
+  `ATTACHMENT_MAX_MB`, default 25MB). Uploads = `POST
+  /api/tickets/:id/updates` in multipart mode (fields kind/body + 1–10
+  files; JSON body-only mode unchanged; overflow = 413 `file_too_large`
+  with partial files cleaned up); download `GET /api/attachments/:id`
+  (session cookie; contacts only see public updates on their own
+  clients' tickets — out-of-scope and internal files 404, no existence
+  leaks; `content-disposition: attachment` with UTF-8 filename* +
+  nosniff); staff-only `DELETE /api/attachments/:id` (row + file, audit
+  row). Disk path = server-generated id under a 2-char shard — the client
+  filename is display data only (traversal-safe by construction). Ticket
+  detail returns `attachments[]` on each update; workspace + portal
+  composers gain a file picker (chips with size, remove, send-with-or-
+  without text) and both timelines render attachment chips. 11 new api
+  e2e tests + 4 web unit tests. Follow-ups (backlog row 18): chunked/tus
+  uploads, S3 adapter, editable MIME allowlist, superuser upload
+  settings.
 
 ## Phase 1 — active plan
 
@@ -210,14 +233,47 @@ after those, Phase 2 (API + MCP + integrations) is next.
 | 10 | SLA feature (enable-able, OFF by default; per-client/per-ticket policy precedence) | done |
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | done |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | done |
-| 13 | Attachments on updates (chunked/tus uploads, client-scoped) | backlog |
+| 13 | Attachments on updates v1 (multipart uploads, local disk, client-scoped) | done (v1 — chunked/S3 = row 18) |
 | 14 | Hold states "waiting on client/vendor" + hold timers, auto-close with pre-close warning (template + rule) | backlog |
 | 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | backlog |
 | 16 | Agent signups: admin-invited via email token link, MFA on first login | backlog |
 | 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | backlog |
+| 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
 
+- **2026-09-01 (item 13 — attachments on updates, v1, done)** — First
+  backlog row of Phase 1. `attachments` table (migration 0008,
+  cascade-deletes with the update) + local-disk storage under
+  `STORAGE_DIR` (default `/app/storage` in the api image, backed by the
+  new `storage-data` named volume in both compose files; per-file cap
+  `ATTACHMENT_MAX_MB`, default 25MB). `POST /api/tickets/:id/updates` is
+  now dual-mode: multipart (fields kind/body + 1–10 files, at least one
+  file required; contact uploads forced public) or the original JSON
+  body-only (unchanged). Files stream to disk with a byte counter —
+  overflow = 413 `file_too_large`, and the update row + attachment rows
+  commit in one transaction with partial files cleaned up on any
+  failure. Download `GET /api/attachments/:id` (session cookie; contact
+  visibility = public updates on their own clients' tickets,
+  out-of-scope/internal 404; attachment disposition with UTF-8 filename*
+  + nosniff); staff `DELETE` removes row + file and audit-logs
+  (`attachment.delete`). Disk path = server-generated id under a 2-char
+  shard; the client filename is display data only (traversal-safe by
+  construction — tested). Web: `api.uploadUpdate` (FormData, the
+  JSON content-type skipped so fetch sets the multipart boundary),
+  `formatFileSize` helper, file picker + removable chips in both
+  composers (workspace TicketDetail + portal reply box; send enabled
+  with files even when the text is empty), attachment chips in both
+  timelines. Deploy: `api.Dockerfile` creates /app/storage owned by the
+  kipple user (the named volume inherits it); both compose files add the
+  env + `storage-data` volume (and the proxy file's worker healthcheck
+  got synced to the Mode A BusyBox fix: `grep -q node /proc/1/comm`);
+  `.env.example` documents both vars; DEPLOYMENT.md notes storage-data
+  goes in the backup. 11 new api e2e tests (upload/list/disk, byte-equal
+  download + headers, contact scoping incl. internal 404 + cross-client
+  404, staff delete + audit, contact 403, 413 + no orphan files,
+  traversal filename, >10 files, JSON path) + 4 web unit tests; full
+  gate green.
 - **2026-09-01 (deploy folder + no-proxy compose)** — Renamed `infra/` →
   `deploy/` and moved `.env.example` into it (everything deployment-related
   in one folder; a Portainer user grabs one folder). Split the reverse proxy

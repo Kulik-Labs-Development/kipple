@@ -1,4 +1,4 @@
-import type { ClientBranding, ColorMode } from '@kipple/shared'
+import type { AttachmentView, ClientBranding, ColorMode } from '@kipple/shared'
 
 export class ApiError extends Error {
   constructor(
@@ -39,9 +39,11 @@ export interface MeResponse {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // FormData supplies its own content-type (with the multipart boundary)
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
   const res = await fetch(path, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: isFormData ? undefined : { 'Content-Type': 'application/json' },
     ...init,
   })
   const text = await res.text()
@@ -220,6 +222,7 @@ export interface TicketUpdateRow {
   authorName: string | null
   kind: string
   body: string
+  attachments: AttachmentView[]
   createdAt: string
 }
 
@@ -316,6 +319,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  // Multipart variant: an update with file attachments (plan item 13).
+  // `body` may be empty when the update carries files.
+  uploadUpdate: (
+    id: string,
+    opts: { kind?: 'public' | 'internal'; body?: string },
+    files: File[],
+  ) => {
+    const form = new FormData()
+    form.append('kind', opts.kind ?? 'public')
+    form.append('body', opts.body ?? '')
+    for (const file of files) form.append('files', file)
+    return request<TicketUpdateRow>(`/api/tickets/${id}/updates`, {
+      method: 'POST',
+      body: form,
+    })
+  },
   deleteTicket: (id: string) =>
     request<void>(`/api/tickets/${id}`, { method: 'DELETE' }),
   setupStatus: () => request<{ setupRequired: boolean }>('/api/setup/status'),

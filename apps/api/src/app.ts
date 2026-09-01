@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { toErrorBody } from '@kipple/shared'
@@ -23,6 +24,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.get('/healthz', async () => ({ ok: true, service: 'api' }))
 
   await registerAuthRoutes(app)
+  // Multipart parsing for attachment uploads (plan item 13). The plugin's
+  // own file cap is deliberately high — the limit that actually applies is
+  // ATTACHMENT_MAX_MB, enforced byte-by-byte in storage.ts.
+  await app.register(multipart, {
+    limits: { fileSize: 512 * 1024 * 1024 },
+  })
   await registerApiRoutes(app)
 
   const root = spaRoot()

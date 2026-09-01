@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
+import { formatFileSize } from '../lib/format'
 import {
   formatRemainingMinutes,
   slaRemainingMinutes,
@@ -30,7 +31,7 @@ interface TicketDetailProps {
   isStaff: boolean
   slaConfig: SlaConfig | null
   onPatch: (id: string, patch: TicketPatch) => Promise<void>
-  onReply: (id: string, kind: 'public' | 'internal', body: string) => Promise<void>
+  onReply: (id: string, kind: 'public' | 'internal', body: string, files: File[]) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
 
@@ -71,6 +72,8 @@ export function TicketDetail({
   const [kind, setKind] = useState<'public' | 'internal'>('public')
   const [tagsDraft, setTagsDraft] = useState(detail.tags.join(', '))
   const [sending, setSending] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function commitTags() {
     const tags = parseTags(tagsDraft)
@@ -82,11 +85,13 @@ export function TicketDetail({
   async function submit(event: FormEvent) {
     event.preventDefault()
     const text = body.trim()
-    if (!text || sending) return
+    if ((!text && files.length === 0) || sending) return
     setSending(true)
     try {
-      await onReply(detail.id, kind, text)
+      await onReply(detail.id, kind, text, files)
       setBody('')
+      setFiles([])
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {
       setSending(false)
     }
@@ -248,6 +253,20 @@ export function TicketDetail({
                 </span>
               </div>
               <div className="mt-2 whitespace-pre-wrap text-sm text-fg">{update.body}</div>
+              {update.attachments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {update.attachments.map((attachment) => (
+                    <a
+                      key={attachment.id}
+                      href={`/api/attachments/${attachment.id}`}
+                      download
+                      className="border border-line bg-ink px-2 py-0.5 text-xs text-accent hover:border-accent"
+                    >
+                      {attachment.filename} ({formatFileSize(attachment.size)})
+                    </a>
+                  ))}
+                </div>
+              )}
             </article>
           ))
         )}
@@ -281,6 +300,27 @@ export function TicketDetail({
             }
             className="w-full resize-y border border-line bg-ink px-3 py-2 text-sm text-fg outline-none placeholder:text-dim focus:border-accent"
           />
+          {files.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {files.map((file, index) => (
+                <span
+                  key={`${file.name}-${index}`}
+                  className="flex items-center gap-1 border border-line bg-ink px-2 py-0.5 text-xs text-dim"
+                >
+                  <span className="max-w-52 truncate">{file.name}</span>
+                  <span className="tabular-nums">{formatFileSize(file.size)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                    className="hover:text-danger"
+                    aria-label={`remove ${file.name}`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             {isStaff ? (
               <button
@@ -297,13 +337,32 @@ export function TicketDetail({
             ) : (
               <span />
             )}
-            <button
-              type="submit"
-              disabled={sending || !body.trim()}
-              className="border border-accent px-3 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink disabled:opacity-40"
-            >
-              {kind === 'internal' ? 'add note' : 'send reply'}
-            </button>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  const picked = Array.from(event.target.files ?? [])
+                  setFiles((current) => [...current, ...picked].slice(0, 10))
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="border border-line px-2 py-1 text-xs uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+              >
+                attach
+              </button>
+              <button
+                type="submit"
+                disabled={sending || (!body.trim() && files.length === 0)}
+                className="border border-accent px-3 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink disabled:opacity-40"
+              >
+                {kind === 'internal' ? 'add note' : 'send reply'}
+              </button>
+            </div>
           </div>
         </form>
       </footer>

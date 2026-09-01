@@ -76,6 +76,18 @@ export const UpdateCreate = z.object({
 })
 export type UpdateCreate = z.infer<typeof UpdateCreate>
 
+// An update attachment as returned by the API (plan item 13, v1). Downloads
+// go to GET /api/attachments/:id with the caller's session cookie.
+export const AttachmentView = z.object({
+  id: z.string(),
+  updateId: z.string(),
+  filename: z.string().min(1).max(255),
+  size: z.number().int().nonnegative(),
+  mime: z.string().min(1).max(128),
+  createdAt: z.coerce.date(),
+})
+export type AttachmentView = z.infer<typeof AttachmentView>
+
 // --- Email outbound (§5b) -------------------------------------------------
 
 export const SmtpAuthConfig = z.object({

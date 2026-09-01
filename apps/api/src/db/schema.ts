@@ -181,6 +181,22 @@ export const updates = pgTable('updates', {
   createdAt: createdAt(),
 })
 
+// Attachments on updates (plan item 13, v1 — local disk, single-request
+// multipart; chunked/tus + S3 adapter are tracked as follow-ups). storage_key
+// is the on-disk sharding key and is always a server-generated id; the
+// client-supplied filename is display data only and never touches paths.
+export const attachments = pgTable('attachments', {
+  id: text('id').primaryKey(),
+  updateId: text('update_id')
+    .notNull()
+    .references(() => updates.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  size: integer('size').notNull(),
+  mime: text('mime').notNull(),
+  storageKey: text('storage_key').notNull().unique(),
+  createdAt: createdAt(),
+})
+
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),

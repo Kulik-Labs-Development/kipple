@@ -5,6 +5,7 @@ import { badRequest, requireUser } from './access'
 import { auth } from './auth'
 import { db } from './db'
 import { clients, contactClients, settings, users } from './db/schema'
+import { registerAttachmentRoutes } from './routes/attachments'
 import { normalizeBranding, registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerEmailRoutes } from './routes/email'
@@ -134,6 +135,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     return { theme: row?.theme ?? null, colorMode: row?.colorMode ?? 'system' }
   })
 
+  await registerAttachmentRoutes(app)
   await registerClientRoutes(app)
   await registerContactRoutes(app)
   await registerEmailRoutes(app)

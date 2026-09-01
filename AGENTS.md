@@ -91,10 +91,14 @@ opened/closed sparklines). Per-client portal branding is live (plan item
 themes only, validated at the API); the portal resolves
 user-pref > client branding > instance theme, the accent token and client
 logo apply to the portal only, and a superuser/admin `ClientManager`
-modal edits it. That completes the 12-item Phase 1 plan table; the
-remaining PLAN.md Phase 1 scope (attachments, hold states, staff client
-restriction, agent invites, client self-registration) is backlog, then
-Phase 2 (API + MCP + integrations).
+modal edits it. That completes the 12-item Phase 1 plan table.
+Attachments on updates are live at v1 (plan item 13): multipart uploads
+on `POST /api/tickets/:id/updates` (1–10 files, `ATTACHMENT_MAX_MB`
+per-file cap), local-disk storage on the `storage-data` volume, and
+client-scoped download/delete endpoints; chunked (tus) uploads and the
+S3 adapter are backlog (row 18). The remaining PLAN.md Phase 1 scope
+(hold states, staff client restriction, agent invites, client
+self-registration) is backlog, then Phase 2 (API + MCP + integrations).
 Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
@@ -202,8 +206,10 @@ Add or update tests for the code you change, even if nobody asked.
   (see PLAN.md §5b) — never direct SMTP calls outside `packages/mail`
   provider code. Providers: generic SMTP, Microsoft 365 OAuth2 (M365 has no
   basic-auth SMTP), Google Workspace.
-- Uploads are chunked (~5–10MB, tus-compatible) so they work behind
-  Cloudflare's 100MB free-tier cap and any proxy; no single-request uploads.
+- Uploads target chunked (~5–10MB, tus-compatible) transport so they
+  work behind Cloudflare's 100MB free-tier cap and any proxy (item 13 v1
+  ships single-request multipart with a per-file cap; tus/S3 = backlog
+  row 18).
 
 ## Security considerations
 

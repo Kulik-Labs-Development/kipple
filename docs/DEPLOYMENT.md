@@ -43,6 +43,8 @@ All configuration is via env vars — there is no config file to mount.
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | no | `kipple` / `kipple` / `kipple` | Change the password in production |
 | `DATABASE_URL` | no | `postgres://kipple:kipple@db:5432/kipple` | Point elsewhere only for an external Postgres |
 | `REDIS_URL` | no | `redis://redis:6379` | |
+| `STORAGE_DIR` | no | `/app/storage` | Where attachment files live inside the api container; backed by the `storage-data` named volume |
+| `ATTACHMENT_MAX_MB` | no | `25` | Per-file upload cap (MB) for attachments on ticket updates |
 
 ## First run
 
@@ -151,8 +153,9 @@ Set `TRUST_PROXY=true` and `PUBLIC_URL=https://help.example.com` either way.
 - **Upgrades**: bump `KIPPLE_TAG` (or let GitOps re-pull `latest`), re-deploy
   the stack. Migrations run on API boot; images are non-root and multi-stage.
 - **Backups**: `pg_dump` cron plus the `db-data` volume (or Portainer
-  snapshots on supported hosts). Redis holds only job queues — no durable
-  state.
+  snapshots on supported hosts) — and the `storage-data` volume, which
+  holds the ticket-update attachment files (they are not in the database).
+  Redis holds only job queues — no durable state.
 - **Logs**: pino → stdout; Portainer → stack → container → Logs.
 - **MCP server**: the `mcp` image is a stdio server (run it where the MCP
   client lives, e.g. `docker run -i --rm --network kipple_default ghcr.io/.../mcp`);
