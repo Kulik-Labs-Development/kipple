@@ -1,5 +1,5 @@
-# Kipple bundled proxy config (compose `proxy` profile).
-# The compose file inlines an equivalent copy in the caddy CADDYFILE env var
+# Kipple bundled proxy config (deploy/docker-compose.proxy.yml).
+# That file inlines an equivalent copy in the caddy CADDYFILE env var
 # (Portainer CE cannot resolve relative bind mounts); keep the two in sync.
 # For auto-HTTPS, replace :80 with your public host (e.g. help.example.com)
 # and point DNS at this host.

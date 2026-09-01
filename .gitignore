@@ -5,7 +5,7 @@ build/
 coverage/
 .env
 .env.*
-!.env.example
+!deploy/.env.example
 *.log
 .DS_Store
 .opencode/

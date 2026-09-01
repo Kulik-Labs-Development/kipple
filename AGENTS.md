@@ -116,7 +116,8 @@ kipple/
     ui/         Shared React components + design tokens
     mail/       Email parsing/threading helpers (imapflow, mailparser)
   docker/       Dockerfiles (api, worker, mcp)
-  infra/        docker-compose.yml, Caddyfile, Portainer template
+  deploy/       docker-compose.yml (BYO proxy), docker-compose.proxy.yml
+                (bundled Caddy), Caddyfile, .env.example
   docs/         PLAN.md, API reference, deployment guides
   .github/      CI (lint/typecheck/test) + image builds to GHCR
   logos/        Brand assets
@@ -131,7 +132,7 @@ pnpm install                 # install all workspace deps
 pnpm dev                     # run api + web + worker in dev (Docker for Postgres/Redis)
 pnpm --filter @kipple/api dev
 pnpm --filter @kipple/web dev
-docker compose up -d db redis mailpit   # dev data stores; Mailpit = local SMTP/IMAP
+docker compose -f deploy/docker-compose.yml up -d db redis mailpit   # dev data stores; Mailpit = local SMTP/IMAP
 ```
 
 ## Build / lint / test
@@ -206,7 +207,7 @@ Add or update tests for the code you change, even if nobody asked.
 
 ## Security considerations
 
-- Secrets only via environment variables (`.env`); `.env.example` documents every var.
+- Secrets only via environment variables (`.env`); `deploy/.env.example` documents every var.
 - Never commit secrets, fixtures with real PII, or API keys.
 - SMTP/IMAP and integration credentials are instance settings, stored encrypted at rest.
 - Webhook payloads are HMAC-signed; inbound webhooks verify signatures.
@@ -220,11 +221,14 @@ Add or update tests for the code you change, even if nobody asked.
 ## Deployment
 
 - Production target: Docker Compose stack managed through Portainer.
-  `infra/docker-compose.yml` must stay single-host, no external deps beyond
-  Postgres + Redis, all config via env vars, healthchecks on every service.
-- Reverse proxy is BYO-first: default compose exposes no public ports. A
-  `proxy` compose profile adds a bundled Caddy (auto-HTTPS) for hosts without
-  one. The app must work behind ANY proxy — no hard dependency.
+  `deploy/docker-compose.yml` and `deploy/docker-compose.proxy.yml` must stay
+  single-host, no external deps beyond Postgres + Redis, all config via env
+  vars, healthchecks on every service. Both are self-contained single files
+  (Portainer CE deploys one file per stack) — keep their core services in
+  sync.
+- Reverse proxy is BYO-first: the default compose exposes no public ports.
+  `deploy/docker-compose.proxy.yml` adds a bundled Caddy (auto-HTTPS) for
+  hosts without one. The app must work behind ANY proxy — no hard dependency.
 - The API container also serves the built SPA: one entry point. `PUBLIC_URL`
   is the only source of the public address (email links, OIDC/SAML redirects,
   webhooks, MCP); proxy headers are honored only when `TRUST_PROXY` is set.

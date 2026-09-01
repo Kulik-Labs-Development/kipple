@@ -23,9 +23,10 @@ after those, Phase 2 (API + MCP + integrations) is next.
 - Monorepo (pnpm + Turborepo); CI (lint/typecheck/test + dependency audit) +
   GHCR image builds on push
   (`ghcr.io/kulik-labs-development/kipple/{api,worker,mcp}`, public → anonymous pull);
-  `infra/docker-compose.yml` deploys via CLI or as a Portainer CE/BE stack
-  (needs `AUTH_SECRET` + `PUBLIC_URL`; optional `KIPPLE_TAG`, `TRUST_PROXY`,
-  `COMPOSE_PROFILES=proxy|dev`) — full guide in `docs/DEPLOYMENT.md`
+   `deploy/docker-compose.yml` (BYO proxy) / `deploy/docker-compose.proxy.yml`
+   (bundled Caddy) deploy via CLI or as a Portainer CE/BE stack (needs
+   `AUTH_SECRET` + `PUBLIC_URL`; optional `KIPPLE_TAG`, `TRUST_PROXY`,
+   `COMPOSE_PROFILES=dev`) — full guide in `docs/DEPLOYMENT.md`
 - Postgres schema (Drizzle, migrations auto-run on api boot): users, sessions,
   accounts, verification, twoFactor, clients, contacts, contact_clients, tickets,
   updates, settings, email_outbox, email_messages, time_entries, sla_policies,
@@ -217,6 +218,17 @@ after those, Phase 2 (API + MCP + integrations) is next.
 
 ## Recent sessions
 
+- **2026-09-01 (deploy folder + no-proxy compose)** — Renamed `infra/` →
+  `deploy/` and moved `.env.example` into it (everything deployment-related
+  in one folder; a Portainer user grabs one folder). Split the reverse proxy
+  out of a compose profile into a second self-contained file:
+  `deploy/docker-compose.yml` (Mode A — BYO proxy, no proxy container, no
+  published ports) and `deploy/docker-compose.proxy.yml` (Mode B — same core
+  + bundled Caddy with auto-HTTPS, Caddyfile inlined in the `CADDYFILE` env
+  var since Portainer CE cannot resolve relative bind mounts). Self-contained
+  on purpose: Portainer CE deploys a single file per stack, so keep the core
+  services in sync across both files (noted in both file headers + AGENTS.md).
+  The only remaining compose profile is `dev` (mailpit/adminer).
 - **2026-08-31 (item 12 — per-client portal branding, done)** — Last of
   the 12-item Phase 1 plan table. `clients.branding` (existing jsonb
   column) is now `{ themeId?, accent?, logoUrl? }` via a new

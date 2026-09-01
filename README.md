@@ -76,11 +76,11 @@ Production-style, on a single host (Postgres + Redis are the only external
 services):
 
 ```sh
-git clone <repo> && cd kipple
-cp .env.example .env            # set PUBLIC_URL + mail creds
-docker compose -f infra/docker-compose.yml up -d
-# point any reverse proxy at api:3000 — or use the bundled Caddy:
-docker compose -f infra/docker-compose.yml --profile proxy up -d
+git clone <repo> && cd kipple/deploy
+cp .env.example .env            # set AUTH_SECRET + PUBLIC_URL
+docker compose up -d            # BYO proxy — point yours at api:3000
+# or, on a host without a reverse proxy (bundled Caddy, auto-HTTPS):
+docker compose -f docker-compose.proxy.yml up -d
 ```
 
 First visit runs the setup wizard (instance name → owner account).
@@ -90,7 +90,7 @@ Development:
 
 ```sh
 pnpm install
-docker compose -f infra/docker-compose.yml up -d db redis mailpit
+docker compose -f deploy/docker-compose.yml up -d db redis mailpit
 pnpm dev                        # api + web + worker
 ```
 

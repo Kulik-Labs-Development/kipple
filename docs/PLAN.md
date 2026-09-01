@@ -46,7 +46,7 @@ to their own client's data — that is the only isolation boundary in the system
 ### Phase 0 — Foundations (week 1–2)
 - pnpm + Turborepo monorepo scaffold (apps: api, web, worker, mcp; packages: shared, ui, mail)
 - Fastify + Drizzle + Postgres 16 + Redis; pino logging; ESLint/Prettier/Vitest
-- Docker: multi-stage Dockerfiles, `infra/docker-compose.yml` (db, redis, api, web, worker, mailpit, adminer for dev)
+- Docker: multi-stage Dockerfiles, `deploy/docker-compose.yml` + `deploy/docker-compose.proxy.yml` (db, redis, api serving the built SPA, worker, mailpit/adminer for dev)
 - CI (GitHub Actions): lint, typecheck, test, build images
 - Auth (better-auth): email+password, TOTP MFA, sessions
 - **First-run setup screen:** empty instance -> setup wizard (instance name,
@@ -582,24 +582,29 @@ The app is proxy-agnostic by contract:
   `TRUST_PROXY` is set (default: trust the compose network); cookie Secure
   flag follows the forwarded proto, so TLS termination can live anywhere
 
-Two deploy modes, same app code (Docker Compose profiles):
+Two deploy modes, same app code (two self-contained compose files, so a
+single file always suffices — Portainer CE deploys one file per stack):
 
-- **Mode A — BYO proxy (default):** compose exposes no public ports. Docs
-  ship copy-paste configs for Caddy, Traefik, and nginx plus a generic
-  "point your proxy at `api:3000`" recipe
-- **Mode B — bundled proxy:** `--profile proxy` adds a Caddy container with
-  automatic HTTPS (Let's Encrypt, HTTP-01 or DNS-01) in front of the app —
-  one-command deploy for hosts without a proxy. Traefik-based hosts can swap
-  the profile for a documented Traefik variant; nothing app-side changes
+- **Mode A — BYO proxy (default):** `deploy/docker-compose.yml` exposes no
+  public ports. Docs ship copy-paste configs for Caddy, Traefik, and nginx
+  plus a generic "point your proxy at `api:3000`" recipe
+- **Mode B — bundled proxy:** `deploy/docker-compose.proxy.yml` adds a Caddy
+  container with automatic HTTPS (Let's Encrypt, HTTP-01 or DNS-01) in front
+  of the app — one-command deploy for hosts without a proxy. Traefik-based
+  hosts stay on Mode A with the documented label recipe; nothing app-side
+  changes
 
 ### Compose layout
 
 - Services: db (Postgres 16), redis (7), api (SPA + API), worker
-  (+ caddy with `proxy` profile; + mailpit/adminer with `dev` profile)
-- All config via `.env` (documented in `.env.example`); named volumes for
-  db + attachment storage; healthchecks; restart policies; non-root images
-- Portainer: import as a stack (env-var form template), optional Portainer
-  template JSON for one-click create; both proxy modes importable
+  (+ caddy in `docker-compose.proxy.yml`; + mailpit/adminer with `dev`
+  profile in both files)
+- All config via `.env` (documented in `deploy/.env.example`); named volumes
+  for db + attachment storage; healthchecks; restart policies; non-root
+  images
+- Portainer: import either file as a stack (web editor / upload / Git repo);
+  a custom stack template from the Git repo gives one-click create per
+  instance; both proxy modes importable
 - Migrations auto-run on api boot; backup = `pg_dump` cron + volume snapshot
 - Later: Helm chart for k8s users (out of scope for v1)
 

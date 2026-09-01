@@ -1,0 +1,137 @@
+# Kipple — single-host stack, Mode B: bundled Caddy reverse proxy.
+#
+# For hosts WITHOUT their own reverse proxy: same core as docker-compose.yml
+# plus a Caddy container with automatic HTTPS (Let's Encrypt). Set
+# TRUST_PROXY=true and, once DNS points at this host, replace :80 in the
+# CADDYFILE value with your domain (e.g. help.example.com).
+#
+# Keep the core services (db, redis, api, worker, dev profile) in sync with
+# docker-compose.yml — this file is self-contained on purpose because
+# Portainer CE accepts a single compose file per stack.
+#
+# Portainer compatibility notes: no bind mounts (relative-path mounts are a
+# Business Edition feature), no healthcheck.start_interval, profiles only via
+# the COMPOSE_PROFILES stack env var (one value or *; comma lists are a known
+# Portainer bug, portainer/portainer#13033). depends_on service_healthy
+# conditions are honored.
+#
+# Env vars (Portainer: the "Environment variables" step, or upload a .env):
+#   AUTH_SECRET        required — openssl rand -base64 32
+#   PUBLIC_URL         e.g. https://help.example.com (no trailing slash)
+#   TRUST_PROXY        true (Caddy rewrites X-Forwarded-*)
+#   KIPPLE_TAG         image tag (default: latest — pin vX.Y.Z in production)
+#   COMPOSE_PROFILES   dev = mailpit + adminer (local email capture + DB browser)
+
+name: kipple
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kipple}
+      POSTGRES_USER: ${POSTGRES_USER:-kipple}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kipple}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/kulik-labs-development/kipple/api:${KIPPLE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required (openssl rand -base64 32)}
+      DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      PORT: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    image: ghcr.io/kulik-labs-development/kipple/worker:${KIPPLE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Process liveness only: the worker has no HTTP endpoint yet. Replace with
+    # a real health check when the email pipeline adds one.
+    healthcheck:
+      test: ["CMD-SHELL", "ps -o comm= -p 1 | grep -q node"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Bundled reverse proxy with automatic HTTPS. The Caddyfile is inlined in
+  # CADDYFILE (written at container start) so this file has no bind mounts —
+  # Portainer CE cannot resolve relative paths in uploaded stacks. deploy/
+  # Caddyfile holds the same config for reference; keep the two in sync.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    entrypoint: ["sh", "-c", "printf '%s' \"$CADDYFILE\" > /etc/caddy/Caddyfile && exec caddy run"]
+    environment:
+      CADDYFILE: |
+        :80 {
+          reverse_proxy api:3000
+        }
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Dev helpers (local email capture + DB browser). Enable with
+  # `--profile dev` (CLI) or COMPOSE_PROFILES=dev (Portainer stack env var).
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    profiles: ["dev"]
+    environment:
+      MP_SMTP_AUTH: any
+
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    profiles: ["dev"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

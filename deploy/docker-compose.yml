@@ -1,24 +1,32 @@
-# Kipple — single-host production stack (Docker Compose / Portainer).
+# Kipple — single-host stack, Mode A: bring your own reverse proxy.
+#
+# This is the default deploy: no proxy container and no published ports —
+# point your existing Caddy/Traefik/nginx at api:3000 via the stack network
+# (kipple_default). Hosts without a reverse proxy should deploy
+# docker-compose.proxy.yml instead (same core + bundled Caddy, auto-HTTPS).
+#
+# Both files are self-contained on purpose: Portainer CE accepts a single
+# compose file per stack (web editor / upload), so keep the core services
+# in sync across the two files.
 #
 # Deploys with the docker compose CLI and as a Portainer stack (CE and BE):
 #   Portainer -> Stacks -> Add stack -> Web editor / Upload / Git repository
 #
 # Portainer compatibility notes:
 # - No bind mounts: relative-path mounts are a Business Edition feature and
-#   break CE uploads, so the Caddyfile is inlined in the CADDYFILE env var.
-# - Profiles activate via the COMPOSE_PROFILES stack env var (Portainer) or
-#   --profile (CLI). Set one value or * — comma lists are a known Portainer
-#   bug (portainer/portainer#13033).
+#   break CE uploads.
 # - No healthcheck.start_interval (not supported by Portainer's deployer).
 # - depends_on conditions (service_healthy) are supported by Portainer local
 #   stacks, so startup ordering works the same as with the CLI.
+# - The dev profile (mailpit/adminer) activates via the COMPOSE_PROFILES
+#   stack env var (Portainer) or --profile dev (CLI).
 #
 # Env vars (Portainer: the "Environment variables" step, or upload a .env):
 #   AUTH_SECRET        required — openssl rand -base64 32
 #   PUBLIC_URL         e.g. https://help.example.com (no trailing slash)
 #   KIPPLE_TAG         image tag (default: latest — pin vX.Y.Z in production)
-#   TRUST_PROXY        true when a reverse proxy sets X-Forwarded-* (Mode B: true)
-#   COMPOSE_PROFILES   proxy = bundled Caddy with auto-HTTPS; dev = mailpit+adminer
+#   TRUST_PROXY        true when a reverse proxy sets X-Forwarded-*
+#   COMPOSE_PROFILES   dev = mailpit + adminer (local email capture + DB browser)
 
 name: kipple
 
@@ -88,33 +96,8 @@ services:
       timeout: 5s
       retries: 3
 
-  # Mode B — bundled reverse proxy with automatic HTTPS. Enable with
-  # `--profile proxy` (CLI) or COMPOSE_PROFILES=proxy (Portainer stack env var)
-  # and set TRUST_PROXY=true. To serve a real domain, edit the CADDYFILE value
-  # below (e.g. replace :80 with help.example.com) and point DNS at this host.
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    profiles: ["proxy"]
-    entrypoint: ["sh", "-c", "printf '%s' \"$CADDYFILE\" > /etc/caddy/Caddyfile && exec caddy run"]
-    environment:
-      CADDYFILE: |
-        :80 {
-          reverse_proxy api:3000
-        }
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      api:
-        condition: service_healthy
-
   # Dev helpers (local email capture + DB browser). Enable with
-  # `--profile dev` (CLI) or COMPOSE_PROFILES=dev (Portainer).
+  # `--profile dev` (CLI) or COMPOSE_PROFILES=dev (Portainer stack env var).
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
@@ -132,5 +115,3 @@ services:
 
 volumes:
   db-data:
-  caddy-data:
-  caddy-config:
