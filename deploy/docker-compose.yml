@@ -1,9 +1,11 @@
-# Kipple — single-host stack, Mode A: bring your own reverse proxy.
+# Kipple — single-host stack, Mode A: direct on the host.
 #
-# This is the default deploy: no proxy container and no published ports —
-# point your existing Caddy/Traefik/nginx at api:3000 via the stack network
-# (kipple_default). Hosts without a reverse proxy should deploy
-# docker-compose.proxy.yml instead (same core + bundled Caddy, auto-HTTPS).
+# This is the default deploy: the API is published on the host
+# (API_PORT, default 3000) so the stack is reachable immediately after
+# `docker compose up -d` — the first visit runs the setup wizard. Hosts
+# with an existing Caddy/Traefik/nginx can still point it at api:3000 via
+# the stack network (kipple_default), or deploy docker-compose.proxy.yml
+# instead (same core + bundled Caddy, auto-HTTPS).
 #
 # Both files are self-contained on purpose: Portainer CE accepts a single
 # compose file per stack (web editor / upload), so keep the core services
@@ -65,6 +67,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:-postgres://kipple:kipple@db:5432/kipple}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       PORT: "3000"
+    ports:
+      # Mode A is reachable out of the box; behind a proxy this is harmless
+      # (or set API_PORT to something out of the way).
+      - "${API_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -90,8 +96,11 @@ services:
         condition: service_healthy
     # Process liveness only: the worker has no HTTP endpoint yet. Replace with
     # a real health check when the email pipeline adds one.
+    # /proc/1/comm instead of `ps -o comm= -p 1`: the image is node:alpine
+    # (BusyBox), whose ps does not support -p — the old check failed every
+    # interval and the worker read permanently unhealthy.
     healthcheck:
-      test: ["CMD-SHELL", "ps -o comm= -p 1 | grep -q node"]
+      test: ["CMD-SHELL", "grep -q node /proc/1/comm"]
       interval: 30s
       timeout: 5s
       retries: 3
