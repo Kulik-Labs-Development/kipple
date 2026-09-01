@@ -229,6 +229,24 @@ after those, Phase 2 (API + MCP + integrations) is next.
   on purpose: Portainer CE deploys a single file per stack, so keep the core
   services in sync across both files (noted in both file headers + AGENTS.md).
   The only remaining compose profile is `dev` (mailpit/adminer).
+- **2026-09-01 (docs accuracy pass, no code changes)** — Reviewed the
+  item-12 code against the docs: `normalizeBranding`/
+  `brandingValidationError` in `apps/api/src/routes/clients.ts`,
+  `ClientBranding` + `portalThemes()` in `packages/shared/src/themes.ts`,
+  and `resolveThemeChoice` precedence in `apps/web/src/lib/theme.ts` all
+  match what STATUS/AGENTS/README claim. Verified claims against code:
+  `apps/mcp` is still a 54-line scaffold, there is no OpenAPI/Swagger
+  layer yet, and no `api_keys`/`webhooks` tables — so the README's
+  "What it does" table overclaimed. Trimmed it to mark M365/Google mail
+  providers, OpenAPI 3.1 + webhooks + scoped API keys, the MCP server,
+  CSV/Invoice Ninja time export, SSO, chat-channel notification streams,
+  and all integrations as Phase 2/3 (and dropped "command palette", which
+  is not built). Roadmap row now says backlog (not "finishing") for the
+  remaining Phase 1 scope. Also since the last bullet: README header
+  switched to the new white wordmark with baked-in drop shadow
+  (`logos/logo-wordmark-white-shadow.png`, `d6c64b0`) so it reads on
+  GitHub's light background, and local `.opencode/` agent config is
+  gitignored (`50b3510`).
 - **2026-08-31 (item 12 — per-client portal branding, done)** — Last of
   the 12-item Phase 1 plan table. `clients.branding` (existing jsonb
   column) is now `{ themeId?, accent?, logoUrl? }` via a new

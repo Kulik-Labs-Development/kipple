@@ -40,15 +40,15 @@ settled. See §12 of the plan.)
 
 | | |
 |---|---|
-| **Email-native ticketing** | One support mailbox, plus-addressed ticket aliases (`support+1042@you.com`), IMAP IDLE ingest, smart thread matching, outbound providers for SMTP / Microsoft 365 OAuth2 / Google Workspace. No subdomains, no catch-alls, works as-is on M365 and Google. |
-| **API-first** | OpenAPI 3.1 REST API generated from the same Zod schemas that validate requests — docs, validation, and MCP tools can never drift. HMAC-signed webhooks, scoped API keys. |
-| **MCP server** | Your help desk that AI agents can operate: search, read, reply, track time — over stdio or HTTP. Read-only by default; writes are an explicit opt-in. |
-| **White-label everything** | Themes are pure token swaps, per-client branding overrides, your logo on the portal and in every email. The agent app defaults to the "Console" theme: dark, monospace, command palette, LED status lights. |
-| **Time tracking** | Start/stop timers per ticket, billable flags, per client/agent rollups, CSV export, and a draft-invoice pipeline into Invoice Ninja. |
+| **Email-native ticketing** | One support mailbox, plus-addressed ticket aliases (`support+1042@you.com`), IMAP IDLE ingest, smart thread matching, SMTP outbound (Microsoft 365 OAuth2 + Google Workspace providers in Phase 2). No subdomains, no catch-alls, works as-is on M365 and Google. |
+| **API-first** | REST API generated from the same Zod schemas that validate requests — docs, validation, and MCP tools can never drift (OpenAPI 3.1 spec, HMAC-signed webhooks, and scoped API keys land in Phase 2). |
+| **MCP server** *(Phase 2)* | Your help desk that AI agents can operate: search, read, reply, track time — over stdio or HTTP. Read-only by default; writes are an explicit opt-in. |
+| **White-label everything** | Themes are pure token swaps, per-client branding overrides (theme, accent, logo), your logo on the portal. The agent app defaults to the "Console" theme: dark, monospace, keyboard-first, LED status lights. |
+| **Time tracking** | Start/stop timers per ticket, billable flags, per client/agent rollups (CSV export + Invoice Ninja draft invoices in Phase 2/3). |
 | **SLAs you can switch on** | Named policies, business-hours aware, per-ticket → per-client → instance-default precedence, escalation-ready. Off until you need it. |
-| **Auth that doesn't hurt** | Passwordless magic links for clients (no passwords to track), TOTP MFA for staff, OIDC + SAML SSO with one-screen presets (Entra, Google, Okta, Zoho, OneLogin, Duo, Huntress, Keycloak) and a people-mapping wizard that never re-points a user id. |
-| **Notification streams** | One event pipeline, many channels: in-app, email, Slack / Teams / Discord / Mattermost / webhooks, web push — with per-stream filters, quiet hours, and digests. |
-| **Integrations** | UniFi Talk contact sync, BookStack as your KB ("summarize & log" from a ticket), Tactical RMM deep links, monitoring alerts → tickets. |
+| **Auth that doesn't hurt** | Passwordless magic links for clients (no passwords to track), TOTP MFA for staff, and OIDC + SAML SSO with one-screen presets (Entra, Google, Okta, Zoho, OneLogin, Duo, Huntress, Keycloak) + a people-mapping wizard that never re-points a user id (Phase 3). |
+| **Notification streams** | One event pipeline, many channels: in-app + email live, Slack / Teams / Discord / Mattermost / web push in Phase 3 — with per-stream filters, quiet hours, and digests. |
+| **Integrations** *(Phase 2/3)* | UniFi Talk contact sync, BookStack as your KB ("summarize & log" from a ticket), Tactical RMM deep links, monitoring alerts → tickets. |
 
 ## How the email story works
 
@@ -126,7 +126,7 @@ it doesn't belong.
 | Phase | What lands | Status |
 |---|---|---|
 | **0 — Foundations** | Monorepo, CI/CD + GHCR images, schema + auth (MFA, setup wizard, RBAC), setup/login/workspace screens | **done** |
-| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine | **core complete** (12/12; finishing: attachments, holds, invites) |
+| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine | **core complete** (12/12; backlog: attachments, holds, staff scoping, invites, self-registration) |
 | **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | planned |
 | **3 — Power features** | Assets, reports, SSO (OIDC/SAML), notification streams, CSAT, osTickets importer | planned |
 | **4 — Productization** | License decision, docs site, demo instance, Helm — deliberately last | deferred |
