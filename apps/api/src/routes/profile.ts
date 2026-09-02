@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import type { FastifyInstance } from 'fastify'
-import { badRequest, notFound, requireRole, requireUser } from '../access'
+import { notFound, requireRole, requireUser } from '../access'
 import { logAudit } from '../audit'
 import { db } from '../db'
 import { users } from '../db/schema'
@@ -87,14 +87,14 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
     if (typeof body.name === 'string') {
       const name = body.name.trim()
       if (!name || name.length > 120) {
-        return reply.code(400).send(badRequest('name must be 1-120 characters'))
+        return reply.code(400).send({ error: 'bad_request', message: 'name must be 1-120 characters' })
       }
       patch.name = name
     }
     if (typeof body.email === 'string') {
       const email = body.email.trim().toLowerCase()
       if (!email || !email.includes('@') || email.length > 255) {
-        return reply.code(400).send(badRequest('email is invalid'))
+        return reply.code(400).send({ error: 'bad_request', message: 'email is invalid' })
       }
       const [taken] = await db
         .select({ id: users.id })
@@ -113,13 +113,13 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
         const trimmed = value.trim()
         const max = field === 'phone' ? 50 : 300
         if (trimmed.length > max) {
-          return reply.code(400).send(badRequest(`${field} is too long (max ${max})`))
+          return reply.code(400).send({ error: 'bad_request', message: `${field} is too long (max ${max})` })
         }
         patch[field] = trimmed
       }
     }
     if (Object.keys(patch).length === 0) {
-      return reply.code(400).send(badRequest('provide at least one field'))
+      return reply.code(400).send({ error: 'bad_request', message: 'provide at least one field' })
     }
     await db.update(users).set(patch).where(eq(users.id, session.user.id))
     await logAudit(session.user.id, 'profile.update', 'user', session.user.id, {
@@ -132,7 +132,7 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
     const session = await requireUser(request, reply)
     if (!session) return null
     if (!request.isMultipart()) {
-      return reply.code(415).send(badRequest('expected a multipart image file'))
+      return reply.code(415).send({ error: 'bad_request', message: 'expected a multipart image file' })
     }
     const storageKey = avatarKey(session.user.id)
     try {
@@ -145,7 +145,7 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
           part.file.destroy()
           return reply
             .code(415)
-            .send(badRequest('the avatar must be a png, jpeg, webp, or gif image'))
+            .send({ error: 'bad_request', message: 'the avatar must be a png, jpeg, webp, or gif image' })
         }
         await writeAttachmentFile(storageKey, part.file, maxAvatarBytes())
         break
