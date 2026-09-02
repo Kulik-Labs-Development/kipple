@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { portalThemes, type ClientBranding, type ThemeId } from '@kipple/shared/themes'
 import { api, type ClientSummary } from '../lib/api'
 
@@ -32,12 +32,20 @@ export function ClientManager({
   const [accent, setAccent] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [logoBroken, setLogoBroken] = useState(false)
+  const [logoKey, setLogoKey] = useState<string | null>(null)
+  const [logoUploadBusy, setLogoUploadBusy] = useState(false)
+  const logoFileRef = useRef<HTMLInputElement>(null)
   const [newName, setNewName] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const selected = clients.find((client) => client.id === selectedId) ?? null
+  const previewLogo = logoUrl.trim()
+    ? logoUrl.trim()
+    : selectedId && logoKey
+      ? `/api/clients/${selectedId}/logo`
+      : null
 
   const refresh = useCallback(async () => {
     setClients(await api.listClients())
@@ -53,7 +61,9 @@ export function ClientManager({
     const client = clients.find((row) => row.id === selectedId)
     setTheme(client?.branding?.themeId ?? 'default')
     setAccent(client?.branding?.accent ?? '')
-    setLogoUrl(client?.branding?.logoUrl ?? '')
+    const savedLogo = client?.branding?.logoUrl ?? ''
+    setLogoUrl(/^https?:\/\//i.test(savedLogo) ? savedLogo : '')
+    setLogoKey(savedLogo && !/^https?:\/\//i.test(savedLogo) ? savedLogo : null)
     setLogoBroken(false)
   }, [selectedId])
 
@@ -62,6 +72,7 @@ export function ClientManager({
     if (theme !== 'default') out.themeId = theme as ThemeId
     if (accent.trim()) out.accent = accent.trim()
     if (logoUrl.trim()) out.logoUrl = logoUrl.trim()
+    else if (logoKey) out.logoUrl = logoKey
     return Object.keys(out).length > 0 ? out : null
   }
 
@@ -86,6 +97,43 @@ export function ClientManager({
   function clearBranding() {
     if (!selectedId) return
     void run(() => api.updateClient(selectedId, { branding: null }), 'clearing branding failed')
+  }
+
+  async function uploadLogo() {
+    if (!selectedId || !logoFileRef.current?.files?.[0]) return
+    const file = logoFileRef.current.files[0]
+    if (logoFileRef.current) logoFileRef.current.value = ''
+    setError(null)
+    setLogoUploadBusy(true)
+    try {
+      const res = await api.uploadClientLogo(selectedId, file)
+      setLogoKey(res.logoUrl)
+      setLogoUrl('')
+      setLogoBroken(false)
+      onSaved()
+      void refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'logo upload failed')
+    } finally {
+      setLogoUploadBusy(false)
+    }
+  }
+
+  async function deleteLogo() {
+    if (!selectedId || !logoKey) return
+    setError(null)
+    setLogoUploadBusy(true)
+    try {
+      await api.deleteClientLogo(selectedId)
+      setLogoKey(null)
+      setLogoBroken(false)
+      onSaved()
+      void refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'logo removal failed')
+    } finally {
+      setLogoUploadBusy(false)
+    }
   }
 
   function createClient() {
@@ -231,20 +279,45 @@ export function ClientManager({
                     setLogoUrl(event.target.value)
                     setLogoBroken(false)
                   }}
-                  placeholder="https://…/logo.png (empty = none)"
+                  placeholder="https://…/logo.png (external URL, optional)"
                   className={`${inputClass} w-72`}
                 />
-                {logoUrl.trim() &&
+                {previewLogo &&
                   (logoBroken ? (
                     <span className="text-xs text-danger">image failed to load</span>
                   ) : (
                     <img
-                      src={logoUrl.trim()}
+                      src={previewLogo}
                       alt="logo preview"
                       onError={() => setLogoBroken(true)}
                       className="h-8 max-w-40 border border-line bg-panel object-contain"
                     />
                   ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-24 text-xs text-dim">logo file</span>
+                <input
+                  ref={logoFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                />
+                <button
+                  onClick={uploadLogo}
+                  disabled={logoUploadBusy || saving}
+                  className={buttonClass}
+                >
+                  upload logo
+                </button>
+                {logoKey && (
+                  <button
+                    onClick={deleteLogo}
+                    disabled={logoUploadBusy || saving}
+                    className={dimButtonClass}
+                  >
+                    remove logo
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2 pt-1">
                 <button onClick={saveBranding} disabled={saving} className={buttonClass}>
