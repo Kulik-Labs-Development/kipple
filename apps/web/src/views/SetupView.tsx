@@ -46,14 +46,14 @@ export function SetupView({ onDone }: { onDone: () => void }) {
           label="instance name"
           value={form.instanceName}
           onChange={update('instanceName')}
-          placeholder="Acme MSP Help Desk"
+          placeholder="Acme Help Desk"
           required
         />
         <Field
           label="your name"
           value={form.ownerName}
           onChange={update('ownerName')}
-          placeholder="Max Kulik"
+          placeholder="Your Name"
           required
         />
         <Field

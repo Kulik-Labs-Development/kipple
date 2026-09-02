@@ -12,6 +12,10 @@ type Mode = 'loading' | 'setup' | 'login' | 'app'
 export default function App() {
   const [mode, setMode] = useState<Mode>('loading')
   const [user, setUser] = useState<MeUser | null>(null)
+  const [preferences, setPreferences] = useState<{
+    theme: string | null
+    colorMode: string
+  } | null>(null)
   const [primaryClient, setPrimaryClient] = useState<{
     id: string
     name: string
@@ -36,6 +40,7 @@ export default function App() {
       }
       setUser(me.user)
       setPrimaryClient(me.primaryClient)
+      setPreferences(me.preferences)
       setMode('app')
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -54,6 +59,7 @@ export default function App() {
   const signedOut = () => {
     setUser(null)
     setPrimaryClient(null)
+    setPreferences(null)
     setMode('login')
   }
 
@@ -73,5 +79,11 @@ export default function App() {
     return <PortalView user={user} primaryClient={primaryClient} onSignedOut={signedOut} />
   }
 
-  return <WorkspaceView user={user} onSignedOut={signedOut} />
+  return (
+    <WorkspaceView
+      user={user}
+      preferences={preferences ?? { theme: null, colorMode: 'system' }}
+      onSignedOut={signedOut}
+    />
+  )
 }

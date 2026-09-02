@@ -263,6 +263,17 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## Recent sessions
 
+- **2026-09-02 (workspace polish — batch A of the UI triage)** — Five small items from
+  the 09-02 #kipple-work UI list (each re-verified against code before building): staff
+  presence now resets to **online on every sign-in** (better-auth session-create hook;
+  the self-service picker stays the override; contacts are portal users and are left
+  untouched), a **theme picker in the workspace topbar** (agent-surface themes +
+  "default" = company fallback, wired to the existing /api/preferences seam), **generic
+  setup-wizard placeholders** (no real names, no MSP wording), the **SLA button now
+  superuser-only** (it was visible-but-dead for other staff), and a **pulsing colored
+  presence dot** next to the presence select (CSS-only, no assets).
+
+
 - **2026-09-02 (iconography — Phosphor, light weight — issue #7)** — Web icon pass on
   the locked spec: @phosphor-icons/web v2.1.2 (MIT; a ligature-font system — per-weight
   CSS, Vite bundles the woff2 so the app stays self-hosted, no CDN) + a thin
