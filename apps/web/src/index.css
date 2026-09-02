@@ -198,3 +198,21 @@ body {
   transform-origin: 50% 0;
 }
 
+
+
+/* Presence dot (UI triage 09-02 item 14) — a slow pulse so the status
+   stands out. The color comes from the PRESENCE_DOT map in WorkspaceView. */
+@keyframes presence-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.presence-dot {
+  animation: presence-pulse 2.4s ease-in-out infinite;
+}
+

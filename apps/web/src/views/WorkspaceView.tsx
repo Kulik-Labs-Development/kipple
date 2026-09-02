@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { agentThemes, type ThemeId } from '@kipple/shared/themes'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { NotificationBell } from '../components/NotificationBell'
@@ -19,6 +20,7 @@ import {
   type TicketRow,
   type TimeEntryRow,
 } from '../lib/api'
+import { applyTheme, resolveThemeChoice } from '../lib/theme'
 import {
   dailySeries,
   formatClock,
@@ -29,6 +31,13 @@ import {
 
 const PRESENCE_VALUES = ['online', 'away', 'busy', 'offline'] as const
 
+const PRESENCE_DOT: Record<string, string> = {
+  online: 'bg-ok',
+  away: 'bg-warn',
+  busy: 'bg-danger',
+  offline: 'bg-dim',
+}
+
 const POLL_MS = 30_000
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -37,9 +46,11 @@ function errorMessage(error: unknown, fallback: string): string {
 
 export function WorkspaceView({
   user,
+  preferences,
   onSignedOut,
 }: {
   user: MeUser
+  preferences: { theme: string | null; colorMode: string }
   onSignedOut: () => void
 }) {
   const isStaff = user.role !== 'contact'
@@ -61,6 +72,7 @@ export function WorkspaceView({
   const [showAutomation, setShowAutomation] = useState(false)
   const [showClients, setShowClients] = useState(false)
   const [presence, setPresence] = useState(user.presence)
+  const [theme, setTheme] = useState(preferences.theme ?? 'default')
   const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -258,6 +270,19 @@ export function WorkspaceView({
     }
   }
 
+  async function changeTheme(value: string) {
+    setTheme(value)
+    try {
+      await api.patchPreferences({ theme: value === 'default' ? null : (value as ThemeId) })
+      const me = await api.me()
+      applyTheme(
+        resolveThemeChoice(me.preferences, me.instanceTheme, me.user.role, me.primaryClient?.branding ?? null),
+      )
+    } catch (err) {
+      setError(errorMessage(err, 'failed to update theme'))
+    }
+  }
+
   async function selectTicket(id: string) {
     setError(null)
     setSelectedId(id)
@@ -331,14 +356,10 @@ export function WorkspaceView({
           {isStaff && (
             <NotificationBell onOpenTicket={selectTicket} />
           )}
-          {isStaff && (
+          {isStaff && user.role === 'superuser' && (
             <button
-              onClick={
-                user.role === 'superuser' ? () => setShowSlaManager(true) : undefined
-              }
-              title={
-                user.role === 'superuser' ? 'SLA settings (superuser)' : 'SLA status'
-              }
+              onClick={() => setShowSlaManager(true)}
+              title="SLA settings (superuser)"
               className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
                 slaConfig?.enabled ? 'border-ok text-ok' : 'border-line text-dim'
               }`}
@@ -404,15 +425,34 @@ export function WorkspaceView({
             <span className="text-dim">·</span>{' '}
             <span className="uppercase text-dim">{user.role}</span>
           </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className={`presence-dot h-2 w-2 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
+              title={`presence: ${presence}`}
+            />
+            <select
+              value={presence}
+              onChange={(event) => void changePresence(event.target.value)}
+              title="presence"
+              className="border border-line bg-panel px-1 py-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
+            >
+              {PRESENCE_VALUES.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </span>
           <select
-            value={presence}
-            onChange={(event) => void changePresence(event.target.value)}
-            title="presence"
+            value={theme}
+            onChange={(event) => void changeTheme(event.target.value)}
+            title="theme (default = company setting)"
             className="border border-line bg-panel px-1 py-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
           >
-            {PRESENCE_VALUES.map((value) => (
-              <option key={value} value={value}>
-                {value}
+            <option value="default">default</option>
+            {agentThemes().map((meta) => (
+              <option key={meta.id} value={meta.id}>
+                {meta.label}
               </option>
             ))}
           </select>

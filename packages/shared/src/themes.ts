@@ -63,6 +63,10 @@ export function portalThemes(): ThemeMeta[] {
   return THEMES.filter((theme) => theme.surfaces.includes('portal'))
 }
 
+export function agentThemes(): ThemeMeta[] {
+  return THEMES.filter((theme) => theme.surfaces.includes('agent'))
+}
+
 export function isPortalTheme(id: ThemeId): boolean {
   return THEMES.some((theme) => theme.id === id && theme.surfaces.includes('portal'))
 }

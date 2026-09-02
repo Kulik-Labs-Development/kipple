@@ -120,3 +120,76 @@ describe('user list', () => {
     expect(res.statusCode).toBe(403)
   })
 })
+
+
+describe('presence resets to online on sign-in (staff only)', () => {
+  let app: App
+
+  beforeAll(async () => {
+    await runMigrations()
+    await db.delete(updates)
+    await db.delete(tickets)
+    await db.delete(contactClients)
+    await db.delete(contacts)
+    await db.delete(clients)
+    await db.delete(audit)
+    await db.delete(users)
+    await db.delete(settings)
+    app = await buildApp()
+    const setup = await app.inject({ method: 'POST', url: '/api/setup', payload: owner })
+    expect(setup.statusCode).toBe(200)
+  })
+
+  afterAll(async () => {
+    await app.close()
+    await db.delete(updates)
+    await db.delete(tickets)
+    await db.delete(contactClients)
+    await db.delete(contacts)
+    await db.delete(clients)
+    await db.delete(audit)
+    await db.delete(users)
+    await db.delete(settings)
+  })
+
+  it('resets staff presence to online on every sign-in', async () => {
+    let cookie = await signIn(app, owner.ownerEmail, owner.password)
+    const away = await app.inject({
+      method: 'PATCH',
+      url: '/api/me/presence',
+      headers: { cookie },
+      payload: { presence: 'away' },
+    })
+    expect(away.statusCode).toBe(200)
+    expect(away.json()).toEqual({ presence: 'away' })
+
+    // a fresh session (re-authentication) puts the staff user back online
+    cookie = await signIn(app, owner.ownerEmail, owner.password)
+    const me = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })
+    expect(me.statusCode).toBe(200)
+    expect(me.json().user.presence).toBe('online')
+  })
+
+  it('leaves contact presence untouched on sign-in', async () => {
+    const contactId = randomUUID()
+    await db.insert(users).values({
+      id: contactId,
+      name: 'Ada Client',
+      email: 'ada@acme.test',
+      role: 'contact',
+    })
+    await db.insert(accounts).values({
+      id: randomUUID(),
+      providerId: 'credential',
+      issuer: 'local:credential',
+      accountId: contactId,
+      userId: contactId,
+      password: await hashPassword('ada-contact-pass'),
+    })
+    const contactCookie = await signIn(app, 'ada@acme.test', 'ada-contact-pass')
+    const me = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: contactCookie } })
+    expect(me.statusCode).toBe(200)
+    expect(me.json().user.presence).toBe('offline')
+  })
+})
+

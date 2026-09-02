@@ -1,6 +1,7 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
 import { magicLink, twoFactor } from 'better-auth/plugins'
+import { eq } from 'drizzle-orm'
 import { db } from './db'
 import * as schema from './db/schema'
 import { sendMagicLinkEmail } from './mail'
@@ -40,6 +41,27 @@ export const auth = betterAuth({
         required: true,
         defaultValue: 'local',
         input: false,
+      },
+    },
+  },
+  databaseHooks: {
+    session: {
+      create: {
+        // Staff start every session online — a fresh authentication resets
+        // presence to online (the topbar picker stays the override). Contacts
+        // are portal users, not staff, so their presence is left untouched.
+        after: async (session) => {
+          const [row] = await db
+            .select({ role: schema.users.role })
+            .from(schema.users)
+            .where(eq(schema.users.id, session.userId))
+          if (row && row.role !== 'contact') {
+            await db
+              .update(schema.users)
+              .set({ presence: 'online' })
+              .where(eq(schema.users.id, session.userId))
+          }
+        },
       },
     },
   },
