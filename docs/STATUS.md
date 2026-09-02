@@ -263,6 +263,16 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## Recent sessions
 
+- **2026-09-02 (user settings page — batch C of the UI triage)** — Self-service settings panel
+  (workspace topbar, click your name): profile fields **name/email/phone/address/primary office**
+  (new `phone`/`address`/`office` columns on users, migration 0009; /api/me/profile with
+  validation + email-uniqueness 409 + audit), **profile picture upload** (single png/jpeg/webp/gif,
+  magic-sniffed content type on serve, sharded storage under the existing STORAGE_DIR pattern,
+  users.image stores only the storage key, /api/me/avatar GET/POST/DELETE + /api/users/:id/avatar
+  for staff lists), and **password change** via better-auth's /api/auth/change-password. The topbar
+  shows the avatar next to the name when set.
+
+
 - **2026-09-02 (instance defaults — batch B of the UI triage)** — The superuser now picks
   both company defaults in one panel (workspace topbar, superuser-only): the **agent default
   theme** (staff fallback is now user preference ?? agent default ?? console — the hardcoded

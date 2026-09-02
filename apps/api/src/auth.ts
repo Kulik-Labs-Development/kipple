@@ -42,6 +42,12 @@ export const auth = betterAuth({
         defaultValue: 'local',
         input: false,
       },
+      // Profile fields (user settings page). `input: false` keeps them out of
+      // better-auth's own sign-up/sign-in payloads — they are written through
+      // /api/me/profile only.
+      phone: { type: 'string', required: false, input: false },
+      address: { type: 'string', required: false, input: false },
+      office: { type: 'string', required: false, input: false },
     },
   },
   databaseHooks: {

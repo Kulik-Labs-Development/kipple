@@ -64,6 +64,13 @@
       "when": 1788251622694,
       "tag": "0008_black_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788365774445,
+      "tag": "0009_quiet_panda",
+      "breakpoints": true
     }
   ]
 }
