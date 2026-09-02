@@ -262,6 +262,16 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (clients as its own page — UI triage item 13)** —
+  ClientManager is no longer a modal: the topbar "clients" button now
+  swaps the workspace's queue area for a full clients page (new client,
+  client list with branding summary, portal branding + logo upload for the
+  selected client — the same content it always had, full-width instead of a
+  centered dialog). The button carries an active state while the page is
+  open, the close button (and opening a ticket from the notification bell)
+  return to the queue, and the workspace shortcuts (t / /) are inert while
+  the page is showing. No API changes; visibility gating unchanged
+  (superuser/admin).
 - **2026-09-02 (users ↔ clients + queue client filter — UI triage item 11)** —
   Staff↔client association: users.client_id (migration 0010, text nullable,
   FK to clients.id, ON DELETE SET NULL). GET /api/users now joins clients, so
