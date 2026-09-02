@@ -3,6 +3,7 @@ import type { ClientBranding } from '@kipple/shared/themes'
 import { Field } from '../components/Field'
 import {
   api,
+  clientLogoSrc,
   type MeUser,
   type TicketDetail as TicketDetailData,
   type TicketRow,
@@ -57,11 +58,11 @@ export function PortalView({
   const [signingOut, setSigningOut] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const clientId = primaryClient?.id ?? null
-  const branding = primaryClient?.branding ?? null
+  const logoSrc = primaryClient ? clientLogoSrc(primaryClient) : null
   const [logoBroken, setLogoBroken] = useState(false)
 
   useEffect(() => {
-    const logo = branding?.logoUrl?.trim()
+    const logo = logoSrc
     const link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
     if (logo) {
       const target = link ?? document.createElement('link')
@@ -74,7 +75,7 @@ export function PortalView({
       document.title = 'Kipple'
     }
     setLogoBroken(false)
-  }, [branding?.logoUrl, primaryClient?.name])
+  }, [logoSrc, primaryClient?.name])
 
   const refreshList = useCallback(async () => {
     try {
@@ -194,9 +195,9 @@ export function PortalView({
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line bg-panel px-5 py-3">
         <div className="flex items-center gap-3">
-          {branding?.logoUrl && !logoBroken && (
+          {logoSrc && !logoBroken && (
             <img
-              src={branding.logoUrl}
+              src={logoSrc}
               alt=""
               onError={() => setLogoBroken(true)}
               className="h-5 max-w-40 object-contain"

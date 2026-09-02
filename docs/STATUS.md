@@ -262,6 +262,38 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (portal branding round 2 — login screen logo + footer link, same PR #83)** —
+  Pre-sign-in branding for the login screen: POST /api/portal/branding { email }
+  (no auth) resolves email -> contact -> primary client (isPrimary first, the same
+  contact_clients link /api/me uses) and returns { clientName, logoUrl } — an
+  external URL as-is, an uploaded-logo key as /api/portal/logo?email=… ; unknown /
+  staff / invalid emails return nulls (400 on a bad body). GET /api/portal/logo
+  re-resolves the email on every request (the storage key never appears in the
+  URL, so files are not addressable by path) and serves with the magic-sniffed
+  content type. Exposure = the client's own public login branding only, same
+  enumeration class as the magic-link flow. LoginView (client mode) shows the
+  client name + logo (debounced fetch, falls back to KIPPLE for unknown
+  emails); the workspace footer's "kipple v0.1.0" is now a link to
+  https://kippleticket.com/. Seven new tests: known contact → resolvable logo
+  (byte-exact, unauthenticated) · case-insensitive email · nulls + 400s ·
+  external-URL untouched (key-serve 404) · no cross-client leakage · primary
+  client wins on multi-link contacts · logo-removal stops serving.
+- **2026-09-02 (client logo upload — UI triage item 9)** — Real file upload for the
+  client portal logo. Design (no migration): an uploaded logo lives in the sharded
+  STORAGE_DIR as `client-logo-<clientId>` and `branding.logoUrl` holds that key (the
+  shared schema now accepts a URL or the key form); full URLs in `branding.logoUrl`
+  stay external and untouched. API: POST /api/clients/:id/logo (staff, scoped,
+  multipart, png/jpeg/webp/gif, LOGO_MAX_MB default 2, 413/415 + partial-file
+  cleanup), GET (staff + in-scope contacts, content type magic-sniffed on serve),
+  DELETE (removes the file + clears the key). File lifecycle: a PATCH
+  /api/clients/:id that replaces or clears a key-form logoUrl deletes the stored
+  file; DELETE /api/clients/:id deletes the file. storage.ts now exports
+  maxLogoBytes/sniffImageMime/streamImageFile (the avatar routes reuse
+  streamImageFile). Web: ClientManager gains upload/remove buttons + preview
+  (key resolves to the serve route); the portal header/favicon use clientLogoSrc()
+  (URL as-is, key → serve route). Seven API tests: upload/serve/audit, 415s,
+  delete, external-URL untouched, contact scoping, PATCH branding:null file
+  cleanup, 413 oversize.
 
 - **2026-09-02 (user settings — CI fix on PR #81)** — The CI `check` job was red on
   `pnpm typecheck`: the six hand-rolled 400/415 responses in the profile routes passed

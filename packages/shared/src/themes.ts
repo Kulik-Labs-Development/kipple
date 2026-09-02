@@ -55,7 +55,14 @@ export const ClientBranding = z.object({
       message: 'accent must be a hex color like #0b5fff',
     })
     .optional(),
-  logoUrl: z.string().url().max(2048).optional(),
+  // A full URL (legacy/external logo) or the storage key of an uploaded
+  // logo (client-logo-<clientId>), served by GET /api/clients/:id/logo.
+  logoUrl: z
+    .union([
+      z.string().url().max(2048),
+      z.string().regex(/^client-logo-[a-z0-9-]{6,64}$/),
+    ])
+    .optional(),
 })
 export type ClientBranding = z.infer<typeof ClientBranding>
 

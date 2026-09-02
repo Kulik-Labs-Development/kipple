@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Field } from '../components/Field'
 import { api, ApiError } from '../lib/api'
 
@@ -11,6 +11,34 @@ export function LoginView({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
+  const [branding, setBranding] = useState<{ clientName: string | null; logoUrl: string | null } | null>(null)
+  const [logoBroken, setLogoBroken] = useState(false)
+
+  // The client-mode login card shows the client's own branding (name + logo)
+  // once the email matches a known portal contact. Debounced; invalid emails
+  // fall back to the default KIPPLE heading. The logo src comes pre-resolved
+  // from the api (external URL as-is, uploaded logo via /api/portal/logo).
+  useEffect(() => {
+    const value = email.trim()
+    if (mode !== 'client' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
+      setBranding(null)
+      setLogoBroken(false)
+      return
+    }
+    let live = true
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.portalBranding(value)
+        if (live) setBranding(result)
+      } catch {
+        if (live) setBranding(null)
+      }
+    }, 300)
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [email, mode])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -41,7 +69,21 @@ export function LoginView({ onDone }: { onDone: () => void }) {
     <div className="grid min-h-full place-items-center">
       <div className="w-full max-w-sm border border-line bg-panel p-6">
         <div>
-          <h1 className="text-lg tracking-widest text-accent">KIPPLE</h1>
+          {mode === 'client' && branding?.clientName ? (
+            <>
+              {branding.logoUrl && !logoBroken && (
+                <img
+                  src={branding.logoUrl}
+                  alt=""
+                  onError={() => setLogoBroken(true)}
+                  className="mx-auto mb-2 h-10 max-w-48 object-contain"
+                />
+              )}
+              <h1 className="text-lg tracking-widest text-accent">{branding.clientName}</h1>
+            </>
+          ) : (
+            <h1 className="text-lg tracking-widest text-accent">KIPPLE</h1>
+          )}
           <p className="mt-1 text-xs text-dim">
             {mode === 'client' ? 'client portal sign in' : 'agent workspace sign in'}
           </p>

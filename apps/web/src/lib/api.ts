@@ -293,6 +293,18 @@ function ticketQuery(filters: TicketFilters): string {
   return qs ? `?${qs}` : ''
 }
 
+// Resolve the portal logo to an <img> src: a full URL stays as-is (legacy/external),
+// a storage key becomes the logo serve route.
+export function clientLogoSrc(client: {
+  id: string
+  branding: ClientBranding | null
+}): string | null {
+  const logo = client.branding?.logoUrl?.trim()
+  if (!logo) return null
+  if (/^https?:\/\//i.test(logo)) return logo
+  return `/api/clients/${client.id}/logo`
+}
+
 export const api = {
   me: () => request<MeResponse>('/api/me'),
   listClients: () => request<ClientSummary[]>('/api/clients'),
@@ -302,6 +314,18 @@ export const api = {
     request<ClientSummary>(`/api/clients/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
+    }),
+  uploadClientLogo: (id: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ logoUrl: string }>(`/api/clients/${id}/logo`, { method: 'POST', body: form })
+  },
+  deleteClientLogo: (id: string) =>
+    request<{ logoUrl: null }>(`/api/clients/${id}/logo`, { method: 'DELETE' }),
+  portalBranding: (email: string) =>
+    request<{ clientName: string | null; logoUrl: string | null }>('/api/portal/branding', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
   listContacts: (clientId: string) =>
     request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),

@@ -647,7 +647,15 @@ export function WorkspaceView({
 
       <footer className="flex items-center justify-between border-t border-line bg-panel px-4 py-2 text-xs text-dim">
         <span>
-          kipple v0.1.0 · presence: <span className="uppercase">{presence}</span>
+          <a
+            href="https://kippleticket.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-accent hover:underline"
+          >
+            kipple v0.1.0
+          </a>{' '}
+          · presence: <span className="uppercase">{presence}</span>
         </span>
         <span>{user.email}</span>
       </footer>

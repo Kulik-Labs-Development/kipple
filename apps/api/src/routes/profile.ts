@@ -7,9 +7,9 @@ import { users } from '../db/schema'
 import {
   AttachmentSizeError,
   attachmentFileSize,
-  attachmentPath,
   deleteAttachmentFile,
   maxAvatarBytes,
+  streamImageFile,
   writeAttachmentFile,
 } from '../storage'
 
@@ -22,39 +22,6 @@ const AVATAR_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'ima
 
 function avatarKey(userId: string): string {
   return `avatar-${userId}`
-}
-
-function sniffMime(bytes: Buffer): string | null {
-  if (bytes.length > 8 && bytes.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) {
-    return 'image/png'
-  }
-  if (bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg'
-  if (
-    bytes.length > 11 &&
-    bytes.subarray(0, 4).equals(Buffer.from('RIFF')) &&
-    bytes.subarray(8, 12).equals(Buffer.from('WEBP'))
-  ) {
-    return 'image/webp'
-  }
-  if (
-    bytes.length > 6 &&
-    (bytes.subarray(0, 6).equals(Buffer.from('GIF87a')) ||
-      bytes.subarray(0, 6).equals(Buffer.from('GIF89a')))
-  ) {
-    return 'image/gif'
-  }
-  return null
-}
-
-async function streamAvatar(
-  reply: { header: (name: string, value: string) => void; send: (body: Buffer) => unknown },
-  storageKey: string,
-): Promise<unknown> {
-  const { readFile } = await import('node:fs/promises')
-  const bytes = await readFile(attachmentPath(storageKey))
-  const mime = sniffMime(bytes)
-  if (mime) reply.header('content-type', mime)
-  return reply.send(bytes)
 }
 
 async function loadProfile(userId: string) {
@@ -188,7 +155,7 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
     if (!row?.image || (await attachmentFileSize(row.image)) === null) {
       return reply.code(404).send(notFound())
     }
-    return streamAvatar(reply, row.image)
+    return streamImageFile(reply, row.image)
   })
 
   app.get('/api/users/:id/avatar', async (request, reply) => {
@@ -199,6 +166,6 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
     if (!row?.image || (await attachmentFileSize(row.image)) === null) {
       return reply.code(404).send(notFound())
     }
-    return streamAvatar(reply, row.image)
+    return streamImageFile(reply, row.image)
   })
 }

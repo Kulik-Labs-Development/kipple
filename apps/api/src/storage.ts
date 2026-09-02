@@ -87,6 +87,39 @@ export function maxAvatarBytes(): number {
   return mb * 1024 * 1024
 }
 
+// Client-logo cap in MB, separate from the attachment cap.
+export function maxLogoBytes(): number {
+  const raw = process.env.LOGO_MAX_MB
+  const mb = raw ? Number.parseInt(raw, 10) : 2
+  if (!Number.isFinite(mb) || mb <= 0) return 2 * 1024 * 1024
+  return mb * 1024 * 1024
+}
+
+// Magic-sniff an image's content type from its bytes (avatars + client logos
+// are served with this, never with a client-supplied or stored mime type).
+// Returns null for anything that is not a recognized image.
+export function sniffImageMime(bytes: Buffer): string | null {
+  if (bytes.length > 8 && bytes.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) {
+    return 'image/png'
+  }
+  if (bytes.length > 2 && bytes[0] === 0xff && bytes[1] === 0xd8) return 'image/jpeg'
+  if (
+    bytes.length > 11 &&
+    bytes.subarray(0, 4).equals(Buffer.from('RIFF')) &&
+    bytes.subarray(8, 12).equals(Buffer.from('WEBP'))
+  ) {
+    return 'image/webp'
+  }
+  if (
+    bytes.length > 6 &&
+    (bytes.subarray(0, 6).equals(Buffer.from('GIF87a')) ||
+      bytes.subarray(0, 6).equals(Buffer.from('GIF89a')))
+  ) {
+    return 'image/gif'
+  }
+  return null
+}
+
 export async function attachmentFileSize(storageKey: string): Promise<number | null> {
   try {
     const info = await stat(attachmentPath(storageKey))
@@ -98,4 +131,17 @@ export async function attachmentFileSize(storageKey: string): Promise<number | n
 
 export async function deleteAttachmentFile(storageKey: string): Promise<void> {
   await unlink(attachmentPath(storageKey)).catch(() => undefined)
+}
+
+// Serve a stored image with its content type magic-sniffed from the bytes
+// (avatars, client logos). The file must exist — the caller 404s otherwise.
+export async function streamImageFile(
+  reply: { header: (name: string, value: string) => void; send: (body: Buffer) => unknown },
+  storageKey: string,
+): Promise<unknown> {
+  const { readFile } = await import('node:fs/promises')
+  const bytes = await readFile(attachmentPath(storageKey))
+  const mime = sniffImageMime(bytes)
+  if (mime) reply.header('content-type', mime)
+  return reply.send(bytes)
 }
