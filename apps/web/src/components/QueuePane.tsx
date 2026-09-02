@@ -2,8 +2,10 @@ import type { RefObject } from 'react'
 import type { SlaConfig, TicketRow } from '../lib/api'
 import { queueSlaState, slaStateClass, slaStateLabel } from '../lib/sla'
 import {
+  formatStamp,
   priorityClass,
   relativeTime,
+  shortDate,
   statusLedClass,
   TICKET_STATUSES,
   type StatusFilter,
@@ -125,8 +127,11 @@ export function QueuePane({
                       </span>
                     )
                   })()}
-                <span className="ml-auto shrink-0 tabular-nums">
-                  {relativeTime(ticket.updatedAt)}
+                <span
+                  className="ml-auto shrink-0 tabular-nums"
+                  title={`opened ${formatStamp(ticket.createdAt)}`}
+                >
+                  {shortDate(ticket.createdAt)} · {relativeTime(ticket.updatedAt)}
                 </span>
               </div>
             </button>

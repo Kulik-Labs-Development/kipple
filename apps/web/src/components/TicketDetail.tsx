@@ -246,15 +246,26 @@ export function TicketDetail({
           <p className="text-sm text-dim">No updates yet.</p>
         ) : (
           detail.updates.map((update) => (
-            <article key={update.id} className="border border-line bg-panel p-3">
+            <article
+              key={update.id}
+              className={
+                update.kind === 'internal'
+                  ? 'border border-warn/60 bg-warn/5 p-3'
+                  : 'border border-line bg-panel p-3'
+              }
+            >
               <div className="flex items-center gap-2 text-xs">
                 <span className="tabular-nums text-dim">[{formatStamp(update.createdAt)}]</span>
                 <span className="uppercase text-fg">
                   {update.authorName ?? 'system'}
                 </span>
-                <span className={update.kind === 'internal' ? 'text-warn' : 'text-dim'}>
-                  {update.kind}
-                </span>
+                {update.kind === 'internal' ? (
+                  <span className="border border-warn/60 px-1 uppercase text-warn">
+                    internal note
+                  </span>
+                ) : (
+                  <span className="text-dim">{update.kind}</span>
+                )}
               </div>
               <div
                 className="rich-text mt-2 text-sm text-fg"

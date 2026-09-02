@@ -263,6 +263,30 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## Recent sessions
 
+- **2026-09-02 (agent-notes visibility + ticket created date — PR #5)** — Two
+  asks from #kipple-work: staff-only internal notes in-line with the other
+  replies (one chronological thread), and the ticket created date visible on
+  each ticket. Recon: the internal-notes backend already ships on main
+  (08-30 session) — `updates.kind` public/internal/system, contacts forced
+  public on both the JSON + multipart update paths, `loadTicket` filters
+  kind=public for contacts at the query layer, attachment download 404s
+  internal files, `queueTicketReply` skips internal (never emailed), and the
+  `update.create` audit row carries kind. It was just invisible until the
+  deploy fix (PR #1) made the stack reachable. This PR adds, all in
+  `@kipple/web` (no schema change, no migration): (1) the workspace timeline
+  renders an internal update as a distinct card — warn border/background + an
+  `INTERNAL NOTE` badge — so staff-to-staff notes are recognizable inside the
+  one chronological thread (public + internal interleaved by createdAt,
+  unchanged); (2) the queue list rows show the ticket created date
+  (`shortDate` = MM-DD local) beside the relative updated time, with a full
+  `opened <stamp>` tooltip — the ticket detail + portal headers already
+  showed `opened <stamp>`. Web test: `shortDate` (1). Verified live on the
+  merged PR #4 stack: an internal note interleaves in the workspace timeline,
+  the portal (contact) API returns public-only and the rendered thread omits
+  the note, an internal note enqueues no outbox row, and the audit row
+  records kind=internal. Gates green (lint/typecheck/test/build; web 36
+  tests).
+
 - **2026-09-01 (rich text editor — workspace + portal composers)** — TipTap v3 editor
   for ticket updates (request from #kipple-work: the plain textarea was too plain
   — image embeds, font control, full formatting). See the "Rich text editor" bullet

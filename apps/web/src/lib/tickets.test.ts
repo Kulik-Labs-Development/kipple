@@ -10,6 +10,7 @@ import {
   priorityClass,
   queueStats,
   relativeTime,
+  shortDate,
   statusLedClass,
 } from './tickets'
 
@@ -73,6 +74,15 @@ describe('formatStamp', () => {
   it('renders a local readable stamp', () => {
     const stamp = formatStamp('2026-08-30T15:07:00Z')
     expect(stamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+  })
+})
+
+describe('shortDate', () => {
+  it('renders the compact MM-DD created date (matches formatStamp)', () => {
+    const iso = '2026-08-30T15:07:00Z'
+    const stamp = formatStamp(iso)
+    expect(shortDate(iso)).toBe(stamp.slice(5, 10))
+    expect(shortDate(iso)).toMatch(/^\d{2}-\d{2}$/)
   })
 })
 

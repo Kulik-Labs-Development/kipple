@@ -52,6 +52,14 @@ export function formatStamp(iso: string): string {
   )}`
 }
 
+// Compact created date for list rows (MM-DD, local); the full stamp lives in
+// the ticket detail header.
+export function shortDate(iso: string): string {
+  const d = new Date(iso)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
 export interface QueueStats {
   assignedToMe: number
   inQueue: number
