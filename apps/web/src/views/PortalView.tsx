@@ -8,6 +8,8 @@ import {
   type TicketRow,
 } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { RichTextEditor } from '../components/RichTextEditor'
+import { textOfHtml, toRenderable } from '../lib/rich'
 import {
   filterPortalTickets,
   formatStamp,
@@ -43,6 +45,7 @@ export function PortalView({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [search, setSearch] = useState('')
   const [reply, setReply] = useState('')
+  const [replyKey, setReplyKey] = useState(0)
   const [files, setFiles] = useState<File[]>([])
   const [showNew, setShowNew] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -133,7 +136,7 @@ export function PortalView({
   )
 
   async function sendReply() {
-    if (!selectedId || (!reply.trim() && files.length === 0)) return
+    if (!selectedId || (!textOfHtml(reply) && files.length === 0)) return
     setBusy(true)
     setError(null)
     try {
@@ -144,6 +147,7 @@ export function PortalView({
       }
       setReply('')
       setFiles([])
+      setReplyKey((k) => k + 1)
       if (fileInputRef.current) fileInputRef.current.value = ''
       await Promise.all([refreshDetail(selectedId), refreshList()])
     } catch (err) {
@@ -301,7 +305,10 @@ export function PortalView({
                       <span className="text-fg">{update.authorName ?? 'Support team'}</span> ·{' '}
                       {formatStamp(update.createdAt)}
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-fg">{update.body}</p>
+                    <div
+                      className="rich-text mt-1 text-sm text-fg"
+                      dangerouslySetInnerHTML={{ __html: toRenderable(update.body) }}
+                    />
                     {update.attachments.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
                         {update.attachments.map((attachment) => (
@@ -320,12 +327,10 @@ export function PortalView({
                 ))}
               </div>
               <div className="border-t border-line p-3">
-                <textarea
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  rows={3}
+                <RichTextEditor
+                  key={`${selectedId}-${replyKey}`}
                   placeholder="Write a reply…"
-                  className="w-full resize-none border border-line bg-transparent p-2 text-sm outline-none placeholder:text-dim"
+                  onHtmlChange={setReply}
                 />
                 {files.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -370,7 +375,7 @@ export function PortalView({
                   </div>
                   <button
                     onClick={sendReply}
-                    disabled={busy || (!reply.trim() && files.length === 0)}
+                    disabled={busy || (!textOfHtml(reply) && files.length === 0)}
                     className="border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
                   >
                     send reply
