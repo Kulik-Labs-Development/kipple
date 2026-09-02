@@ -34,6 +34,14 @@ export const ClientUpdate = ClientCreate.partial().extend({
   branding: ClientBranding.nullable().optional(),
 })
 
+// Staff-to-client association (UI triage 09-02 item 11): which client a staff
+// member's account belongs to. null = unassigned. Association only — staff
+// scoping is a separate row.
+export const UserClientPatch = z.object({
+  clientId: z.string().min(1).nullable().optional(),
+})
+export type UserClientPatch = z.infer<typeof UserClientPatch>
+
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(254),

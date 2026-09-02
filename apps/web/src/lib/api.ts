@@ -88,6 +88,8 @@ export interface StaffUser {
   email: string
   role: string
   presence: string
+  clientId: string | null
+  clientName: string | null
 }
 
 export interface TicketRow {
@@ -330,6 +332,11 @@ export const api = {
   listContacts: (clientId: string) =>
     request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),
   listStaff: () => request<StaffUser[]>('/api/users'),
+  assignUserClient: (id: string, clientId: string | null) =>
+    request<{ id: string; clientId: string | null }>(`/api/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ clientId }),
+    }),
   listTickets: (filters: TicketFilters = {}) =>
     request<TicketRow[]>(`/api/tickets${ticketQuery(filters)}`),
   getTicket: (id: string) => request<TicketDetail>(`/api/tickets/${id}`),

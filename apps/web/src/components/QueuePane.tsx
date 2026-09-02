@@ -22,7 +22,9 @@ interface QueuePaneProps {
   canCreate: boolean
   slaConfig: SlaConfig | null
   searchRef: RefObject<HTMLInputElement | null>
+  clientFilter: string
   onStatusFilter: (filter: StatusFilter) => void
+  onClientFilter: (value: string) => void
   onSearch: (value: string) => void
   onSelect: (id: string) => void
   onNewTicket: () => void
@@ -40,7 +42,9 @@ export function QueuePane({
   canCreate,
   slaConfig,
   searchRef,
+  clientFilter,
   onStatusFilter,
+  onClientFilter,
   onSearch,
   onSelect,
   onNewTicket,
@@ -62,6 +66,26 @@ export function QueuePane({
           </button>
         ))}
       </div>
+
+      {clientNames.size > 1 && (
+        <div className="border-b border-line p-2">
+          <select
+            value={clientFilter}
+            onChange={(event) => onClientFilter(event.target.value)}
+            className="w-full border border-line bg-ink px-2 py-1 text-xs text-fg outline-none focus:border-accent"
+            aria-label="filter by client"
+          >
+            <option value="all">all clients</option>
+            {[...clientNames.entries()]
+              .sort((a, b) => a[1].localeCompare(b[1]))
+              .map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex gap-2 border-b border-line p-2">
         <div className="relative min-w-0 flex-1">

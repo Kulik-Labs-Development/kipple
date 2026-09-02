@@ -24,6 +24,7 @@ export const users = pgTable('users', {
   phone: text('phone'),
   address: text('address'),
   office: text('office'),
+  clientId: text('client_id').references(() => clients.id, { onDelete: 'set null' }),
   role: text('role').notNull().default('agent'),
   presence: text('presence').notNull().default('offline'),
   authSource: text('auth_source').notNull().default('local'),

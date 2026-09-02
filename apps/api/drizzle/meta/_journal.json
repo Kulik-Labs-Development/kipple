@@ -71,6 +71,13 @@
       "when": 1788365774445,
       "tag": "0009_quiet_panda",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788386000000,
+      "tag": "0010_nimble_falcon",
+      "breakpoints": true
     }
   ]
 }
