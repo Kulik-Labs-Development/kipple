@@ -19,6 +19,19 @@ export interface MeUser {
   role: string
   presence: string
   authSource: string
+  image: string | null
+  phone: string | null
+  address: string | null
+  office: string | null
+}
+
+export interface ProfileRow {
+  name: string
+  email: string
+  phone: string | null
+  address: string | null
+  office: string | null
+  image: string | null
 }
 
 export interface MeResponse {
@@ -356,6 +369,22 @@ export const api = {
       body: JSON.stringify({ email, callbackURL: '/portal' }),
     }),
   signOut: () => request('/api/auth/sign-out', { method: 'POST' }),
+  patchProfile: (body: { name?: string; email?: string; phone?: string | null; address?: string | null; office?: string | null }) =>
+    request<{ profile: ProfileRow }>('/api/me/profile', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    request<{ success: boolean }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  uploadAvatar: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ image: string }>('/api/me/avatar', { method: 'POST', body: form })
+  },
+  deleteAvatar: () => request<{ image: null }>('/api/me/avatar', { method: 'DELETE' }),
   patchPreferences: (body: { theme?: string | null; colorMode?: ColorMode }) =>
     request('/api/preferences', {
       method: 'PATCH',

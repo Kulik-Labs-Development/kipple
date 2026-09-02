@@ -79,6 +79,14 @@ export async function writeAttachmentFile(
   return bytes
 }
 
+// Avatar cap in MB (user settings page), separate from the attachment cap.
+export function maxAvatarBytes(): number {
+  const raw = process.env.AVATAR_MAX_MB
+  const mb = raw ? Number.parseInt(raw, 10) : 2
+  if (!Number.isFinite(mb) || mb <= 0) return 2 * 1024 * 1024
+  return mb * 1024 * 1024
+}
+
 export async function attachmentFileSize(storageKey: string): Promise<number | null> {
   try {
     const info = await stat(attachmentPath(storageKey))

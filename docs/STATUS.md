@@ -263,6 +263,25 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## Recent sessions
 
+- **2026-09-02 (user settings — CI fix on PR #81)** — The CI `check` job was red on
+  `pnpm typecheck`: the six hand-rolled 400/415 responses in the profile routes passed
+  plain strings to `badRequest()`, which takes a zod `ValidationFailure` only. Replaced
+  with the house raw `{ error, message }` objects (the notifications presence-route
+  pattern) — identical wire shape to what `badRequest` produces — and dropped the now
+  unused import. Local gate hardened the same pass (`set -e`, so a red step can no
+  longer slip past `GATES_DONE`) and re-run with the full log read: lint clean,
+  typecheck 7/7, 113 api tests green (profile 6/6), build ok.
+
+- **2026-09-02 (user settings page — batch C of the UI triage)** — Self-service settings panel
+  (workspace topbar, click your name): profile fields **name/email/phone/address/primary office**
+  (new `phone`/`address`/`office` columns on users, migration 0009; /api/me/profile with
+  validation + email-uniqueness 409 + audit), **profile picture upload** (single png/jpeg/webp/gif,
+  magic-sniffed content type on serve, sharded storage under the existing STORAGE_DIR pattern,
+  users.image stores only the storage key, /api/me/avatar GET/POST/DELETE + /api/users/:id/avatar
+  for staff lists), and **password change** via better-auth's /api/auth/change-password. The topbar
+  shows the avatar next to the name when set.
+
+
 - **2026-09-02 (instance defaults — batch B of the UI triage)** — The superuser now picks
   both company defaults in one panel (workspace topbar, superuser-only): the **agent default
   theme** (staff fallback is now user preference ?? agent default ?? console — the hardcoded

@@ -15,6 +15,7 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
         email: users.email,
         role: users.role,
         presence: users.presence,
+        image: users.image,
       })
       .from(users)
       .where(ne(users.role, 'contact'))

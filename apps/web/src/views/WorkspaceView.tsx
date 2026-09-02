@@ -3,6 +3,7 @@ import { agentThemes, type ThemeId } from '@kipple/shared/themes'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { DefaultsManager } from '../components/DefaultsManager'
+import { SettingsPanel } from '../components/SettingsPanel'
 import { NotificationBell } from '../components/NotificationBell'
 import { PhosphorIcon } from '../components/PhosphorIcon'
 import { QueuePane } from '../components/QueuePane'
@@ -49,10 +50,12 @@ export function WorkspaceView({
   user,
   preferences,
   onSignedOut,
+  onUserUpdated,
 }: {
   user: MeUser
   preferences: { theme: string | null; colorMode: string }
   onSignedOut: () => void
+  onUserUpdated: (next: MeUser) => void
 }) {
   const isStaff = user.role !== 'contact'
   const [signingOut, setSigningOut] = useState(false)
@@ -73,6 +76,7 @@ export function WorkspaceView({
   const [showAutomation, setShowAutomation] = useState(false)
   const [showClients, setShowClients] = useState(false)
   const [showDefaults, setShowDefaults] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [presence, setPresence] = useState(user.presence)
   const [theme, setTheme] = useState(preferences.theme ?? 'default')
   const [now, setNow] = useState(() => Date.now())
@@ -432,11 +436,23 @@ export function WorkspaceView({
               {formatClock((now - new Date(activeEntry.startedAt).getTime()) / 1000)}
             </button>
           )}
-          <span>
+          <button
+            onClick={() => setShowSettings(true)}
+            title="settings"
+            className="flex items-center gap-1.5 border border-transparent px-1 py-0.5 hover:border-line"
+          >
+            {user.image && (
+              <img
+                src="/api/me/avatar"
+                alt=""
+                aria-hidden
+                className="h-4 w-4 rounded-full border border-line object-cover"
+              />
+            )}
             <span className="text-dim">{user.name}</span>{' '}
             <span className="text-dim">·</span>{' '}
             <span className="uppercase text-dim">{user.role}</span>
-          </span>
+          </button>
           <span className="flex items-center gap-1.5">
             <span
               className={`presence-dot h-2 w-2 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
@@ -603,6 +619,17 @@ export function WorkspaceView({
         />
       )}
       {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
+      {showSettings && (
+        <SettingsPanel
+          user={user}
+          onProfileSaved={(patch) => {
+            if (patch.name || patch.email) {
+              onUserUpdated({ ...user, name: patch.name ?? user.name, email: patch.email ?? user.email })
+            }
+          }}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       {showAutomation && (
         <AutomationManager

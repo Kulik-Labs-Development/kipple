@@ -85,6 +85,7 @@ export default function App() {
       user={user}
       preferences={preferences ?? { theme: null, colorMode: 'system' }}
       onSignedOut={signedOut}
+      onUserUpdated={(next) => setUser(next)}
     />
   )
 }
