@@ -322,6 +322,11 @@ export const api = {
   },
   deleteClientLogo: (id: string) =>
     request<{ logoUrl: null }>(`/api/clients/${id}/logo`, { method: 'DELETE' }),
+  portalBranding: (email: string) =>
+    request<{ clientName: string | null; logoUrl: string | null }>('/api/portal/branding', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
   listContacts: (clientId: string) =>
     request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),
   listStaff: () => request<StaffUser[]>('/api/users'),

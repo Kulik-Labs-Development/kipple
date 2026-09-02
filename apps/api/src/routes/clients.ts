@@ -50,7 +50,7 @@ function clientLogoKey(clientId: string): string {
   return `client-logo-${clientId}`
 }
 
-function isLogoKey(value: string | null | undefined): value is string {
+export function isLogoKey(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^client-logo-[a-z0-9-]{6,64}$/.test(value)
 }
 

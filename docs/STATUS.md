@@ -262,6 +262,22 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (portal branding round 2 — login screen logo + footer link, same PR #83)** —
+  Pre-sign-in branding for the login screen: POST /api/portal/branding { email }
+  (no auth) resolves email -> contact -> primary client (isPrimary first, the same
+  contact_clients link /api/me uses) and returns { clientName, logoUrl } — an
+  external URL as-is, an uploaded-logo key as /api/portal/logo?email=… ; unknown /
+  staff / invalid emails return nulls (400 on a bad body). GET /api/portal/logo
+  re-resolves the email on every request (the storage key never appears in the
+  URL, so files are not addressable by path) and serves with the magic-sniffed
+  content type. Exposure = the client's own public login branding only, same
+  enumeration class as the magic-link flow. LoginView (client mode) shows the
+  client name + logo (debounced fetch, falls back to KIPPLE for unknown
+  emails); the workspace footer's "kipple v0.1.0" is now a link to
+  https://kippleticket.com/. Seven new tests: known contact → resolvable logo
+  (byte-exact, unauthenticated) · case-insensitive email · nulls + 400s ·
+  external-URL untouched (key-serve 404) · no cross-client leakage · primary
+  client wins on multi-link contacts · logo-removal stops serving.
 - **2026-09-02 (client logo upload — UI triage item 9)** — Real file upload for the
   client portal logo. Design (no migration): an uploaded logo lives in the sharded
   STORAGE_DIR as `client-logo-<clientId>` and `branding.logoUrl` holds that key (the
