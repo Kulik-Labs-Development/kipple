@@ -213,8 +213,14 @@ export function WorkspaceView({
     toggleTimerRef.current = toggleTimer
   })
 
+  const showClientsRef = useRef(showClients)
+  useEffect(() => {
+    showClientsRef.current = showClients
+  })
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (showClientsRef.current) return
       if (event.key === 't' || event.key === 'T') {
         const target = event.target as HTMLElement | null
         if (
@@ -295,6 +301,7 @@ export function WorkspaceView({
 
   async function selectTicket(id: string) {
     setError(null)
+    setShowClients(false)
     setSelectedId(id)
   }
 
@@ -410,7 +417,11 @@ export function WorkspaceView({
                   ? 'clients + portal branding'
                   : 'clients (admin or superuser only)'
               }
-              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+              className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
+                showClients
+                  ? 'border-accent text-accent'
+                  : 'border-line text-dim hover:border-accent hover:text-accent'
+              }`}
             >
               <PhosphorIcon
                 name="users"
@@ -545,6 +556,15 @@ export function WorkspaceView({
 
       <main className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
         <div className="flex min-h-0 flex-1 border border-line bg-ink">
+          {showClients ? (
+            <ClientManager
+              onSaved={() => {
+                void refreshClients()
+              }}
+              onClose={() => setShowClients(false)}
+            />
+          ) : (
+            <>
           <QueuePane
             tickets={visibleTickets}
             counts={counts}
@@ -602,6 +622,8 @@ export function WorkspaceView({
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
       </main>
 
@@ -626,14 +648,7 @@ export function WorkspaceView({
         />
       )}
 
-      {showClients && (
-        <ClientManager
-          onSaved={() => {
-            void refreshClients()
-          }}
-          onClose={() => setShowClients(false)}
-        />
-      )}
+
       {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
       {showUsers && <UsersManager onClose={() => setShowUsers(false)} />}
       {showSettings && (

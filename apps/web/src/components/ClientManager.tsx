@@ -153,15 +153,8 @@ export function ClientManager({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
-      onMouseDown={onClose}
-    >
-      <div
-        className="max-h-full w-full max-w-2xl overflow-y-auto border border-line bg-ink"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b border-line px-4 py-3">
+    <div className="flex min-h-0 flex-1 flex-col border border-line bg-ink">
+      <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="text-sm tracking-widest text-accent">clients &amp; portal branding</div>
           <button onClick={onClose} className={dimButtonClass}>
             close
@@ -172,7 +165,7 @@ export function ClientManager({
           <div className="mx-4 mt-3 border border-danger px-3 py-2 text-xs text-danger">{error}</div>
         )}
 
-        <div className="space-y-5 p-4">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           <section className="space-y-2">
             <h2 className="text-xs uppercase tracking-widest text-dim">new client</h2>
             <div className="flex items-center gap-2">
@@ -330,7 +323,6 @@ export function ClientManager({
             </section>
           )}
         </div>
-      </div>
     </div>
   )
 }
