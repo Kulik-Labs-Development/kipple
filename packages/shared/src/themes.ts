@@ -80,3 +80,17 @@ export const PreferencesPatch = z
     message: 'provide theme or colorMode',
   })
 export type PreferencesPatch = z.infer<typeof PreferencesPatch>
+
+// Instance-wide defaults (superuser, batch B): agentTheme = what staff users
+// see without their own preference (null = built-in console), portalTheme =
+// the client-portal fallback the branding layer sits on top of (null =
+// built-in slate).
+export const InstanceDefaults = z
+  .object({
+    agentTheme: ThemeId.nullable().optional(),
+    portalTheme: ThemeId.nullable().optional(),
+  })
+  .refine((d) => d.agentTheme !== undefined || d.portalTheme !== undefined, {
+    message: 'provide agentTheme or portalTheme',
+  })
+export type InstanceDefaults = z.infer<typeof InstanceDefaults>

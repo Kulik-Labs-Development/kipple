@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { agentThemes, type ThemeId } from '@kipple/shared/themes'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
+import { DefaultsManager } from '../components/DefaultsManager'
 import { NotificationBell } from '../components/NotificationBell'
 import { PhosphorIcon } from '../components/PhosphorIcon'
 import { QueuePane } from '../components/QueuePane'
@@ -71,6 +72,7 @@ export function WorkspaceView({
   const [showSlaManager, setShowSlaManager] = useState(false)
   const [showAutomation, setShowAutomation] = useState(false)
   const [showClients, setShowClients] = useState(false)
+  const [showDefaults, setShowDefaults] = useState(false)
   const [presence, setPresence] = useState(user.presence)
   const [theme, setTheme] = useState(preferences.theme ?? 'default')
   const [now, setNow] = useState(() => Date.now())
@@ -410,6 +412,16 @@ export function WorkspaceView({
               clients
             </button>
           )}
+          {isStaff && user.role === 'superuser' && (
+            <button
+              onClick={() => setShowDefaults(true)}
+              title="instance defaults (superuser)"
+              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+            >
+              <PhosphorIcon name="sliders" size="sm" />
+              defaults
+            </button>
+          )}
           {isStaff && activeEntry && (
             <button
               onClick={toggleTimer}
@@ -590,6 +602,7 @@ export function WorkspaceView({
           onClose={() => setShowClients(false)}
         />
       )}
+      {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
 
       {showAutomation && (
         <AutomationManager
