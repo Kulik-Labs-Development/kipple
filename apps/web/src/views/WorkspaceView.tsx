@@ -3,6 +3,7 @@ import { agentThemes, type ThemeId } from '@kipple/shared/themes'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { DefaultsManager } from '../components/DefaultsManager'
+import { UsersManager } from '../components/UsersManager'
 import { SettingsPanel } from '../components/SettingsPanel'
 import { NotificationBell } from '../components/NotificationBell'
 import { PhosphorIcon } from '../components/PhosphorIcon'
@@ -76,6 +77,8 @@ export function WorkspaceView({
   const [showAutomation, setShowAutomation] = useState(false)
   const [showClients, setShowClients] = useState(false)
   const [showDefaults, setShowDefaults] = useState(false)
+  const [showUsers, setShowUsers] = useState(false)
+  const [clientFilter, setClientFilter] = useState('all')
   const [showSettings, setShowSettings] = useState(false)
   const [presence, setPresence] = useState(user.presence)
   const [theme, setTheme] = useState(preferences.theme ?? 'default')
@@ -249,10 +252,11 @@ export function WorkspaceView({
     const query = search.trim().toLowerCase()
     return allTickets.filter((ticket) => {
       if (statusFilter !== 'all' && ticket.status !== statusFilter) return false
+      if (clientFilter !== 'all' && ticket.clientId !== clientFilter) return false
       if (query && !ticket.subject.toLowerCase().includes(query)) return false
       return true
     })
-  }, [allTickets, statusFilter, search])
+  }, [allTickets, statusFilter, clientFilter, search])
 
   const counts = useMemo(() => {
     const base: Record<string, number> = { all: allTickets.length }
@@ -418,6 +422,16 @@ export function WorkspaceView({
           )}
           {isStaff && user.role === 'superuser' && (
             <button
+              onClick={() => setShowUsers(true)}
+              title="users + client assignment (superuser)"
+              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+            >
+              <PhosphorIcon name="user-gear" size="sm" />
+              users
+            </button>
+          )}
+          {isStaff && user.role === 'superuser' && (
+            <button
               onClick={() => setShowDefaults(true)}
               title="instance defaults (superuser)"
               className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
@@ -537,6 +551,8 @@ export function WorkspaceView({
             clientNames={clientNames}
             selectedId={selectedId}
             statusFilter={statusFilter}
+            clientFilter={clientFilter}
+            onClientFilter={setClientFilter}
             search={search}
             canCreate={isStaff}
             slaConfig={slaConfig}
@@ -619,6 +635,7 @@ export function WorkspaceView({
         />
       )}
       {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
+      {showUsers && <UsersManager onClose={() => setShowUsers(false)} />}
       {showSettings && (
         <SettingsPanel
           user={user}

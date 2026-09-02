@@ -262,6 +262,24 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (users ↔ clients + queue client filter — UI triage item 11)** —
+  Staff↔client association: users.client_id (migration 0010, text nullable,
+  FK to clients.id, ON DELETE SET NULL). GET /api/users now joins clients, so
+  every staff row carries clientId + clientName (contacts are still
+  excluded). PATCH /api/users/:id assigns — or clears with null — a staff
+  user's client: superuser-only (company-management bar, same class as
+  add/remove agents), 404 unknown user, 400 when the target is a contact,
+  404 unknown client, audited as user.client. Association and display only
+  this round: clientScope() is contacts-only and untouched, so no scoping
+  changes (staff client restriction stays a separate backlog row). Web: new
+  UsersManager panel (DefaultsManager shell pattern) behind a superuser-only
+  "users" topbar button — per row a presence dot + name + role badge +
+  email + client select (no client + each client), PATCH on change and
+  refresh; QueuePane gains a client filter select (shown when more than one
+  client exists, sorted by name, default all) above the search row. Seven
+  new API tests: list shape + contact exclusion, assign + audit row,
+  null-clear, agent 403, unknown-user/unknown-client 404s with state
+  unchanged, contact-target 400, and FK set-null on client delete.
 - **2026-09-02 (portal branding round 2 — login screen logo + footer link, same PR #83)** —
   Pre-sign-in branding for the login screen: POST /api/portal/branding { email }
   (no auth) resolves email -> contact -> primary client (isPrimary first, the same
