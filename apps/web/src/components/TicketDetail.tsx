@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { PhosphorIcon } from './PhosphorIcon'
 import { RichTextEditor } from './RichTextEditor'
 import { textOfHtml, toRenderable } from '../lib/rich'
 import {
@@ -120,7 +121,10 @@ export function TicketDetail({
             </>
           )}
           <span>·</span>
-          <span className="tabular-nums">opened {formatStamp(detail.createdAt)}</span>
+          <span className="flex items-center gap-1 tabular-nums">
+            <PhosphorIcon name="clock" size="sm" />
+            opened {formatStamp(detail.createdAt)}
+          </span>
           {detail.tags.map((tag) => (
             <span key={tag} className="border border-line px-1 text-dim">
               {tag}
@@ -278,8 +282,9 @@ export function TicketDetail({
                       key={attachment.id}
                       href={`/api/attachments/${attachment.id}`}
                       download
-                      className="border border-line bg-ink px-2 py-0.5 text-xs text-accent hover:border-accent"
+                      className="inline-flex items-center gap-1 border border-line bg-ink px-2 py-0.5 text-xs text-accent hover:border-accent"
                     >
+                      <PhosphorIcon name="paperclip" size="sm" />
                       {attachment.filename} ({formatFileSize(attachment.size)})
                     </a>
                   ))}
@@ -321,8 +326,9 @@ export function TicketDetail({
               {files.map((file, index) => (
                 <span
                   key={`${file.name}-${index}`}
-                  className="flex items-center gap-1 border border-line bg-ink px-2 py-0.5 text-xs text-dim"
+                  className="flex items-center gap-1 border border-line bg-ink px-2 py-0.5 text-xs text-dim transition-colors hover:text-fg"
                 >
+                  <PhosphorIcon name="paperclip" size="sm" />
                   <span className="max-w-52 truncate">{file.name}</span>
                   <span className="tabular-nums">{formatFileSize(file.size)}</span>
                   <button
@@ -367,15 +373,17 @@ export function TicketDetail({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="border border-line px-2 py-1 text-xs uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+                className="flex items-center gap-1.5 border border-line px-2 py-1 text-xs uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
               >
+                <PhosphorIcon name="paperclip" size="sm" />
                 attach
               </button>
               <button
                 type="submit"
                 disabled={sending || (!textOfHtml(body) && files.length === 0)}
-                className="border border-accent px-3 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink disabled:opacity-40"
+                className="flex items-center gap-1.5 border border-accent px-3 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink disabled:opacity-40"
               >
+                <PhosphorIcon name="paper-plane-tilt" size="sm" />
                 {kind === 'internal' ? 'add note' : 'send reply'}
               </button>
             </div>

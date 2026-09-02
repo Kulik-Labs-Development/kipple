@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type NotificationRow } from '../lib/api'
 import { relativeTime } from '../lib/tickets'
+import { PhosphorIcon } from './PhosphorIcon'
 
 const POLL_MS = 30_000
 
@@ -12,6 +13,8 @@ export function NotificationBell({ onOpenTicket }: { onOpenTicket: (ticketId: st
   const [unread, setUnread] = useState(0)
   const [items, setItems] = useState<NotificationRow[]>([])
   const [now, setNow] = useState(() => Date.now())
+  const [wiggling, setWiggling] = useState(false)
+  const prevUnread = useRef(0)
 
   const refresh = useCallback(async () => {
     try {
@@ -19,6 +22,10 @@ export function NotificationBell({ onOpenTicket }: { onOpenTicket: (ticketId: st
         api.notificationCount(),
         api.listNotifications({ limit: 30 }),
       ])
+      if (count.unread > 0 && prevUnread.current === 0) {
+        setWiggling(true) // class added on arrival, cleared on animationend
+      }
+      prevUnread.current = count.unread
       setUnread(count.unread)
       setItems(rows)
     } catch {
@@ -63,11 +70,18 @@ export function NotificationBell({ onOpenTicket }: { onOpenTicket: (ticketId: st
       <button
         onClick={() => setOpen(!open)}
         title="notifications"
+        aria-label="notifications"
         className={`border px-2 py-1 uppercase tracking-widest ${
           unread > 0 ? 'border-accent text-accent' : 'border-line text-dim'
         }`}
       >
-        bell
+        <PhosphorIcon
+          name="bell"
+          filled={unread > 0}
+          size="sm"
+          className={wiggling ? 'ph-bell-wiggle' : ''}
+          onAnimationEnd={() => setWiggling(false)}
+        />
         {unread > 0 && (
           <span className="ml-1 inline-block min-w-[1.25rem] rounded-sm bg-accent px-1 text-center text-ink tabular-nums">
             {unread > 99 ? '99+' : unread}

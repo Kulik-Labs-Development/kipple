@@ -169,3 +169,32 @@ body {
   font-size: 1.125rem;
 }
 
+
+
+/* Phosphor icon motion (issue #7) — whole-icon CSS only, no asset changes. */
+/* Bell arrival wiggle: one-shot, top-anchored so it swings like a bell.
+   The NotificationBell adds the class on arrival (unread 0 -> n) and clears
+   it on animationend so the next arrival re-fires. */
+@keyframes ph-bell-wiggle {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(8deg);
+  }
+  55% {
+    transform: rotate(-8deg);
+  }
+  80% {
+    transform: rotate(5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.ph-bell-wiggle {
+  animation: ph-bell-wiggle 0.6s ease;
+  transform-origin: 50% 0;
+}
+

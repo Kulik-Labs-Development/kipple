@@ -7,6 +7,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { FontSize, FONT_SIZE_CLASSES } from '../lib/fontSize'
+import { PhosphorIcon } from './PhosphorIcon'
 
 interface RichTextEditorProps {
   placeholder: string
@@ -50,9 +51,9 @@ export function RichTextEditor({
   if (!editor) return null
 
   const markClass = (active: boolean) => `${btnBase} ${active ? btnActive : btnIdle}`
-  const mark = (label: string, title: string, active: boolean, onClick: () => void) => (
+  const mark = (label: string, title: string, active: boolean, onClick: () => void, icon?: string) => (
     <button type="button" title={title} onClick={onClick} className={markClass(active)}>
-      {label}
+      {icon ? <PhosphorIcon name={icon} size="xs" label={label} /> : label}
     </button>
   )
 
@@ -146,8 +147,8 @@ export function RichTextEditor({
           editor.chain().focus().toggleCodeBlock().run(),
         )}
         {separator}
-        {mark('link', 'Link', editor.isActive('link'), toggleLink)}
-        {mark('img', 'Image (URL)', editor.isActive('image'), insertImage)}
+        {mark('link', 'Link', editor.isActive('link'), toggleLink, 'link')}
+        {mark('img', 'Image (URL)', editor.isActive('image'), insertImage, 'image')}
         {mark('―', 'Divider', false, () => editor.chain().focus().setHorizontalRule().run())}
         {separator}
         {mark('clear', 'Clear formatting', false, () =>

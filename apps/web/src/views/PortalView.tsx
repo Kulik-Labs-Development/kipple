@@ -8,6 +8,7 @@ import {
   type TicketRow,
 } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { PhosphorIcon } from '../components/PhosphorIcon'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { textOfHtml, toRenderable } from '../lib/rich'
 import {
@@ -316,8 +317,9 @@ export function PortalView({
                             key={attachment.id}
                             href={`/api/attachments/${attachment.id}`}
                             download
-                            className="border border-line px-2 py-0.5 text-xs text-accent hover:border-accent"
+                            className="inline-flex items-center gap-1 border border-line px-2 py-0.5 text-xs text-accent hover:border-accent"
                           >
+                            <PhosphorIcon name="paperclip" size="sm" />
                             {attachment.filename} ({formatFileSize(attachment.size)})
                           </a>
                         ))}
@@ -337,8 +339,9 @@ export function PortalView({
                     {files.map((file, index) => (
                       <span
                         key={`${file.name}-${index}`}
-                        className="flex items-center gap-1 border border-line px-2 py-0.5 text-xs text-dim"
+                        className="flex items-center gap-1 border border-line px-2 py-0.5 text-xs text-dim transition-colors hover:text-fg"
                       >
+                        <PhosphorIcon name="paperclip" size="sm" />
                         <span className="max-w-52 truncate">{file.name}</span>
                         <span className="tabular-nums">{formatFileSize(file.size)}</span>
                         <button
@@ -368,16 +371,18 @@ export function PortalView({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="border border-line px-2 py-1 text-xs text-dim hover:border-accent hover:text-accent"
+                      className="flex items-center gap-1.5 border border-line px-2 py-1 text-xs text-dim hover:border-accent hover:text-accent"
                     >
+                      <PhosphorIcon name="paperclip" size="sm" />
                       attach
                     </button>
                   </div>
                   <button
                     onClick={sendReply}
                     disabled={busy || (!textOfHtml(reply) && files.length === 0)}
-                    className="border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
+                    className="flex items-center gap-1.5 border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
                   >
+                    <PhosphorIcon name="paper-plane-tilt" size="sm" />
                     send reply
                   </button>
                 </div>

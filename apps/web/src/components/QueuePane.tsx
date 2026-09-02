@@ -1,5 +1,6 @@
 import type { RefObject } from 'react'
 import type { SlaConfig, TicketRow } from '../lib/api'
+import { PhosphorIcon } from './PhosphorIcon'
 import { queueSlaState, slaStateClass, slaStateLabel } from '../lib/sla'
 import {
   formatStamp,
@@ -63,19 +64,27 @@ export function QueuePane({
       </div>
 
       <div className="flex gap-2 border-b border-line p-2">
-        <input
-          ref={searchRef}
-          value={search}
-          onChange={(event) => onSearch(event.target.value)}
-          placeholder="search subject…  ( / )"
-          className="w-full border border-line bg-ink px-2 py-1 text-xs text-fg outline-none placeholder:text-dim focus:border-accent"
-        />
+        <div className="relative min-w-0 flex-1">
+          <PhosphorIcon
+            name="magnifying-glass"
+            size="sm"
+            className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-dim"
+          />
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder="search subject…  ( / )"
+            className="w-full border border-line bg-ink py-1 pl-7 pr-2 text-xs text-fg outline-none placeholder:text-dim focus:border-accent"
+          />
+        </div>
         {canCreate && (
           <button
             onClick={onNewTicket}
-            className="shrink-0 border border-accent px-2 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink"
+            className="flex shrink-0 items-center gap-1 border border-accent px-2 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink"
           >
-            + new
+            <PhosphorIcon name="plus" size="sm" />
+            new
           </button>
         )}
       </div>
@@ -128,9 +137,10 @@ export function QueuePane({
                     )
                   })()}
                 <span
-                  className="ml-auto shrink-0 tabular-nums"
+                  className="ml-auto flex shrink-0 items-center gap-1 tabular-nums"
                   title={`opened ${formatStamp(ticket.createdAt)}`}
                 >
+                  <PhosphorIcon name="calendar" size="xs" />
                   {shortDate(ticket.createdAt)} · {relativeTime(ticket.updatedAt)}
                 </span>
               </div>
