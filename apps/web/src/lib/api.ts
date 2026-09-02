@@ -25,6 +25,7 @@ export interface MeResponse {
   user: MeUser
   sessionId: string
   instanceTheme: string
+  agentDefaultTheme: string
   contactId: string | null
   primaryClient: {
     id: string
@@ -385,6 +386,13 @@ export const api = {
     body: { startedAt?: string; durationS?: number; billable?: boolean; note?: string },
   ) => request<TimeEntryRow>(`/api/time/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteTime: (id: string) => request<void>(`/api/time/${id}`, { method: 'DELETE' }),
+  instanceDefaults: () =>
+    request<{ agentTheme: string | null; portalTheme: string | null }>('/api/instance/defaults'),
+  patchInstanceDefaults: (body: { agentTheme?: string | null; portalTheme?: string | null }) =>
+    request<{ agentTheme: string | null; portalTheme: string | null }>('/api/instance/defaults', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   slaConfig: () => request<SlaConfig>('/api/sla/config'),
   slaSetEnabled: (enabled: boolean) =>
     request<{ enabled: boolean }>('/api/sla/settings', {

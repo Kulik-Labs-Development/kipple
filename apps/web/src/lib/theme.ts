@@ -49,16 +49,18 @@ export interface ClientBrandingChoice {
   accent?: string | null
 }
 
-// Portal theme precedence: user preference > client branding > instance theme.
+// Theme precedence: user preference > fallback, where the fallback is
+// branding > instance (portal default) for contacts and the agent default
+// (company setting, built-in console) for staff.
 // Accent comes from client branding only and applies to the portal (contacts).
 export function resolveThemeChoice(
   preferences: { theme: string | null; colorMode: ColorMode },
   instanceTheme: string,
   role: string,
   branding: ClientBrandingChoice | null = null,
+  agentDefault: string = 'console',
 ): ThemeChoice {
-  const fallback =
-    role === 'contact' ? branding?.themeId ?? instanceTheme : 'console'
+  const fallback = role === 'contact' ? branding?.themeId ?? instanceTheme : agentDefault
   return {
     theme: preferences.theme ?? fallback,
     colorMode: preferences.colorMode,

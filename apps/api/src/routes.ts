@@ -8,6 +8,7 @@ import { clients, contactClients, settings, users } from './db/schema'
 import { registerAttachmentRoutes } from './routes/attachments'
 import { normalizeBranding, registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
+import { registerDefaultRoutes } from './routes/defaults'
 import { registerEmailRoutes } from './routes/email'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
 import { registerRuleRoutes } from './routes/rules'
@@ -76,6 +77,12 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(settings.key, 'theme'))
     const instanceTheme =
       ((themeSetting?.value as { id?: string } | null) ?? {}).id ?? 'slate'
+    const [agentThemeSetting] = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, 'agentTheme'))
+    const agentDefaultTheme =
+      ((agentThemeSetting?.value as { id?: string } | null) ?? {}).id ?? 'console'
     let primaryClient: {
       id: string
       name: string
@@ -108,6 +115,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       user: session.user,
       sessionId: session.session.id,
       instanceTheme,
+      agentDefaultTheme,
       contactId: prefs?.contactId ?? null,
       primaryClient,
       preferences: {
@@ -138,6 +146,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerAttachmentRoutes(app)
   await registerClientRoutes(app)
   await registerContactRoutes(app)
+  await registerDefaultRoutes(app)
   await registerEmailRoutes(app)
   await registerNotificationRoutes(app)
   await registerPresenceRoutes(app)

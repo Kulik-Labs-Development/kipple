@@ -263,6 +263,17 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## Recent sessions
 
+- **2026-09-02 (instance defaults — batch B of the UI triage)** — The superuser now picks
+  both company defaults in one panel (workspace topbar, superuser-only): the **agent default
+  theme** (staff fallback is now user preference ?? agent default ?? console — the hardcoded
+  console is gone) and the **portal default theme** (the settings 'theme' row the portal
+  already fell back to; client branding still wins over it). New superuser-only
+  `GET`/`POST /api/instance/defaults` (validated against the shared ThemeId enum, audited,
+  null = built-in default) and `/api/me` now exposes the resolved `agentDefaultTheme` so the
+  web applies it at load. "default" in the agent theme picker (batch A) now means company
+  default end to end.
+
+
 - **2026-09-02 (workspace polish — batch A of the UI triage)** — Five small items from
   the 09-02 #kipple-work UI list (each re-verified against code before building): staff
   presence now resets to **online on every sign-in** (better-auth session-create hook;

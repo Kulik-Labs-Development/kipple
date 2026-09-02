@@ -31,6 +31,7 @@ export default function App() {
         me.instanceTheme,
         me.user.role,
         me.primaryClient?.branding ?? null,
+        me.agentDefaultTheme,
       )
       applyTheme(choice)
       if (choice.colorMode === 'system') {
