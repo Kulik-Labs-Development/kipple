@@ -263,6 +263,19 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## Recent sessions
 
+- **2026-09-02 (iconography — Phosphor, light weight — issue #7)** — Web icon pass on
+  the locked spec: @phosphor-icons/web v2.1.2 (MIT; a ligature-font system — per-weight
+  CSS, Vite bundles the woff2 so the app stays self-hosted, no CDN) + a thin
+  `PhosphorIcon` wrapper (light = default weight, `filled` = fill-weight state toggle,
+  a11y label passthrough). Slots: notification bell icon-only with the required
+  filled=unread / outline=cleared mapping off the poll count, queue search field, +new,
+  queue-row created date, ticket detail opened stamp, paperclip on every attachment chip
+  (workspace + portal timelines and composer chips), composer attach/send buttons, and
+  Link/Image in the rich-text toolbar (title tooltips already existed). Motion is
+  whole-icon CSS only, zero custom/split assets: bell arrival wiggle (one-shot keyframe,
+  top-anchored, re-armed on animationend), gear hover-turn, users hover-bob, paperclip
+  hover tint. Filter chips, stat cards and SLA chips deliberately stay text-only.
+
 - **2026-09-02 (agent-notes visibility + ticket created date — PR #5)** — Two
   asks from #kipple-work: staff-only internal notes in-line with the other
   replies (one chronological thread), and the ticket created date visible on

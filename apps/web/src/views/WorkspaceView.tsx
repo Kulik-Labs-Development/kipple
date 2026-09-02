@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { NotificationBell } from '../components/NotificationBell'
+import { PhosphorIcon } from '../components/PhosphorIcon'
 import { QueuePane } from '../components/QueuePane'
 import { SlaManager } from '../components/SlaManager'
 import { Sparkline } from '../components/Sparkline'
@@ -338,10 +339,11 @@ export function WorkspaceView({
               title={
                 user.role === 'superuser' ? 'SLA settings (superuser)' : 'SLA status'
               }
-              className={`border px-2 py-1 uppercase tracking-widest ${
+              className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
                 slaConfig?.enabled ? 'border-ok text-ok' : 'border-line text-dim'
               }`}
             >
+              <PhosphorIcon name="clock" size="sm" />
               sla
             </button>
           )}
@@ -355,8 +357,13 @@ export function WorkspaceView({
                   ? 'email templates + rules (superuser)'
                   : 'automation (superuser only)'
               }
-              className="border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
             >
+              <PhosphorIcon
+                name="gear"
+                size="sm"
+                className="transition-transform duration-300 group-hover:rotate-90"
+              />
               auto
             </button>
           )}
@@ -372,8 +379,13 @@ export function WorkspaceView({
                   ? 'clients + portal branding'
                   : 'clients (admin or superuser only)'
               }
-              className="border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
             >
+              <PhosphorIcon
+                name="users"
+                size="sm"
+                className="transition-transform duration-300 group-hover:-translate-y-0.5"
+              />
               clients
             </button>
           )}
