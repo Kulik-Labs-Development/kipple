@@ -62,6 +62,32 @@ export const UserRolePatch = z.object({
 })
 export type UserRolePatch = z.infer<typeof UserRolePatch>
 
+// Agent invites (issue #32): an admin invites a staff account by email; the
+// invited person creates the account (name + password) through the token
+// link. superuser is absent from the role union, same bar as UserCreate.
+export const InviteCreate = z.object({
+  email: z.string().email().max(200),
+  role: z.enum(['admin', 'agent']).optional().default('agent'),
+})
+export type InviteCreate = z.infer<typeof InviteCreate>
+
+// Accepting an invite: the token is the credential; the account is created
+// server-side from the invite row (email + role come from the invite, never
+// the body).
+export const InviteAccept = z.object({
+  token: z.string().min(1).max(128),
+  name: z.string().min(2).max(120),
+  password: z.string().min(8).max(128),
+})
+export type InviteAccept = z.infer<typeof InviteAccept>
+
+// 'Admin can disable signups entirely' (PLAN §3): the invitations kill
+// switch. Absent settings row = enabled.
+export const InstanceInvites = z.object({
+  enabled: z.boolean(),
+})
+export type InstanceInvites = z.infer<typeof InstanceInvites>
+
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(254),

@@ -292,6 +292,40 @@ export async function sendMagicLinkEmail(email: string, url: string): Promise<vo
   })
 }
 
+
+// Admin invite for a new staff account (issue #32). Same delivery seam as
+// the magic link: instance name, stored provider settings, outbox queue.
+// Unknown-domain/SMTP instances simply queue the row like everything else.
+export async function sendInviteEmail(email: string, role: string, url: string): Promise<void> {
+  const [instanceRow] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, 'instance'))
+  const instanceName = ((instanceRow?.value as { name?: string } | null) ?? {}).name ?? 'Kipple'
+  const emailSettings = await loadEmailSettings()
+  const domain = emailSettings?.domain ?? 'kipple.local'
+  await enqueueOutbox({
+    to: email,
+    from: emailSettings?.smtp?.from ?? `no-reply@${domain}`,
+    fromName: emailSettings?.smtp?.fromName ?? instanceName,
+    subject: `You're invited to ${instanceName}`,
+    body: [
+      'Hi there,',
+      '',
+      `You have been invited to join ${instanceName} as a ${role}.`,
+      '',
+      'Use this link to create your account:',
+      '',
+      url,
+      '',
+      'This invitation expires in 3 days and works only once.',
+      '',
+      'If you did not expect this invitation you can safely ignore it.',
+    ].join('\n'),
+    messageId: `<${randomUUID()}@${domain}>`,
+  })
+}
+
 export type OutboxRowView = Omit<typeof emailOutbox.$inferSelect, 'body'>
 
 function toView(row: typeof emailOutbox.$inferSelect): OutboxRowView {
