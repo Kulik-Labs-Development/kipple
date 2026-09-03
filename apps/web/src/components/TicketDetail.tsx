@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { Avatar } from './Avatar'
 import { PhosphorIcon } from './PhosphorIcon'
 import { RichTextEditor } from './RichTextEditor'
 import { textOfHtml, toRenderable } from '../lib/rich'
@@ -260,7 +261,12 @@ export function TicketDetail({
             >
               <div className="flex items-center gap-2 text-xs">
                 <span className="tabular-nums text-dim">[{formatStamp(update.createdAt)}]</span>
-                <span className="uppercase text-fg">
+                <span className="flex items-center gap-1.5 uppercase text-fg">
+                  <Avatar
+                    src={update.authorId && update.authorImage ? `/api/users/${update.authorId}/avatar` : null}
+                    name={update.authorName ?? 'system'}
+                    size="sm"
+                  />
                   {update.authorName ?? 'system'}
                 </span>
                 {update.kind === 'internal' ? (

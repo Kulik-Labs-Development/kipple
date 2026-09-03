@@ -278,6 +278,33 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   lock-out state unrepresentable. Web: per-row role select in the company
   settings panel (agent/admin/superuser; confirms when granting or revoking
   the superuser role).
+- **2026-09-03 (workspace polish — profile top-left, feed avatars, presence dot in the selector; issues #92/#93/#94)** —
+  Batch of three small workspace fixes. New reusable `Avatar` component
+  (apps/web): renders the user's uploaded image when present and degrades to
+  an initial chip when the image is missing or unreachable (e.g. a contact
+  author, whose /api/users/:id/avatar is staff-only), so feeds never show a
+  broken image. Ticket detail updates now expose `authorImage` alongside
+  `authorName` (the existing users join picks up users.image), and the
+  workspace timeline renders a small Avatar next to each update's author.
+  The profile chip (avatar + name + role, opens the settings panel) moved
+  from the topbar's right side to its top-left corner, and the presence dot
+  now sits inside the presence select (absolute, pointer-events-none; the
+  select gains left padding) instead of beside it.
+- **2026-09-02 (workspace views: Tickets and Clients as first-class views)** —
+  the topbar now carries a "tickets" nav button (all staff) and the
+  "clients" button (admin/superuser) is a real view switch, not a modal
+  toggle: a `view` state (`'tickets' | 'clients'`) replaces the old boolean,
+  so the queue and the clients page are peer views and either is reachable
+  at any time from the topbar (or the clients page header's close button).
+  Fixes the report that the clients page had no way back to tickets, and is
+  the first step toward the larger nav revision (the left-rail consolidation).
+- **2026-09-02 (fix: web sent an empty JSON body — timer stop / user removal)** —
+  the web `request()` helper attached `Content-Type: application/json` to every
+  non-FormData request, so body-less requests (the timer-stop POST, the
+  user-remove DELETE) carried a JSON content-type with an empty body and
+  Fastify rejected them with `FST_ERR_CTP_EMPTY_JSON_BODY` ("Body cannot be
+  empty"). The content-type is now set only when the request has a real body.
+  Regression test covers body-less POST/DELETE + a body-present POST.
 - **2026-09-02 (company settings — add/remove staff accounts, UI triage item 15)** —
   `POST /api/users` (superuser-only; role `admin` or `agent`, default `agent` —
   superusers still come from the setup wizard only) and `DELETE /api/users/:id`
