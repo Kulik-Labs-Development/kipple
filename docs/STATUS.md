@@ -277,6 +277,19 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   Migration 0014 (users.mfa_required + staff_invites; this branch carries
   the unmerged 0012/0013 snapshots for merge-order safety). 10 tests
   (`staff-invites.test.ts`).
+- **2026-09-03 (staff per-client access restriction, issue #31)** —
+  `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
+  a `users.client_id` association sees only that client's tickets, clients,
+  updates and attachments; no association = unrestricted (the PLAN §3 default),
+  superusers are always unrestricted (they are who assigns the associations).
+  Closed four pre-existing staff-unrestricted route gaps found while enforcing
+  it: `PATCH /api/tickets/:id` now checks the ticket's OWN client (it only
+  checked the move target, so cross-client status/priority/assign edits passed),
+  `DELETE /api/tickets/:id` gained a scope check, and `GET/DELETE
+  /api/attachments/:id` now scope-check every role (contacts-only before).
+  Out-of-scope = 404 like contacts (no existence leaks). Deleting a client
+  un-scopes its staff via the FK ON DELETE SET NULL. Client creation stays an
+  admin surface. 8 tests (`staff-scope.test.ts`).
 - **2026-09-03 (self-service magic-link login for staff, issue #98)** —
   agents can now sign into the workspace with an email link: off by default,
   per-account opt-in from profile settings. `users.magic_link_enabled`

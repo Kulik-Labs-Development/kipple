@@ -45,17 +45,24 @@ export async function requireRole(
 }
 
 export async function clientScope(user: SessionUser): Promise<ClientScope> {
-  if (user.role !== 'contact') return { kind: 'all' }
+  // Superusers are unrestricted even when a client association is set —
+  // they are the accounts that assign the associations (issue #31).
+  if (user.role === 'superuser') return { kind: 'all' }
   const [row] = await db
-    .select({ contactId: users.contactId })
+    .select({ contactId: users.contactId, clientId: users.clientId })
     .from(users)
     .where(eq(users.id, user.id))
-  if (!row?.contactId) return { kind: 'clients', ids: [] }
-  const links = await db
-    .select({ clientId: contactClients.clientId })
-    .from(contactClients)
-    .where(eq(contactClients.contactId, row.contactId))
-  return { kind: 'clients', ids: links.map((link) => link.clientId) }
+  if (user.role === 'contact') {
+    if (!row?.contactId) return { kind: 'clients', ids: [] }
+    const links = await db
+      .select({ clientId: contactClients.clientId })
+      .from(contactClients)
+      .where(eq(contactClients.contactId, row.contactId))
+    return { kind: 'clients', ids: links.map((link) => link.clientId) }
+  }
+  // Staff (admin/agent): restricted to their assigned client when one is
+  // set, unrestricted by default (issue #31).
+  return row?.clientId ? { kind: 'clients', ids: [row.clientId] } : { kind: 'all' }
 }
 
 export function inScope(scope: ClientScope, clientId: string): boolean {
