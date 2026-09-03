@@ -116,7 +116,11 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(409).send({ error: 'conflict', message: 'that email is already in use' })
     }
     const id = randomUUID()
-    await db.insert(users).values({ id, name, email, role })
+    // App-created accounts are verified by construction (better-auth's own
+    // sign-up sets this when email verification is disabled). Leaving it false
+    // would make a later magic-link verify treat the account as unproven and
+    // revoke its sessions + credential account (issue #98 follow-up).
+    await db.insert(users).values({ id, name, email, role, emailVerified: true })
     await db.insert(accounts).values({
       id: randomUUID(),
       providerId: 'credential',

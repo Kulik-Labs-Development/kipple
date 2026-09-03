@@ -59,6 +59,22 @@ export function LoginView({ onDone }: { onDone: () => void }) {
     }
   }
 
+  async function requestLink() {
+    setBusy(true)
+    setError(null)
+    try {
+      // Agent workspace sign-in via email link (issue #98): the API only
+      // actually sends one when the account opted in via profile settings —
+      // the response shape is identical either way (no enumeration).
+      await api.requestMagicLink(email, '/')
+      setSentTo(email)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'sign-in failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function switchMode(next: Mode) {
     setMode(next)
     setError(null)
@@ -116,7 +132,9 @@ export function LoginView({ onDone }: { onDone: () => void }) {
               A sign-in link was sent to <span className="text-accent">{sentTo}</span>.
             </p>
             <p className="mt-2 text-xs text-dim">
-              Check your inbox. The link expires in 10 minutes and works only once.
+              {mode === 'agent'
+                ? 'A link is only sent if you enabled magic-link login in your profile settings. It expires in 10 minutes and works only once.'
+                : 'Check your inbox. The link expires in 10 minutes and works only once.'}
             </p>
           </div>
         ) : (
@@ -151,6 +169,21 @@ export function LoginView({ onDone }: { onDone: () => void }) {
                   ? 'SEND SIGN-IN LINK'
                   : 'SIGN IN'}
             </button>
+            {mode === 'agent' && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => void requestLink()}
+                  disabled={busy}
+                  className="w-full border border-line py-2 text-xs tracking-widest text-dim hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  sign in with email link
+                </button>
+                <p className="mt-1 text-center text-[10px] text-dim">
+                  only sent if you enabled magic-link login in your profile settings
+                </p>
+              </div>
+            )}
           </form>
         )}
       </div>

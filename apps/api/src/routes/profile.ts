@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import { notFound, requireRole, requireUser } from '../access'
 import { logAudit } from '../audit'
 import { db } from '../db'
-import { users } from '../db/schema'
+import { settings, users } from '../db/schema'
 import {
   AttachmentSizeError,
   attachmentFileSize,
@@ -93,6 +93,45 @@ export async function registerProfileRoutes(app: FastifyInstance): Promise<void>
       fields: Object.keys(patch),
     })
     return { profile: await loadProfile(session.user.id) }
+  })
+
+  // Self-service magic-link login for staff (issue #98): off by default,
+  // per-account opt-in. Contacts never toggle this (their portal flow always
+  // sends), and org-wide SSO hides the toggle + 400s it.
+  app.post('/api/me/magic-link', async (request, reply) => {
+    const session = await requireUser(request, reply)
+    if (!session) return null
+    const body = (request.body ?? {}) as Record<string, unknown>
+    if (typeof body.enabled !== 'boolean') {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'enabled must be a boolean' })
+    }
+    if (session.user.role === 'contact') {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'magic-link self-service is for staff accounts' })
+    }
+    const [ssoRow] = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, 'sso'))
+    if (((ssoRow?.value as { enabled?: boolean } | null) ?? {}).enabled === true) {
+      return reply
+        .code(400)
+        .send({
+          error: 'bad_request',
+          message: 'SSO is enabled for this instance — magic-link login is unavailable',
+        })
+    }
+    await db
+      .update(users)
+      .set({ magicLinkEnabled: body.enabled })
+      .where(eq(users.id, session.user.id))
+    await logAudit(session.user.id, 'auth.magic_link', 'user', session.user.id, {
+      enabled: body.enabled,
+    })
+    return { enabled: body.enabled }
   })
 
   app.post('/api/me/avatar', async (request, reply) => {
