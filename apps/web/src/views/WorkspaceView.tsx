@@ -76,7 +76,7 @@ export function WorkspaceView({
   const [slaConfig, setSlaConfig] = useState<SlaConfig | null>(null)
   const [showSlaManager, setShowSlaManager] = useState(false)
   const [showAutomation, setShowAutomation] = useState(false)
-  const [showClients, setShowClients] = useState(false)
+  const [view, setView] = useState<'tickets' | 'clients'>('tickets')
   const [showDefaults, setShowDefaults] = useState(false)
   const [showUsers, setShowUsers] = useState(false)
   const [clientFilter, setClientFilter] = useState('all')
@@ -214,14 +214,14 @@ export function WorkspaceView({
     toggleTimerRef.current = toggleTimer
   })
 
-  const showClientsRef = useRef(showClients)
+  const viewRef = useRef(view)
   useEffect(() => {
-    showClientsRef.current = showClients
+    viewRef.current = view
   })
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (showClientsRef.current) return
+      if (viewRef.current === 'clients') return
       if (event.key === 't' || event.key === 'T') {
         const target = event.target as HTMLElement | null
         if (
@@ -302,7 +302,7 @@ export function WorkspaceView({
 
   async function selectTicket(id: string) {
     setError(null)
-    setShowClients(false)
+    setView('tickets')
     setSelectedId(id)
   }
 
@@ -418,9 +418,27 @@ export function WorkspaceView({
           )}
           {isStaff && (
             <button
+              onClick={() => setView('tickets')}
+              title="ticket queue"
+              className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
+                view === 'tickets'
+                  ? 'border-accent text-accent'
+                  : 'border-line text-dim hover:border-accent hover:text-accent'
+              }`}
+            >
+              <PhosphorIcon
+                name="ticket"
+                size="sm"
+                className="transition-transform duration-300 group-hover:-translate-y-0.5"
+              />
+              tickets
+            </button>
+          )}
+          {isStaff && (
+            <button
               onClick={
                 user.role === 'superuser' || user.role === 'admin'
-                  ? () => setShowClients(true)
+                  ? () => setView('clients')
                   : undefined
               }
               title={
@@ -429,7 +447,7 @@ export function WorkspaceView({
                   : 'clients (admin or superuser only)'
               }
               className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
-                showClients
+                view === 'clients'
                   ? 'border-accent text-accent'
                   : 'border-line text-dim hover:border-accent hover:text-accent'
               }`}
@@ -550,12 +568,12 @@ export function WorkspaceView({
 
       <main className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
         <div className="flex min-h-0 flex-1 border border-line bg-ink">
-          {showClients ? (
+          {view === 'clients' ? (
             <ClientManager
               onSaved={() => {
                 void refreshClients()
               }}
-              onClose={() => setShowClients(false)}
+              onClose={() => setView('tickets')}
             />
           ) : (
             <>
