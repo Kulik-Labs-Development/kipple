@@ -18,6 +18,8 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
   const [clients, setClients] = useState<ClientSummary[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'agent' as 'admin' | 'agent' })
+  const [busyAdd, setBusyAdd] = useState(false)
 
   async function refresh() {
     try {
@@ -47,6 +49,34 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function addStaff() {
+    setBusyAdd(true)
+    setError(null)
+    try {
+      await api.createUser(newUser)
+      setNewUser({ name: '', email: '', password: '', role: 'agent' })
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to create user')
+    } finally {
+      setBusyAdd(false)
+    }
+  }
+
+  async function remove(userId: string, name: string) {
+    if (!window.confirm(`Remove ${name}? They will no longer be able to sign in.`)) return
+    setBusyId(userId)
+    setError(null)
+    try {
+      await api.deleteUser(userId)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to remove user')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
@@ -57,7 +87,7 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
-          <div className="text-sm tracking-widest text-accent">users &amp; client assignment</div>
+          <div className="text-sm tracking-widest text-accent">company settings</div>
           <button onClick={onClose} className={dimButtonClass}>
             close
           </button>
@@ -72,6 +102,22 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
             Which client each staff account belongs to. Association only — it does not change
             what staff can see (client restriction is a separate feature).
           </p>
+
+          <div className="mb-3 space-y-2 border border-line bg-panel p-3">
+            <div className="text-xs uppercase tracking-widest text-dim">add a staff account</div>
+            <div className="flex flex-wrap gap-2">
+              <input value={newUser.name} onChange={(e) => setNewUser((s) => ({ ...s, name: e.target.value }))} placeholder="name" className={`${inputClass} w-40`} aria-label="new user name" />
+              <input value={newUser.email} onChange={(e) => setNewUser((s) => ({ ...s, email: e.target.value }))} placeholder="email" className={`${inputClass} w-48`} aria-label="new user email" />
+              <input type="password" value={newUser.password} onChange={(e) => setNewUser((s) => ({ ...s, password: e.target.value }))} placeholder="password" className={`${inputClass} w-40`} aria-label="new user password" />
+              <select value={newUser.role} onChange={(e) => setNewUser((s) => ({ ...s, role: e.target.value as 'admin' | 'agent' }))} className={inputClass} aria-label="new user role">
+                <option value="agent">agent</option>
+                <option value="admin">admin</option>
+              </select>
+              <button onClick={() => void addStaff()} disabled={busyAdd || !newUser.name || !newUser.email || !newUser.password} className="border border-accent px-2 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent/10 disabled:opacity-50">
+                add
+              </button>
+            </div>
+          </div>
           {staff.length === 0 ? (
             <p className="text-xs text-dim">No staff accounts yet.</p>
           ) : (
@@ -104,6 +150,9 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
                       </option>
                     ))}
                   </select>
+                  <button onClick={() => void remove(user.id, user.name)} disabled={busyId === user.id} className={dimButtonClass} aria-label={`remove ${user.name}`}>
+                    remove
+                  </button>
                 </li>
               ))}
             </ul>

@@ -42,6 +42,17 @@ export const UserClientPatch = z.object({
 })
 export type UserClientPatch = z.infer<typeof UserClientPatch>
 
+// Company settings (UI triage 09-02 item 15): superuser-provisioned staff
+// account. superuser is deliberately absent from the role union — superusers
+// are created by the setup wizard only, never through this endpoint.
+export const UserCreate = z.object({
+  name: z.string().min(2).max(120),
+  email: z.string().email().max(200),
+  password: z.string().min(8).max(128),
+  role: z.enum(['admin', 'agent']).optional().default('agent'),
+})
+export type UserCreate = z.infer<typeof UserCreate>
+
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(254),

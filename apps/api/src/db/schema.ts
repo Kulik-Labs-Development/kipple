@@ -154,8 +154,8 @@ export const tickets = pgTable('tickets', {
   subject: text('subject').notNull(),
   status: text('status').notNull().default('open'),
   priority: text('priority').notNull().default('normal'),
-  assignedTo: text('assigned_to').references(() => users.id),
-  createdBy: text('created_by').references(() => users.id),
+  assignedTo: text('assigned_to').references(() => users.id, { onDelete: 'set null' }),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
   // SLA (item 10). The resolved policy id is recorded when the due times are
   // computed (ticket override > client policy > instance default), so due
@@ -178,7 +178,7 @@ export const updates = pgTable('updates', {
   ticketId: text('ticket_id')
     .notNull()
     .references(() => tickets.id, { onDelete: 'cascade' }),
-  authorId: text('author_id').references(() => users.id),
+  authorId: text('author_id').references(() => users.id, { onDelete: 'set null' }),
   kind: text('kind').notNull().default('public'),
   body: text('body').notNull().default(''),
   emailMeta: jsonb('email_meta'),
