@@ -262,6 +262,20 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (hold states — waiting on client/vendor, hold timers, auto-close, issue #30)** —
+  `tickets.hold_on` / `hold_since` / `hold_warned_at` (hand-rolled migration 0012). `hold`
+  was already a status value — the new distinction is WHO the ticket is waiting on. Entering
+  hold starts the episode (reason defaults to `client`; switching the reason does NOT reset
+  the timer); leaving hold clears all three. New settings row `hold` (GET/POST /api/holds,
+  superuser-only write, audited `hold.settings`): `autoCloseDays` + `warnDays`, calendar
+  days, warning fires once per episode. Worker tick every 60s (queue `hold`, mirroring the
+  SLA tick) fires the new `ticket.hold_warning` rule event (a template+rule can email the
+  client — nothing auto-sends) and auto-closes due holds (system update, audit
+  `ticket.hold_auto_close`, status_changed rule/notification parity with a manual close,
+  resolve-SLA settled). Web: ticket-detail "waiting on" select + "on hold since /
+  auto-closes" line, superuser "holds" topbar panel, portal "waiting on X" chip.
+  `holdOn`/`holdSince` are contact-visible (status data); `holdAutoCloseAt` is a staff-only
+  computed value on the detail. Decision (flagged): holds do NOT pause SLA timers.
 - **2026-09-03 (superuser role assignment — promote/demote existing staff, issue #97)** —
   `POST /api/users/:id/role` (superuser-only) grants or revokes the
   superuser role on an existing staff account: `{ role: 'agent' | 'admin' |

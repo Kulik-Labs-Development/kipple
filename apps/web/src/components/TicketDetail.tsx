@@ -27,6 +27,7 @@ export interface TicketPatch {
   assignedTo?: string | null
   tags?: string[]
   slaPolicyId?: string | null
+  holdOn?: string | null
 }
 
 interface TicketDetailProps {
@@ -153,6 +154,27 @@ export function TicketDetail({
                 ))}
               </select>
             </label>
+            {detail.status === 'hold' && (
+              <>
+                <label className="flex items-center gap-2">
+                  <span className={labelClass}>waiting on</span>
+                  <select
+                    value={detail.holdOn ?? 'client'}
+                    onChange={(event) => onPatch(detail.id, { holdOn: event.target.value })}
+                    className={selectClass}
+                  >
+                    <option value="client">client</option>
+                    <option value="vendor">vendor</option>
+                  </select>
+                </label>
+                <span className="text-xs text-dim">
+                  on hold since {detail.holdSince ? formatStamp(detail.holdSince) : 'unknown'}
+                  {detail.holdAutoCloseAt
+                    ? ` · auto-closes ${formatStamp(detail.holdAutoCloseAt)}`
+                    : ''}
+                </span>
+              </>
+            )}
             <label className="flex items-center gap-2">
               <span className={labelClass}>priority</span>
               <select
