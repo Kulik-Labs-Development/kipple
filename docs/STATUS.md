@@ -262,6 +262,26 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (self-service magic-link login for staff, issue #98)** —
+  agents can now sign into the workspace with an email link: off by default,
+  per-account opt-in from profile settings. `users.magic_link_enabled`
+  (hand-rolled migration 0013 — NOT NULL DEFAULT FALSE; numbered after the
+  in-flight 0012 so either merge order applies cleanly), `POST
+  /api/me/magic-link` (staff only, audited `auth.magic_link`; contacts 400),
+  and the `sendMagicLinkEmail` gate now sends for opted-in staff instead of
+  hard-blocking every non-contact. Org-wide SSO (settings key `sso`) is the
+  kill switch: when set, the toggle hides + 400s and no magic link is sent
+  for anyone, contacts included — a read-only seam in v1, the writer lands
+  with the real IdP integration (Phase 3). `/api/me` gains `ssoEnabled` +
+  `user.magicLinkEnabled`; the agent login mode gains a "sign in with email
+  link" action with honest helper text (nothing is sent until the account
+  opts in). The unauth request response stays enumeration-safe
+  (`{status:true}`); the portal contact flow is untouched. 7 new api tests.
+  Also fixed a latent landmine this made reachable: app-created accounts
+  (company-settings staff + portal contacts) were left `emailVerified`
+  false, so a magic-link verify ran better-auth's unproven-account path
+  and DELETED the account's sessions + credential row — both writers now
+  mark accounts verified by construction.
 - **2026-09-02 (company settings — add/remove staff accounts, UI triage item 15)** —
   `POST /api/users` (superuser-only; role `admin` or `agent`, default `agent` —
   superusers still come from the setup wizard only) and `DELETE /api/users/:id`

@@ -32,6 +32,7 @@ export const users = pgTable('users', {
   theme: text('theme'),
   colorMode: text('color_mode').notNull().default('system'),
   contactId: text('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+  magicLinkEnabled: boolean('magic_link_enabled').notNull().default(false),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })

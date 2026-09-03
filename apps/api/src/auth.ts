@@ -76,6 +76,16 @@ export const auth = betterAuth({
         defaultValue: 'offline',
         input: false,
       },
+      // Self-service magic-link login for staff (issue #98). Off by default;
+      // only written through POST /api/me/magic-link, and the send gate in
+      // mail.ts honors it. `input: false` keeps it out of better-auth's own
+      // sign-up/sign-in payloads.
+      magicLinkEnabled: {
+        type: ['boolean'],
+        required: true,
+        defaultValue: false,
+        input: false,
+      },
       authSource: {
         type: 'string',
         required: true,

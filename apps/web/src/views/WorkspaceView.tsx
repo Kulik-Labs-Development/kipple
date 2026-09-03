@@ -50,11 +50,13 @@ function errorMessage(error: unknown, fallback: string): string {
 export function WorkspaceView({
   user,
   preferences,
+  ssoEnabled,
   onSignedOut,
   onUserUpdated,
 }: {
   user: MeUser
   preferences: { theme: string | null; colorMode: string }
+  ssoEnabled: boolean
   onSignedOut: () => void
   onUserUpdated: (next: MeUser) => void
 }) {
@@ -654,6 +656,7 @@ export function WorkspaceView({
       {showSettings && (
         <SettingsPanel
           user={user}
+          ssoEnabled={ssoEnabled}
           onProfileSaved={(patch) => {
             if (patch.name || patch.email) {
               onUserUpdated({ ...user, name: patch.name ?? user.name, email: patch.email ?? user.email })

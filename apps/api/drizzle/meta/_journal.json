@@ -85,6 +85,13 @@
             "when": 1788403126599,
             "tag": "0011_calm_sparrow",
             "breakpoints": true
+        },
+        {
+            "idx": 13,
+            "version": "7",
+            "when": 1788490000000,
+            "tag": "0013_quiet_beacon",
+            "breakpoints": true
         }
     ]
 }
