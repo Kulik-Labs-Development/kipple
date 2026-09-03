@@ -14,9 +14,10 @@ function asciiFilename(filename: string): string {
 }
 
 export async function registerAttachmentRoutes(app: FastifyInstance): Promise<void> {
-  // Download. Session required; contact users may only fetch files that
-  // belong to a PUBLIC update on one of their own clients' tickets (the
-  // internal-update and out-of-scope cases both 404 — no existence leaks).
+  // Download. Session required; everyone is scope-checked against the
+  // ticket's client (issue #31), and contact users may only fetch files
+  // that belong to a PUBLIC update (internal-update and out-of-scope cases
+  // both 404 — no existence leaks).
   app.get('/api/attachments/:id', async (request, reply) => {
     const session = await requireUser(request, reply)
     if (!session) return null
@@ -35,10 +36,10 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
       .innerJoin(tickets, eq(updates.ticketId, tickets.id))
       .where(eq(attachments.id, id))
     if (!row) return reply.code(404).send(notFound())
-    if (session.user.role === 'contact') {
-      const scope = await clientScope(session.user)
-      if (!inScope(scope, row.clientId)) return reply.code(404).send(notFound())
-      if (row.kind !== 'public') return reply.code(404).send(notFound())
+    const scope = await clientScope(session.user)
+    if (!inScope(scope, row.clientId)) return reply.code(404).send(notFound())
+    if (session.user.role === 'contact' && row.kind !== 'public') {
+      return reply.code(404).send(notFound())
     }
     const size = await attachmentFileSize(row.storageKey)
     if (size === null) return reply.code(404).send(notFound())
@@ -56,7 +57,8 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     return reply.send(createReadStream(attachmentPath(row.storageKey)))
   })
 
-  // Delete = staff only; removes the row and the file, audit-logged.
+  // Delete = staff only, scope-checked against the ticket's client
+  // (issue #31); removes the row and the file, audit-logged.
   app.delete('/api/attachments/:id', async (request, reply) => {
     const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
     if (!session) return null
@@ -68,12 +70,15 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
         storageKey: attachments.storageKey,
         updateId: updates.id,
         ticketId: tickets.id,
+        clientId: tickets.clientId,
       })
       .from(attachments)
       .innerJoin(updates, eq(attachments.updateId, updates.id))
       .innerJoin(tickets, eq(updates.ticketId, tickets.id))
       .where(eq(attachments.id, id))
     if (!row) return reply.code(404).send(notFound())
+    const scope = await clientScope(session.user)
+    if (!inScope(scope, row.clientId)) return reply.code(404).send(notFound())
     await db.delete(attachments).where(eq(attachments.id, id))
     await deleteAttachmentFile(row.storageKey)
     await logAudit(session.user.id, 'attachment.delete', 'attachment', id, {
