@@ -262,6 +262,22 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 ("Invalid origin" on sign-out / re-sign-in — auth bug fix)** —
+  better-auth's origin/CSRF check only runs once a request carries a cookie,
+  and `trustedOrigins` was static (`PUBLIC_URL` + the two dev origins), so a
+  browser addressed to the instance from any other host (LAN IP, tunnel,
+  proxied domain) 403'd `Invalid origin` on every cookie-bearing auth call —
+  sign-out failed silently, re-sign-in failed on the login screen. `auth.ts`
+  now exports `dynamicTrustedOrigins(request)`: the static list plus the
+  origin the request is actually addressed to (`Host`; `X-Forwarded-Host`/
+  `X-Forwarded-Proto` only when `TRUST_PROXY=true`, since behind no proxy
+  those headers are client-spoofable). CSRF protection is intact —
+  better-auth matches the attacker-controllable Origin against this list,
+  and `Host` is a forbidden browser header, so a cross-site page's Origin
+  still never matches the victim instance's Host. Unit-tested (5 cases
+  incl. the spoofed-forwarded-host case); the middleware itself is disabled
+  under vitest (`isTest()` → `skipOriginCheck`), which is why the tests
+  target the resolver.
 - **2026-09-02 (clients as its own page — UI triage item 13)** —
   ClientManager is no longer a modal: the topbar "clients" button now
   swaps the workspace's queue area for a full clients page (new client,
