@@ -262,6 +262,18 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (workspace polish — profile top-left, feed avatars, presence dot in the selector; issues #92/#93/#94)** —
+  Batch of three small workspace fixes. New reusable `Avatar` component
+  (apps/web): renders the user's uploaded image when present and degrades to
+  an initial chip when the image is missing or unreachable (e.g. a contact
+  author, whose /api/users/:id/avatar is staff-only), so feeds never show a
+  broken image. Ticket detail updates now expose `authorImage` alongside
+  `authorName` (the existing users join picks up users.image), and the
+  workspace timeline renders a small Avatar next to each update's author.
+  The profile chip (avatar + name + role, opens the settings panel) moved
+  from the topbar's right side to its top-left corner, and the presence dot
+  now sits inside the presence select (absolute, pointer-events-none; the
+  select gains left padding) instead of beside it.
 - **2026-09-02 (workspace views: Tickets and Clients as first-class views)** —
   the topbar now carries a "tickets" nav button (all staff) and the
   "clients" button (admin/superuser) is a real view switch, not a modal
