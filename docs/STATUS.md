@@ -270,6 +270,13 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   at any time from the topbar (or the clients page header's close button).
   Fixes the report that the clients page had no way back to tickets, and is
   the first step toward the larger nav revision (the left-rail consolidation).
+- **2026-09-02 (fix: web sent an empty JSON body — timer stop / user removal)** —
+  the web `request()` helper attached `Content-Type: application/json` to every
+  non-FormData request, so body-less requests (the timer-stop POST, the
+  user-remove DELETE) carried a JSON content-type with an empty body and
+  Fastify rejected them with `FST_ERR_CTP_EMPTY_JSON_BODY` ("Body cannot be
+  empty"). The content-type is now set only when the request has a real body.
+  Regression test covers body-less POST/DELETE + a body-present POST.
 - **2026-09-02 (company settings — add/remove staff accounts, UI triage item 15)** —
   `POST /api/users` (superuser-only; role `admin` or `agent`, default `agent` —
   superusers still come from the setup wizard only) and `DELETE /api/users/:id`
