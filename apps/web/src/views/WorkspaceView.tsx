@@ -145,6 +145,31 @@ export function WorkspaceView({
     }
   }, [isStaff])
 
+  // Real-time presence (issue #96): the SSE channel pushes presence changes;
+  // the initial list above is the baseline. EventSource reconnects on its own.
+  useEffect(() => {
+    if (!isStaff) return
+    const source = new EventSource('/api/events')
+    const onPresence = (event: MessageEvent) => {
+      try {
+        const { userId, presence: next } = JSON.parse(event.data) as {
+          userId: string
+          presence: string
+        }
+        setStaff((prev) =>
+          prev.map((row) => (row.id === userId ? { ...row, presence: next } : row)),
+        )
+      } catch {
+        /* malformed frame — ignore */
+      }
+    }
+    source.addEventListener('presence', onPresence)
+    return () => {
+      source.removeEventListener('presence', onPresence)
+      source.close()
+    }
+  }, [isStaff])
+
   useEffect(() => {
     void refreshSlaConfig()
   }, [refreshSlaConfig])

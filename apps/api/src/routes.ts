@@ -10,6 +10,7 @@ import { normalizeBranding, registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerDefaultRoutes } from './routes/defaults'
 import { registerEmailRoutes } from './routes/email'
+import { registerEventRoutes } from './routes/events'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
 import { registerPortalRoutes } from './routes/portal'
 import { registerProfileRoutes } from './routes/profile'
@@ -150,6 +151,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerContactRoutes(app)
   await registerDefaultRoutes(app)
   await registerEmailRoutes(app)
+  await registerEventRoutes(app)
   await registerNotificationRoutes(app)
   await registerPresenceRoutes(app)
   await registerPortalRoutes(app)
