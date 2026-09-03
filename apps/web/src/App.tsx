@@ -25,6 +25,9 @@ export default function App() {
     theme: string | null
     colorMode: string
   } | null>(null)
+  // Org-wide SSO flag (issue #98): read-only seam; hides/locks the
+  // magic-link toggle while true.
+  const [ssoEnabled, setSsoEnabled] = useState(false)
   const [primaryClient, setPrimaryClient] = useState<{
     id: string
     name: string
@@ -51,6 +54,7 @@ export default function App() {
       setUser(me.user)
       setPrimaryClient(me.primaryClient)
       setPreferences(me.preferences)
+      setSsoEnabled(me.ssoEnabled)
       setMode('app')
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -70,6 +74,7 @@ export default function App() {
     setUser(null)
     setPrimaryClient(null)
     setPreferences(null)
+    setSsoEnabled(false)
     setMode('login')
   }
 
@@ -110,6 +115,7 @@ export default function App() {
     <WorkspaceView
       user={user}
       preferences={preferences ?? { theme: null, colorMode: 'system' }}
+      ssoEnabled={ssoEnabled}
       onSignedOut={signedOut}
       onUserUpdated={(next) => setUser(next)}
     />

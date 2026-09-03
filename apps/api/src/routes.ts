@@ -93,6 +93,14 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(settings.key, 'agentTheme'))
     const agentDefaultTheme =
       ((agentThemeSetting?.value as { id?: string } | null) ?? {}).id ?? 'console'
+    const [ssoSetting] = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, 'sso'))
+    // Read-only seam: the flag is written by the real SSO integration
+    // (Phase 3); absent = SSO off.
+    const ssoEnabled =
+      ((ssoSetting?.value as { enabled?: boolean } | null) ?? {}).enabled === true
     let primaryClient: {
       id: string
       name: string
@@ -132,6 +140,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       sessionId: session.session.id,
       instanceTheme,
       agentDefaultTheme,
+      ssoEnabled,
       contactId: prefs?.contactId ?? null,
       primaryClient,
       preferences: {

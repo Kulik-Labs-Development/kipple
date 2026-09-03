@@ -234,9 +234,11 @@ export async function enqueueOutbox(input: EnqueueOutboxInput): Promise<string> 
 }
 
 // Magic-link login email (better-auth magicLink plugin hook). Only local
-// contact accounts receive one: unknown emails get nothing (no enumeration,
-// no spam), SSO users sign in via their IdP, staff magic links are a later
-// per-account opt-in. Delivered through the normal provider queue.
+// accounts can receive one: unknown emails get nothing (no enumeration, no
+// spam), org-wide SSO disables magic links for everyone, per-user SSO users
+// sign in via their IdP, contacts always receive one (the portal flow), and
+// staff opt in per account (users.magic_link_enabled, issue #98). Delivered
+// through the normal provider queue.
 export async function sendMagicLinkEmail(email: string, url: string): Promise<void> {
   const [user] = await db.select().from(users).where(ilike(users.email, email))
   if (!user) {
@@ -247,7 +249,19 @@ export async function sendMagicLinkEmail(email: string, url: string): Promise<vo
     log.info({ userId: user.id }, 'magic link blocked for SSO user')
     return
   }
-  if (user.role !== 'contact') {
+  // Org-wide kill switch: when SSO is enabled for the instance (settings key
+  // 'sso'), magic-link sign-in is unavailable for everyone, contacts
+  // included. The flag is a read-only seam in v1 — the writer lands with the
+  // real IdP integration (Phase 3).
+  const [ssoRow] = await db
+    .select({ value: settings.value })
+    .from(settings)
+    .where(eq(settings.key, 'sso'))
+  if (((ssoRow?.value as { enabled?: boolean } | null) ?? {}).enabled === true) {
+    log.info({ userId: user.id }, 'magic link disabled org-wide (SSO enabled)')
+    return
+  }
+  if (user.role !== 'contact' && user.magicLinkEnabled !== true) {
     log.info({ userId: user.id }, 'magic link not enabled for staff account')
     return
   }

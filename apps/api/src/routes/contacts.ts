@@ -163,6 +163,11 @@ export async function registerContactRoutes(app: FastifyInstance): Promise<void>
         email: contact.email,
         role: 'contact',
         contactId: contact.id,
+        // Verified by construction: an app-provisioned portal account (the
+        // password is a random one nobody knows). An unverified account would
+        // have better-auth revoke its sessions + credential account on the
+        // next magic-link verify.
+        emailVerified: true,
       })
     await db
       .insert(accounts)

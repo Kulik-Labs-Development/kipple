@@ -26,6 +26,7 @@ export interface MeUser {
   // MFA on first login (issue #32): true until the invited account enrolls
   // a TOTP device; the API blocks everything but setup + /api/me.
   mfaRequired: boolean
+  magicLinkEnabled: boolean
 }
 
 export interface InviteRow {
@@ -61,6 +62,7 @@ export interface MeResponse {
     theme: string | null
     colorMode: ColorMode
   }
+  ssoEnabled: boolean
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -463,10 +465,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
-  requestMagicLink: (email: string) =>
+  requestMagicLink: (email: string, callbackURL = '/portal') =>
     request<{ status: boolean }>('/api/auth/sign-in/magic-link', {
       method: 'POST',
-      body: JSON.stringify({ email, callbackURL: '/portal' }),
+      body: JSON.stringify({ email, callbackURL }),
+    }),
+  setMagicLink: (enabled: boolean) =>
+    request<{ enabled: boolean }>('/api/me/magic-link', {
+      method: 'POST',
+      body: JSON.stringify({ enabled }),
     }),
   signOut: () => request('/api/auth/sign-out', { method: 'POST' }),
   patchProfile: (body: { name?: string; email?: string; phone?: string | null; address?: string | null; office?: string | null }) =>
