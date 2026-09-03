@@ -82,6 +82,15 @@ export const auth = betterAuth({
         defaultValue: 'local',
         input: false,
       },
+      // MFA on first login (issue #32): set when an invited staff account is
+      // accepted; the API gate blocks everything except two-factor setup
+      // until a TOTP device is verified, then the gate clears it.
+      mfaRequired: {
+        type: 'boolean',
+        required: true,
+        defaultValue: false,
+        input: false,
+      },
       // Profile fields (user settings page). `input: false` keeps them out of
       // better-auth's own sign-up/sign-in payloads — they are written through
       // /api/me/profile only.

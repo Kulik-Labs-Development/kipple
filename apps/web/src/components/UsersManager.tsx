@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type ClientSummary, type StaffUser } from '../lib/api'
+import { api, type ClientSummary, type InviteRow, type StaffUser } from '../lib/api'
 
 const dimButtonClass =
   'border border-line px-2 py-1 text-xs uppercase tracking-widest text-dim hover:border-danger hover:text-danger'
@@ -20,12 +20,25 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'agent' as 'admin' | 'agent' })
   const [busyAdd, setBusyAdd] = useState(false)
+  // Agent invites (issue #32): email token links with MFA on first login.
+  const [invites, setInvites] = useState<InviteRow[]>([])
+  const [invitesEnabled, setInvitesEnabled] = useState(true)
+  const [newInvite, setNewInvite] = useState({ email: '', role: 'agent' as 'admin' | 'agent' })
+  const [busyInvite, setBusyInvite] = useState(false)
+  const [busyRevokeId, setBusyRevokeId] = useState<string | null>(null)
 
   async function refresh() {
     try {
-      const [staffRows, clientRows] = await Promise.all([api.listStaff(), api.listClients()])
+      const [staffRows, clientRows, inviteRows, inviteSwitch] = await Promise.all([
+        api.listStaff(),
+        api.listClients(),
+        api.listInvites(),
+        api.instanceInvites(),
+      ])
       setStaff(staffRows)
       setClients(clientRows)
+      setInvites(inviteRows)
+      setInvitesEnabled(inviteSwitch.enabled)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to load users')
@@ -60,6 +73,44 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
       setError(err instanceof Error ? err.message : 'failed to create user')
     } finally {
       setBusyAdd(false)
+    }
+  }
+
+  async function sendInvite() {
+    setBusyInvite(true)
+    setError(null)
+    try {
+      await api.createInvite({ email: newInvite.email.trim(), role: newInvite.role })
+      setNewInvite({ email: '', role: 'agent' })
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to send invitation')
+    } finally {
+      setBusyInvite(false)
+    }
+  }
+
+  async function revokeInvite(inviteId: string, email: string) {
+    if (!window.confirm(`Revoke the invitation for ${email}?`)) return
+    setBusyRevokeId(inviteId)
+    setError(null)
+    try {
+      await api.revokeInvite(inviteId)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to revoke invitation')
+    } finally {
+      setBusyRevokeId(null)
+    }
+  }
+
+  async function toggleInvites(enabled: boolean) {
+    setError(null)
+    try {
+      await api.setInstanceInvites({ enabled })
+      setInvitesEnabled(enabled)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to update invitations')
     }
   }
 
@@ -102,6 +153,60 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
             Which client each staff account belongs to. Association only — it does not change
             what staff can see (client restriction is a separate feature).
           </p>
+
+          <div className="mb-3 space-y-2 border border-line bg-panel p-3">
+            <div className="flex items-center justify-between">
+              <div className="text-xs uppercase tracking-widest text-dim">invite a staff account</div>
+              <label className="flex cursor-pointer items-center gap-1 text-[10px] uppercase tracking-widest text-dim">
+                <input
+                  type="checkbox"
+                  checked={invitesEnabled}
+                  onChange={(e) => void toggleInvites(e.target.checked)}
+                  aria-label="allow invitations"
+                />
+                allow invitations
+              </label>
+            </div>
+            {invitesEnabled ? (
+              <>
+                <p className="text-xs text-dim">
+                  Sends an email with a one-time link (7 days). The invitee picks a password and
+                  must set up two-factor authentication on first sign-in.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <input value={newInvite.email} onChange={(e) => setNewInvite((s) => ({ ...s, email: e.target.value }))} placeholder="email" className={`${inputClass} w-52`} aria-label="invite email" />
+                  <select value={newInvite.role} onChange={(e) => setNewInvite((s) => ({ ...s, role: e.target.value as 'admin' | 'agent' }))} className={inputClass} aria-label="invite role">
+                    <option value="agent">agent</option>
+                    <option value="admin">admin</option>
+                  </select>
+                  <button onClick={() => void sendInvite()} disabled={busyInvite || !newInvite.email.includes('@')} className="border border-accent px-2 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent/10 disabled:opacity-50">
+                    send invite
+                  </button>
+                </div>
+                {invites.length > 0 && (
+                  <ul className="space-y-1 border-t border-line pt-2">
+                    {invites.map((invite) => (
+                      <li key={invite.id} className="flex items-center gap-3 text-xs">
+                        <span className="min-w-0 flex-1 truncate text-fg">{invite.email}</span>
+                        <span className="uppercase tracking-widest text-dim">{invite.role}</span>
+                        <span className="text-dim">expires {new Date(invite.expiresAt).toLocaleDateString()}</span>
+                        <button
+                          onClick={() => void revokeInvite(invite.id, invite.email)}
+                          disabled={busyRevokeId === invite.id}
+                          className={dimButtonClass}
+                          aria-label={`revoke invitation for ${invite.email}`}
+                        >
+                          revoke
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-dim">Invitations are disabled — new accounts can only be created directly.</p>
+            )}
+          </div>
 
           <div className="mb-3 space-y-2 border border-line bg-panel p-3">
             <div className="text-xs uppercase tracking-widest text-dim">add a staff account</div>
