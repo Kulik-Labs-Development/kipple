@@ -6,6 +6,7 @@ import { DefaultsManager } from '../components/DefaultsManager'
 import { UsersManager } from '../components/UsersManager'
 import { SettingsPanel } from '../components/SettingsPanel'
 import { NotificationBell } from '../components/NotificationBell'
+import { Avatar } from '../components/Avatar'
 import { PhosphorIcon } from '../components/PhosphorIcon'
 import { QueuePane } from '../components/QueuePane'
 import { SlaManager } from '../components/SlaManager'
@@ -365,7 +366,17 @@ export function WorkspaceView({
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between border-b border-line bg-panel px-4 py-3">
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowSettings(true)}
+            title="settings"
+            className="flex items-center gap-1.5 border border-transparent px-1 py-0.5 hover:border-line"
+          >
+            <Avatar src={user.image ? '/api/me/avatar' : null} name={user.name} size="sm" />
+            <span className="text-xs text-fg">{user.name}</span>
+            <span className="text-xs text-dim">·</span>
+            <span className="text-xs uppercase text-dim">{user.role}</span>
+          </button>
           <span className="tracking-widest text-accent">KIPPLE</span>
           <span className="text-xs text-dim">agent workspace</span>
         </div>
@@ -461,33 +472,16 @@ export function WorkspaceView({
               {formatClock((now - new Date(activeEntry.startedAt).getTime()) / 1000)}
             </button>
           )}
-          <button
-            onClick={() => setShowSettings(true)}
-            title="settings"
-            className="flex items-center gap-1.5 border border-transparent px-1 py-0.5 hover:border-line"
-          >
-            {user.image && (
-              <img
-                src="/api/me/avatar"
-                alt=""
-                aria-hidden
-                className="h-4 w-4 rounded-full border border-line object-cover"
-              />
-            )}
-            <span className="text-dim">{user.name}</span>{' '}
-            <span className="text-dim">·</span>{' '}
-            <span className="uppercase text-dim">{user.role}</span>
-          </button>
-          <span className="flex items-center gap-1.5">
+          <span className="relative inline-flex items-center">
             <span
-              className={`presence-dot h-2 w-2 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
+              className={`presence-dot pointer-events-none absolute left-1.5 h-2 w-2 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
               title={`presence: ${presence}`}
             />
             <select
               value={presence}
               onChange={(event) => void changePresence(event.target.value)}
               title="presence"
-              className="border border-line bg-panel px-1 py-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
+              className="border border-line bg-panel py-1 pl-5 pr-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
             >
               {PRESENCE_VALUES.map((value) => (
                 <option key={value} value={value}>

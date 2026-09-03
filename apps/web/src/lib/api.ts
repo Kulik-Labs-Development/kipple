@@ -236,6 +236,7 @@ export interface TicketUpdateRow {
   ticketId: string
   authorId: string | null
   authorName: string | null
+  authorImage: string | null
   kind: string
   body: string
   attachments: AttachmentView[]
