@@ -332,6 +332,13 @@ export const api = {
   listContacts: (clientId: string) =>
     request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),
   listStaff: () => request<StaffUser[]>('/api/users'),
+  createUser: (input: { name: string; email: string; password: string; role?: 'admin' | 'agent' }) =>
+    request<{ id: string; name: string; email: string; role: string }>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  deleteUser: (id: string) =>
+    request<{ id: string; deleted: boolean }>(`/api/users/${id}`, { method: 'DELETE' }),
   assignUserClient: (id: string, clientId: string | null) =>
     request<{ id: string; clientId: string | null }>(`/api/users/${id}`, {
       method: 'PATCH',

@@ -262,6 +262,19 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (company settings — add/remove staff accounts, UI triage item 15)** —
+  `POST /api/users` (superuser-only; role `admin` or `agent`, default `agent` —
+  superusers still come from the setup wizard only) and `DELETE /api/users/:id`
+  (self-delete 400, contact targets 400), both audited (`user.create` /
+  `user.delete`). The web users panel (item 11) is now the company settings
+  view: an add-staff form + per-row remove with confirm; "see status" is the
+  presence dot from item 11. Migration 0011 flips tickets.assigned_to /
+  tickets.created_by / updates.author_id from ON DELETE NO ACTION to
+  ON DELETE SET NULL, so deleting a staff user always succeeds and their
+  tickets/updates survive unattributed (the web already renders those nulls).
+  Sessions/accounts/2FA/notifications cascade with the user; audit rows
+  survive with a null actor. One data trade, flagged in the PR: the
+  time_entries cascade drops a removed agent's billing rows with them.
 - **2026-09-02 ("Invalid origin" on sign-out / re-sign-in — auth bug fix)** —
   better-auth's origin/CSRF check only runs once a request carries a cookie,
   and `trustedOrigins` was static (`PUBLIC_URL` + the two dev origins), so a
