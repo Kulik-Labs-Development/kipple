@@ -262,6 +262,22 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (superuser role assignment — promote/demote existing staff, issue #97)** —
+  `POST /api/users/:id/role` (superuser-only) grants or revokes the
+  superuser role on an existing staff account: `{ role: 'agent' | 'admin' |
+  'superuser' }` (shared `UserRolePatch`), 404 unknown, 400 contact targets
+  (the standard portal-account message), 400 on an invalid role, audited as
+  `user.role` with `{ from, to }`. This is the deliberate promotion path —
+  the company-settings create endpoint still never mints superusers
+  (superusers come from the setup wizard or a promotion). Superusers stay
+  agents: the role only adds the company-management gates, so no capability
+  changes elsewhere. Safety: a last-superuser guard returns 400 when a
+  demotion would leave the instance without any superuser — a superuser may
+  step down (including themself) once another one exists, which keeps the
+  hand-off flow (promote B, then demote A) possible while making the
+  lock-out state unrepresentable. Web: per-row role select in the company
+  settings panel (agent/admin/superuser; confirms when granting or revoking
+  the superuser role).
 - **2026-09-03 (workspace polish — profile top-left, feed avatars, presence dot in the selector; issues #92/#93/#94)** —
   Batch of three small workspace fixes. New reusable `Avatar` component
   (apps/web): renders the user's uploaded image when present and degrades to

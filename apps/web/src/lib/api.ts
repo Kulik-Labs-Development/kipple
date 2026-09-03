@@ -349,6 +349,11 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ clientId }),
     }),
+  setUserRole: (id: string, role: string) =>
+    request<{ id: string; role: string }>(`/api/users/${id}/role`, {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }),
   listTickets: (filters: TicketFilters = {}) =>
     request<TicketRow[]>(`/api/tickets${ticketQuery(filters)}`),
   getTicket: (id: string) => request<TicketDetail>(`/api/tickets/${id}`),
