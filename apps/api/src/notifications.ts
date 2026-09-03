@@ -64,6 +64,8 @@ export async function markRead(userId: string, ids: string[] | null): Promise<nu
 export interface NotifyableEvent extends RuleEvent {
   // the assignee before a ticket.updated, when the event is an update
   fromAssignedTo?: string | null
+  // ticket.hold_warning: calendar days left until the auto-close
+  daysUntilAutoClose?: number
 }
 
 // One notification fan-out per ticket event.
@@ -115,6 +117,20 @@ export async function notifyTicketEvent(event: NotifyableEvent): Promise<void> {
           'ticket.assigned',
           ticket.id,
           `Ticket #${ticket.number} “${ticket.subject}” was assigned to you`,
+        )
+      }
+      break
+    case 'ticket.hold_warning':
+      if (assignee && notSelf(assignee)) {
+        const days =
+          event.daysUntilAutoClose !== undefined
+            ? ` in ${event.daysUntilAutoClose} day${event.daysUntilAutoClose === 1 ? '' : 's'}`
+            : ''
+        await notify(
+          assignee,
+          'ticket.hold_warning',
+          ticket.id,
+          `Ticket #${ticket.number} “${ticket.subject}” will auto-close${days} (on hold)`,
         )
       }
       break

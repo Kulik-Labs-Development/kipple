@@ -68,6 +68,21 @@ export const ContactClientLink = z.object({
 })
 export type ContactClientLink = z.infer<typeof ContactClientLink>
 
+// --- Hold states (issue #30) ---
+// Who a held ticket is waiting on. 'hold' itself is an existing status
+// value (TicketStatus); the reason is the new distinction.
+export const HOLD_REASONS = ['client', 'vendor'] as const
+export type HoldReason = (typeof HOLD_REASONS)[number]
+
+// Instance hold settings (settings key 'hold'). null = off. warnDays
+// requires autoCloseDays and must be smaller (cross-field rules are
+// validated in the POST route, not in the zod object).
+export const HoldSettings = z.object({
+  autoCloseDays: z.number().int().min(1).max(365).nullable().optional(),
+  warnDays: z.number().int().min(1).max(364).nullable().optional(),
+})
+export type HoldSettings = z.infer<typeof HoldSettings>
+
 export const TicketCreate = z.object({
   clientId: z.string().min(1),
   subject: z.string().min(1).max(300),
@@ -83,6 +98,9 @@ export const TicketUpdate = z.object({
   slaPolicyId: z.string().min(1).nullable().optional(),
   subject: z.string().min(1).max(300).optional(),
   status: TicketStatus.optional(),
+  // hold reason (issue #30): who the ticket is waiting on while on hold;
+  // entering hold defaults it to 'client' when omitted
+  holdOn: z.enum(HOLD_REASONS).nullable().optional(),
   priority: TicketPriority.optional(),
   assignedTo: z.string().min(1).nullable().optional(),
   tags: z.array(z.string().min(1).max(50)).max(20).optional(),
@@ -261,6 +279,8 @@ export const RULE_EVENTS = [
   'ticket.status_changed',
   'ticket.reply',
   'ticket.updated',
+  // a held ticket entered its pre-close warning window (issue #30)
+  'ticket.hold_warning',
 ] as const
 export type RuleEventName = (typeof RULE_EVENTS)[number]
 

@@ -24,6 +24,11 @@ import {
 } from '../storage'
 import { loadEmailSettings, queueTicketReply } from '../mail'
 import {
+  applyHoldTransition,
+  computeHoldAutoCloseAt,
+  loadHoldSettings,
+} from '../holds'
+import {
   applySlaToTicket,
   loadSlaEnabled,
   markTicketResponded,
@@ -233,7 +238,11 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     if (session.user.role === 'contact') {
       return { ...ticketView(ticket, 'contact'), updates: ticket.updates }
     }
-    return ticket
+    // holdAutoCloseAt is a staff-only computed value — the raw hold fields
+    // are status data and stay visible to contacts (the portal shows 'hold')
+    const holdView =
+      ticket.status === 'hold' ? await loadHoldSettings() : { autoCloseDays: null, warnDays: null }
+    return { ...ticket, holdAutoCloseAt: computeHoldAutoCloseAt(ticket, holdView) }
   })
 
   app.patch('/api/tickets/:id', async (request, reply) => {
@@ -248,6 +257,8 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     }
     const [existing] = await db.select().from(tickets).where(eq(tickets.id, id))
     const wasClosed = existing?.status === 'closed'
+    // hold fields (issue #30) fold into the same single update below
+    const hold = applyHoldTransition(existing ?? null, parsed.data.status, parsed.data.holdOn)
     const [patched] = await db
       .update(tickets)
       .set({
@@ -255,6 +266,11 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
         slaPolicyId: parsed.data.slaPolicyId !== undefined ? parsed.data.slaPolicyId : undefined,
         subject: parsed.data.subject ?? undefined,
         status: parsed.data.status ?? undefined,
+        // `hold ? x : undefined` (NOT `x ?? undefined`) — an explicit null is
+        // how leaving hold clears the fields
+        holdOn: hold ? hold.holdOn : undefined,
+        holdSince: hold ? hold.holdSince : undefined,
+        holdWarnedAt: hold ? hold.holdWarnedAt : undefined,
         priority: parsed.data.priority ?? undefined,
         assignedTo: parsed.data.assignedTo !== undefined ? parsed.data.assignedTo : undefined,
         tags: parsed.data.tags ?? undefined,

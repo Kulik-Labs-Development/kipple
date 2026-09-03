@@ -112,6 +112,9 @@ export interface TicketRow {
   slaResolvedAt: string | null
   slaResponseState: string
   slaResolveState: string
+  // Hold states (issue #30) — visible to contacts too (it's status data)
+  holdOn: string | null
+  holdSince: string | null
 }
 
 export interface SlaPolicy {
@@ -164,6 +167,7 @@ export const RULE_EVENTS = [
   'ticket.status_changed',
   'ticket.reply',
   'ticket.updated',
+  'ticket.hold_warning',
 ] as const
 export type RuleEventName = (typeof RULE_EVENTS)[number]
 
@@ -246,6 +250,9 @@ export interface TicketDetail extends TicketRow {
   clientName: string | null
   assignedName: string | null
   updates: TicketUpdateRow[]
+  // staff-only computed value: when the held ticket auto-closes (null = not
+  // on hold, or no auto-close configured)
+  holdAutoCloseAt: string | null
 }
 
 export interface TicketFilters {
@@ -364,6 +371,7 @@ export const api = {
       assignedTo?: string | null
       tags?: string[]
       slaPolicyId?: string | null
+      holdOn?: string | null
     },
   ) => request<TicketRow>(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   addTicketUpdate: (id: string, body: { kind?: 'public' | 'internal'; body: string }) =>
@@ -457,6 +465,13 @@ export const api = {
     request<{ agentTheme: string | null; portalTheme: string | null }>('/api/instance/defaults'),
   patchInstanceDefaults: (body: { agentTheme?: string | null; portalTheme?: string | null }) =>
     request<{ agentTheme: string | null; portalTheme: string | null }>('/api/instance/defaults', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  holdSettings: () =>
+    request<{ autoCloseDays: number | null; warnDays: number | null }>('/api/holds'),
+  patchHoldSettings: (body: { autoCloseDays?: number | null; warnDays?: number | null }) =>
+    request<{ autoCloseDays: number | null; warnDays: number | null }>('/api/holds', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

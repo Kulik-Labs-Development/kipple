@@ -3,6 +3,7 @@ import { agentThemes, type ThemeId } from '@kipple/shared/themes'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { DefaultsManager } from '../components/DefaultsManager'
+import { HoldsManager } from '../components/HoldsManager'
 import { UsersManager } from '../components/UsersManager'
 import { SettingsPanel } from '../components/SettingsPanel'
 import { NotificationBell } from '../components/NotificationBell'
@@ -77,6 +78,7 @@ export function WorkspaceView({
   const [showAutomation, setShowAutomation] = useState(false)
   const [showClients, setShowClients] = useState(false)
   const [showDefaults, setShowDefaults] = useState(false)
+  const [showHolds, setShowHolds] = useState(false)
   const [showUsers, setShowUsers] = useState(false)
   const [clientFilter, setClientFilter] = useState('all')
   const [showSettings, setShowSettings] = useState(false)
@@ -451,6 +453,16 @@ export function WorkspaceView({
               defaults
             </button>
           )}
+          {isStaff && user.role === 'superuser' && (
+            <button
+              onClick={() => setShowHolds(true)}
+              title="hold states — auto-close + pre-close warning (superuser)"
+              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
+            >
+              <PhosphorIcon name="hourglass" size="sm" />
+              holds
+            </button>
+          )}
           {isStaff && activeEntry && (
             <button
               onClick={toggleTimer}
@@ -650,6 +662,7 @@ export function WorkspaceView({
 
 
       {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
+      {showHolds && <HoldsManager onClose={() => setShowHolds(false)} />}
       {showUsers && <UsersManager onClose={() => setShowUsers(false)} />}
       {showSettings && (
         <SettingsPanel

@@ -169,6 +169,12 @@ export const tickets = pgTable('tickets', {
   slaResolvedAt: timestamp('sla_resolved_at', { withTimezone: true }),
   slaResponseState: text('sla_response_state').notNull().default('pending'),
   slaResolveState: text('sla_resolve_state').notNull().default('pending'),
+  // Hold states (issue #30): while status='hold' the auto-close timer runs
+  // from hold_since (calendar days, instance setting 'hold'); hold_warned_at
+  // marks the pre-close warning that fired once per hold episode.
+  holdOn: text('hold_on'),
+  holdSince: timestamp('hold_since', { withTimezone: true }),
+  holdWarnedAt: timestamp('hold_warned_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
