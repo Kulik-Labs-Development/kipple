@@ -63,6 +63,27 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function changeRole(userId: string, name: string, role: string) {
+    const current = staff.find((user) => user.id === userId)?.role ?? 'agent'
+    if (role !== current && (role === 'superuser' || current === 'superuser')) {
+      const ok =
+        role === 'superuser'
+          ? window.confirm(`Make ${name} a superuser?`)
+          : window.confirm(`Remove superuser from ${name}? The instance must keep at least one superuser.`)
+      if (!ok) return
+    }
+    setBusyId(userId)
+    setError(null)
+    try {
+      await api.setUserRole(userId, role)
+      await refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'failed to update user')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function remove(userId: string, name: string) {
     if (!window.confirm(`Remove ${name}? They will no longer be able to sign in.`)) return
     setBusyId(userId)
@@ -136,6 +157,18 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
                     </div>
                     <div className="truncate text-xs text-dim">{user.email}</div>
                   </div>
+                  <select
+                    value={user.role}
+                    disabled={busyId === user.id}
+                    onChange={(event) => void changeRole(user.id, user.name, event.target.value)}
+                    className={`${inputClass} w-28`}
+                    aria-label={`role for ${user.name}`}
+                    title="grant/revoke superuser (superuser only)"
+                  >
+                    <option value="agent">agent</option>
+                    <option value="admin">admin</option>
+                    <option value="superuser">superuser</option>
+                  </select>
                   <select
                     value={user.clientId ?? ''}
                     disabled={busyId === user.id}

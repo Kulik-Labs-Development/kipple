@@ -53,6 +53,15 @@ export const UserCreate = z.object({
 })
 export type UserCreate = z.infer<typeof UserCreate>
 
+// Superuser role assignment (issue #97): grant/revoke the superuser role on
+// an existing staff account — the promotion path the create endpoint is
+// deliberately not (it never mints superusers). The API keeps a last-
+// superuser guard so the instance can never be left without one.
+export const UserRolePatch = z.object({
+  role: z.enum(['agent', 'admin', 'superuser']),
+})
+export type UserRolePatch = z.infer<typeof UserRolePatch>
+
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(254),
