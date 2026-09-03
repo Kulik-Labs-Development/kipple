@@ -79,6 +79,7 @@ async function loadTicket(id: string, role: string) {
       ticketId: updates.ticketId,
       authorId: updates.authorId,
       authorName: users.name,
+      authorImage: users.image,
       kind: updates.kind,
       body: updates.body,
       createdAt: updates.createdAt,

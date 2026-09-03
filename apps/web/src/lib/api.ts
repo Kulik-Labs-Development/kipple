@@ -53,11 +53,15 @@ export interface MeResponse {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  // FormData supplies its own content-type (with the multipart boundary)
+  // FormData supplies its own content-type (with the multipart boundary); a
+  // body-less request must not carry a JSON content-type — Fastify rejects an
+  // empty body under application/json (FST_ERR_CTP_EMPTY_JSON_BODY), which
+  // broke the body-less timer-stop POST and user-remove DELETE.
   const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData
+  const hasBody = init?.body != null && init.body !== ''
   const res = await fetch(path, {
     credentials: 'include',
-    headers: isFormData ? undefined : { 'Content-Type': 'application/json' },
+    headers: isFormData || !hasBody ? undefined : { 'Content-Type': 'application/json' },
     ...init,
   })
   const text = await res.text()
@@ -240,6 +244,7 @@ export interface TicketUpdateRow {
   ticketId: string
   authorId: string | null
   authorName: string | null
+  authorImage: string | null
   kind: string
   body: string
   attachments: AttachmentView[]
