@@ -36,6 +36,30 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
     void refresh()
   }, [])
 
+  // Live presence dots (issue #96): the panel's rows update as agents change
+  // presence while the panel is open.
+  useEffect(() => {
+    const source = new EventSource('/api/events')
+    const onPresence = (event: MessageEvent) => {
+      try {
+        const { userId, presence: next } = JSON.parse(event.data) as {
+          userId: string
+          presence: string
+        }
+        setStaff((prev) =>
+          prev.map((row) => (row.id === userId ? { ...row, presence: next } : row)),
+        )
+      } catch {
+        /* malformed frame — ignore */
+      }
+    }
+    source.addEventListener('presence', onPresence)
+    return () => {
+      source.removeEventListener('presence', onPresence)
+      source.close()
+    }
+  }, [])
+
   async function assign(userId: string, clientId: string) {
     setBusyId(userId)
     setError(null)

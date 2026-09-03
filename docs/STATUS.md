@@ -262,6 +262,18 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (real-time presence — SSE event channel, issue #96)** —
+  Presence bubbles were static (manual reload / refetch only). New
+  `GET /api/events` SSE stream (per-process client registry, 25s heartbeat,
+  `reply.hijack()`) — presence is the first event type, and the frame format
+  (`event: <name>` + JSON) already carries a generic event name, so later
+  types (notification arrival, ticket changes) ride the same connection. The
+  presence write sites fan out: the sign-in hook (staff → online) and
+  `PATCH /api/me/presence`. Web: the workspace + the users panel listen for
+  `presence` frames and patch their row state (EventSource reconnects on its
+  own); no new fetches. v1 notes (flagged): fan-out is per API process
+  (multi-replica would need a shared bus), and no new presence transitions
+  were added (sign-out still leaves the last presence, same as before).
 - **2026-09-03 (hold states — waiting on client/vendor, hold timers, auto-close, issue #30)** —
   `tickets.hold_on` / `hold_since` / `hold_warned_at` (hand-rolled migration 0012). `hold`
   was already a status value — the new distinction is WHO the ticket is waiting on. Entering
