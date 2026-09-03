@@ -92,6 +92,13 @@
             "when": 1788471600000,
             "tag": "0012_still_harbor",
             "breakpoints": true
+        },
+        {
+            "idx": 13,
+            "version": "7",
+            "when": 1788490000000,
+            "tag": "0013_quiet_beacon",
+            "breakpoints": true
         }
     ]
 }

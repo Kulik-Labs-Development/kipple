@@ -11,10 +11,12 @@ const dimButtonClass =
 
 export function SettingsPanel({
   user,
+  ssoEnabled,
   onProfileSaved,
   onClose,
 }: {
   user: MeUser
+  ssoEnabled: boolean
   onProfileSaved: (patch: { name?: string; email?: string }) => void
   onClose: () => void
 }) {
@@ -36,6 +38,12 @@ export function SettingsPanel({
   const [confirmPassword, setConfirmPassword] = useState('')
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [passwordNote, setPasswordNote] = useState<string | null>(null)
+
+  // Self-service magic-link login (issue #98): staff only, off by default,
+  // hidden entirely when org-wide SSO is on (the section is not rendered).
+  const [magicLink, setMagicLink] = useState(user.magicLinkEnabled)
+  const [magicLinkBusy, setMagicLinkBusy] = useState(false)
+  const [magicLinkNote, setMagicLinkNote] = useState<string | null>(null)
 
   useEffect(() => {
     setPasswordNote(null)
@@ -111,6 +119,20 @@ export function SettingsPanel({
       setPasswordNote(err instanceof Error ? err.message : 'changing the password failed')
     } finally {
       setPasswordBusy(false)
+    }
+  }
+
+  async function saveMagicLink(enabled: boolean) {
+    setMagicLinkBusy(true)
+    setMagicLinkNote(null)
+    try {
+      await api.setMagicLink(enabled)
+      setMagicLink(enabled)
+      setMagicLinkNote(enabled ? 'enabled' : 'disabled')
+    } catch (err) {
+      setMagicLinkNote(err instanceof Error ? err.message : 'saving magic-link settings failed')
+    } finally {
+      setMagicLinkBusy(false)
     }
   }
 
@@ -241,6 +263,26 @@ export function SettingsPanel({
               {passwordNote && <p className="text-xs text-dim">{passwordNote}</p>}
             </div>
           </section>
+
+          {user.role !== 'contact' && !ssoEnabled && (
+            <section className="space-y-3 border-t border-line pt-4">
+              <h2 className="text-xs uppercase tracking-widest text-dim">magic link login</h2>
+              <p className="text-xs text-dim">
+                Sign in to the agent workspace with an email link instead of your password. Off by
+                default.
+              </p>
+              <label className="flex items-center gap-2 text-xs text-fg">
+                <input
+                  type="checkbox"
+                  checked={magicLink}
+                  disabled={magicLinkBusy}
+                  onChange={(event) => void saveMagicLink(event.target.checked)}
+                />
+                enable magic-link sign in
+              </label>
+              {magicLinkNote && <p className="text-xs text-dim">{magicLinkNote}</p>}
+            </section>
+          )}
         </div>
       </div>
     </div>
