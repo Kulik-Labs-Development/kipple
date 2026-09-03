@@ -296,8 +296,12 @@ export function PortalView({
               <div className="border-b border-line p-4">
                 <h2 className="text-lg font-semibold text-fg">{detail.subject}</h2>
                 <p className="mt-1 text-xs text-dim">
-                  #{detail.number} · <span className="capitalize">{detail.status}</span> ·
-                  opened {formatStamp(detail.createdAt)}
+                  #{detail.number} ·{' '}
+                  <span className="capitalize">{detail.status}</span>
+                  {detail.status === 'hold' && detail.holdOn
+                    ? ` · waiting on ${detail.holdOn}`
+                    : ''}
+                  {' '}· opened {formatStamp(detail.createdAt)}
                 </p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">

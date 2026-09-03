@@ -3,6 +3,7 @@ import { betterAuth } from 'better-auth'
 import { magicLink, twoFactor } from 'better-auth/plugins'
 import { eq } from 'drizzle-orm'
 import { db } from './db'
+import { sendPresenceEvent } from './events'
 import * as schema from './db/schema'
 import { sendMagicLinkEmail } from './mail'
 
@@ -106,6 +107,9 @@ export const auth = betterAuth({
               .update(schema.users)
               .set({ presence: 'online' })
               .where(eq(schema.users.id, session.userId))
+            // fan out so connected workspaces see the green dot immediately
+            // (issue #96 — presence is the first event on the SSE channel)
+            sendPresenceEvent(session.userId, 'online')
           }
         },
       },

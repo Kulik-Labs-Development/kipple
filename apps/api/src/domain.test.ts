@@ -224,7 +224,7 @@ describe('ticket domain', () => {
       Number(aliasA.split('+')[1].split('@')[0]) + 1,
     )
     expect(a.json().clientName).toBe('Acme Corp')
-    expect(a.json().updates[0]).toMatchObject({ kind: 'public', body: 'Please help' })
+    expect(a.json().updates[0]).toMatchObject({ kind: 'public', body: 'Please help', authorImage: null })
   })
 
   it('scopes ticket lists and detail to the contact client', async () => {
