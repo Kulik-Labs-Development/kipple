@@ -262,6 +262,13 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (fix: web sent an empty JSON body — timer stop / user removal)** —
+  the web `request()` helper attached `Content-Type: application/json` to every
+  non-FormData request, so body-less requests (the timer-stop POST, the
+  user-remove DELETE) carried a JSON content-type with an empty body and
+  Fastify rejected them with `FST_ERR_CTP_EMPTY_JSON_BODY` ("Body cannot be
+  empty"). The content-type is now set only when the request has a real body.
+  Regression test covers body-less POST/DELETE + a body-present POST.
 - **2026-09-02 (company settings — add/remove staff accounts, UI triage item 15)** —
   `POST /api/users` (superuser-only; role `admin` or `agent`, default `agent` —
   superusers still come from the setup wizard only) and `DELETE /api/users/:id`
