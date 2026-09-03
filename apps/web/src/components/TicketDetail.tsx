@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { Avatar } from './Avatar'
 import { PhosphorIcon } from './PhosphorIcon'
 import { RichTextEditor } from './RichTextEditor'
 import { textOfHtml, toRenderable } from '../lib/rich'
@@ -26,6 +27,7 @@ export interface TicketPatch {
   assignedTo?: string | null
   tags?: string[]
   slaPolicyId?: string | null
+  holdOn?: string | null
 }
 
 interface TicketDetailProps {
@@ -152,6 +154,27 @@ export function TicketDetail({
                 ))}
               </select>
             </label>
+            {detail.status === 'hold' && (
+              <>
+                <label className="flex items-center gap-2">
+                  <span className={labelClass}>waiting on</span>
+                  <select
+                    value={detail.holdOn ?? 'client'}
+                    onChange={(event) => onPatch(detail.id, { holdOn: event.target.value })}
+                    className={selectClass}
+                  >
+                    <option value="client">client</option>
+                    <option value="vendor">vendor</option>
+                  </select>
+                </label>
+                <span className="text-xs text-dim">
+                  on hold since {detail.holdSince ? formatStamp(detail.holdSince) : 'unknown'}
+                  {detail.holdAutoCloseAt
+                    ? ` · auto-closes ${formatStamp(detail.holdAutoCloseAt)}`
+                    : ''}
+                </span>
+              </>
+            )}
             <label className="flex items-center gap-2">
               <span className={labelClass}>priority</span>
               <select
@@ -260,7 +283,12 @@ export function TicketDetail({
             >
               <div className="flex items-center gap-2 text-xs">
                 <span className="tabular-nums text-dim">[{formatStamp(update.createdAt)}]</span>
-                <span className="uppercase text-fg">
+                <span className="flex items-center gap-1.5 uppercase text-fg">
+                  <Avatar
+                    src={update.authorId && update.authorImage ? `/api/users/${update.authorId}/avatar` : null}
+                    name={update.authorName ?? 'system'}
+                    size="sm"
+                  />
                   {update.authorName ?? 'system'}
                 </span>
                 {update.kind === 'internal' ? (

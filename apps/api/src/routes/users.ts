@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { hashPassword } from 'better-auth/crypto'
 import { asc, eq, ne } from 'drizzle-orm'
-import { UserClientPatch, UserCreate } from '@kipple/shared'
+import { UserClientPatch, UserCreate, UserRolePatch } from '@kipple/shared'
 import type { FastifyInstance } from 'fastify'
 import { badRequest, notFound, requireRole } from '../access'
 import { logAudit } from '../audit'
@@ -58,6 +58,45 @@ export async function registerUserRoutes(app: FastifyInstance): Promise<void> {
     await db.update(users).set({ clientId: parsed.data.clientId }).where(eq(users.id, id))
     await logAudit(session.user.id, 'user.client', 'user', id, { clientId: parsed.data.clientId })
     return { id, clientId: parsed.data.clientId }
+  })
+
+  // Superuser role assignment (issue #97): grant/revoke the superuser role
+  // on an existing staff account — the promotion path the create endpoint is
+  // deliberately not (it never mints superusers). Superusers stay agents:
+  // the role only adds the company-management gates on top of agent
+  // capabilities. A last-superuser guard keeps the instance from locking
+  // itself out — a superuser (even one demoting themself) may step down once
+  // another superuser exists.
+  app.post('/api/users/:id/role', async (request, reply) => {
+    const session = await requireRole(request, reply, ['superuser'])
+    if (!session) return null
+    const { id } = request.params as { id: string }
+    const parsed = UserRolePatch.safeParse(request.body)
+    if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
+    const [target] = await db
+      .select({ id: users.id, role: users.role })
+      .from(users)
+      .where(eq(users.id, id))
+    if (!target) return reply.code(404).send(notFound())
+    if (target.role === 'contact') {
+      return reply
+        .code(400)
+        .send({ error: 'bad_request', message: 'contacts belong to clients via their portal accounts, not here' })
+    }
+    if (target.role === 'superuser' && parsed.data.role !== 'superuser') {
+      const supers = await db.select({ id: users.id }).from(users).where(eq(users.role, 'superuser'))
+      if (supers.length <= 1) {
+        return reply
+          .code(400)
+          .send({
+            error: 'bad_request',
+            message: 'the instance must keep at least one superuser — promote another staff account first',
+          })
+      }
+    }
+    await db.update(users).set({ role: parsed.data.role }).where(eq(users.id, id))
+    await logAudit(session.user.id, 'user.role', 'user', id, { from: target.role, to: parsed.data.role })
+    return { id, role: parsed.data.role }
   })
 
   // Company settings (UI triage 09-02 item 15). The account is a standard
