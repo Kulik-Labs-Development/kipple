@@ -34,6 +34,8 @@ function ticket(overrides: Partial<TicketRow>): TicketRow {
     slaResolvedAt: null,
     slaResponseState: 'pending',
     slaResolveState: 'pending',
+    holdOn: null,
+    holdSince: null,
     ...overrides,
   }
 }
