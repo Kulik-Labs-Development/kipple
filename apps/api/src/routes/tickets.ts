@@ -243,11 +243,15 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     const parsed = TicketUpdate.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
     const scope = await clientScope(session.user)
+    const [existing] = await db.select().from(tickets).where(eq(tickets.id, id))
+    if (!existing) return reply.code(404).send(notFound())
+    if (!inScope(scope, existing.clientId)) {
+      return reply.code(404).send(notFound())
+    }
     if (parsed.data.clientId && !inScope(scope, parsed.data.clientId)) {
       return reply.code(404).send(notFound())
     }
-    const [existing] = await db.select().from(tickets).where(eq(tickets.id, id))
-    const wasClosed = existing?.status === 'closed'
+    const wasClosed = existing.status === 'closed'
     const [patched] = await db
       .update(tickets)
       .set({
@@ -462,6 +466,14 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
     if (!session) return null
     const { id } = request.params as { id: string }
+    const scope = await clientScope(session.user)
+    const [existing] = await db
+      .select({ id: tickets.id, clientId: tickets.clientId })
+      .from(tickets)
+      .where(eq(tickets.id, id))
+    if (!existing || !inScope(scope, existing.clientId)) {
+      return reply.code(404).send(notFound())
+    }
     const [row] = await db
       .update(tickets)
       .set({ status: 'deleted' })

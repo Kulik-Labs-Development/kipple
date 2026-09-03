@@ -262,6 +262,19 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (staff per-client access restriction, issue #31)** —
+  `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
+  a `users.client_id` association sees only that client's tickets, clients,
+  updates and attachments; no association = unrestricted (the PLAN §3 default),
+  superusers are always unrestricted (they are who assigns the associations).
+  Closed four pre-existing staff-unrestricted route gaps found while enforcing
+  it: `PATCH /api/tickets/:id` now checks the ticket's OWN client (it only
+  checked the move target, so cross-client status/priority/assign edits passed),
+  `DELETE /api/tickets/:id` gained a scope check, and `GET/DELETE
+  /api/attachments/:id` now scope-check every role (contacts-only before).
+  Out-of-scope = 404 like contacts (no existence leaks). Deleting a client
+  un-scopes its staff via the FK ON DELETE SET NULL. Client creation stays an
+  admin surface. 8 tests (`staff-scope.test.ts`).
 - **2026-09-02 (company settings — add/remove staff accounts, UI triage item 15)** —
   `POST /api/users` (superuser-only; role `admin` or `agent`, default `agent` —
   superusers still come from the setup wizard only) and `DELETE /api/users/:id`
