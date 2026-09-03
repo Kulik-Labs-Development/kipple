@@ -262,6 +262,14 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-02 (workspace views: Tickets and Clients as first-class views)** —
+  the topbar now carries a "tickets" nav button (all staff) and the
+  "clients" button (admin/superuser) is a real view switch, not a modal
+  toggle: a `view` state (`'tickets' | 'clients'`) replaces the old boolean,
+  so the queue and the clients page are peer views and either is reachable
+  at any time from the topbar (or the clients page header's close button).
+  Fixes the report that the clients page had no way back to tickets, and is
+  the first step toward the larger nav revision (the left-rail consolidation).
 - **2026-09-02 (fix: web sent an empty JSON body — timer stop / user removal)** —
   the web `request()` helper attached `Content-Type: application/json` to every
   non-FormData request, so body-less requests (the timer-stop POST, the
