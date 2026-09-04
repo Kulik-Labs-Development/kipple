@@ -5,7 +5,14 @@ import { clientScope, inScope, notFound, requireRole, requireUser } from '../acc
 import { logAudit } from '../audit'
 import { db } from '../db'
 import { attachments, tickets, updates } from '../db/schema'
-import { attachmentFileSize, attachmentPath, cleanFilename, deleteAttachmentFile } from '../storage'
+import { s3PresignGet } from '../s3'
+import {
+  attachmentFileSize,
+  attachmentPath,
+  cleanFilename,
+  deleteAttachmentFile,
+  storageBackend,
+} from '../storage'
 
 // content-disposition needs a quoted-printable-safe ascii fallback name; the
 // UTF-8 original rides in the filename* parameter.
@@ -44,12 +51,25 @@ export async function registerAttachmentRoutes(app: FastifyInstance): Promise<vo
     const size = await attachmentFileSize(row.storageKey)
     if (size === null) return reply.code(404).send(notFound())
     const filename = cleanFilename(row.filename)
+    const disposition = `attachment; filename="${asciiFilename(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+    if (storageBackend() === 's3') {
+      // S3 backend: mint a short-lived presigned URL and let the browser pull
+      // the bytes straight from the bucket (direct-to-S3 download — plan row
+      // 18 part 2). Every scope check ran above, so the URL is only ever
+      // issued for a file the caller may see; the response overrides keep the
+      // DB mime + disposition on the direct response (the object itself is
+      // stored without a trusted content-type).
+      return reply.redirect(
+        s3PresignGet(row.storageKey, {
+          responseContentType: row.mime || 'application/octet-stream',
+          responseContentDisposition: disposition,
+        }),
+        302,
+      )
+    }
     reply.header('content-type', row.mime || 'application/octet-stream')
     reply.header('content-length', String(size))
-    reply.header(
-      'content-disposition',
-      `attachment; filename="${asciiFilename(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
-    )
+    reply.header('content-disposition', disposition)
     reply.header('x-content-type-options', 'nosniff')
     // reply.send() takes over the stream: fastify pipes it, owns backpressure,
     // aborts on client close, and handles stream errors (a file removed mid-
