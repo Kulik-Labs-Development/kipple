@@ -119,6 +119,11 @@ export type TicketUpdate = z.infer<typeof TicketUpdate>
 export const UpdateCreate = z.object({
   kind: z.enum(['public', 'internal']).optional().default('public'),
   body: z.string().min(1).max(100000),
+  // Chunked (tus) staged uploads to attach (row 18 part 1): the caller's own
+  // completed /api/uploads staging rows, moved to the attachment's final
+  // location when the update commits. Max = MAX_ATTACHMENTS_PER_UPDATE (10).
+  // The v1 multipart path is unchanged.
+  uploadIds: z.array(z.string().min(1).max(64)).max(10).optional(),
 })
 export type UpdateCreate = z.infer<typeof UpdateCreate>
 
@@ -337,3 +342,50 @@ export const RuleUpdate = z.object({
   action: RuleAction.optional(),
 })
 export type RuleUpdate = z.infer<typeof RuleUpdate>
+
+// --- Upload settings (plan row 18, part 1) ---
+// A MIME pattern is an exact type ('application/pdf') or a type wildcard
+// ('image/*'). An EMPTY allowlist means allow all — the list restricts, it
+// never replaces the default-open behavior.
+export const UploadMimePattern = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(128)
+  .regex(/^[a-z0-9*]+\/[a-z0-9*.-]+$/, 'a MIME type like image/* or application/pdf')
+export type UploadMimePattern = z.infer<typeof UploadMimePattern>
+
+export const UploadSettings = z.object({
+  maxMb: z.number().int().min(1).max(4096),
+  allowedMimes: z.array(UploadMimePattern).max(500),
+})
+export type UploadSettings = z.infer<typeof UploadSettings>
+
+export const UploadSettingsPatch = z.object({
+  maxMb: z.number().int().min(1).max(4096).optional(),
+  allowedMimes: z.array(UploadMimePattern).max(500).optional(),
+})
+export type UploadSettingsPatch = z.infer<typeof UploadSettingsPatch>
+
+// Effective defaults when no settings row exists: the v1 env defaults
+// (ATTACHMENT_MAX_MB default 25) + no MIME restriction.
+export const DEFAULT_UPLOAD_SETTINGS: UploadSettings = { maxMb: 25, allowedMimes: [] }
+
+// Case-insensitive exact or type/* wildcard match. Empty pattern list =
+// allow everything (a missing MIME header degrades to
+// 'application/octet-stream', which only passes a non-empty list that
+// explicitly admits it).
+export function mimeAllowed(mime: string, patterns: string[]): boolean {
+  if (patterns.length === 0) return true
+  const m = mime.trim().toLowerCase()
+  if (!m) return false
+  for (const rawPattern of patterns) {
+    // normalize defensively — the settings schema lowercases on parse, but
+    // this helper is also the gate for hand-written/legacy rows
+    const pattern = rawPattern.trim().toLowerCase()
+    if (pattern === m) return true
+    if (pattern.endsWith('/*') && m.startsWith(pattern.slice(0, -1))) return true
+  }
+  return false
+}

@@ -259,9 +259,34 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | backlog |
 | 16 | Agent signups: admin-invited via email token link, MFA on first login | backlog |
 | 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | backlog |
-| 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
+| 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | in progress — part 1 (tus + settings) PR open; part 2 (S3 adapter) next |
 
 ## Recent sessions
+- **2026-09-03 (attachments v2, part 1: tus uploads + upload settings, issue #34)** —
+  chunked (tus-compatible) upload pipeline + superuser upload settings.
+  Files stage in `/api/uploads` (`OPTIONS` advertises tus 1.0; `POST` with
+  `Upload-Length` + `Upload-Metadata` (base64 filename/mime) creates a
+  staging row, `PATCH` appends with `Upload-Offset` in
+  `application/offset+octet-stream` chunks — 409 on offset mismatch, 413
+  rollback on overshoot, `GET`/`HEAD` for resume state, `DELETE` to abandon;
+  all owner-only, foreign/unknown = 404). Staged files attach through the
+  SAME `POST /api/tickets/:id/updates` endpoint with `uploadIds` (JSON;
+  the v1 multipart path is unchanged): each id must be the caller's own,
+  complete, unexpired, on-disk row — moved to the sharded final location
+  and marked consumed in the update's transaction (single-use, no reuse).
+  Unconsumed uploads expire (`UPLOAD_EXPIRY_HOURS`, default 24h) and are
+  swept on the next create. New superuser `GET/POST /api/instance/uploads`
+  sets max file size (1–4096MB, was env-only) + an editable MIME allowlist
+  (exact or `type/*`; empty = allow all) — enforced on BOTH the tus create
+  and the legacy multipart path (415 `mime_not_allowed`); the instance
+  setting beats the env; every change audit-logged `instance.uploads`.
+  Web: a minimal tus client (`lib/uploads.ts`, 5MB chunks, auto-resume) +
+  `useStagedUploads` composer hook — both composers stage on pick with
+  per-file progress and send `uploadIds` (the FormData path is no longer
+  used); the instance defaults panel gained the uploads section.
+  Migration `0016_open_ramp` (uploads table). 21 api tests + 7 shared
+  tests (client-scoping case included). Row 18 part 2 (S3-compatible
+  storage adapter behind `storage.ts`) is the follow-up PR.
 - **2026-09-03 (staff per-client access restriction, issue #31)** —
   `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
   a `users.client_id` association sees only that client's tickets, clients,

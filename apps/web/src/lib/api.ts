@@ -386,7 +386,10 @@ export const api = {
       holdOn?: string | null
     },
   ) => request<TicketRow>(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
-  addTicketUpdate: (id: string, body: { kind?: 'public' | 'internal'; body: string }) =>
+  addTicketUpdate: (
+    id: string,
+    body: { kind?: 'public' | 'internal'; body: string; uploadIds?: string[] },
+  ) =>
     request<TicketUpdateRow>(`/api/tickets/${id}/updates`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -482,6 +485,13 @@ export const api = {
     request<{ agentTheme: string | null; portalTheme: string | null }>('/api/instance/defaults'),
   patchInstanceDefaults: (body: { agentTheme?: string | null; portalTheme?: string | null }) =>
     request<{ agentTheme: string | null; portalTheme: string | null }>('/api/instance/defaults', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  uploadSettings: () =>
+    request<{ maxMb: number; allowedMimes: string[] }>('/api/instance/uploads'),
+  patchUploadSettings: (body: { maxMb?: number; allowedMimes?: string[] }) =>
+    request<{ maxMb: number; allowedMimes: string[] }>('/api/instance/uploads', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

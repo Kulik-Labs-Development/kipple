@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   integer,
   jsonb,
@@ -205,6 +206,24 @@ export const attachments = pgTable('attachments', {
   size: integer('size').notNull(),
   mime: text('mime').notNull(),
   storageKey: text('storage_key').notNull().unique(),
+  createdAt: createdAt(),
+})
+
+// Chunked upload staging rows (plan row 18 part 1). A file is created via
+// OPTIONS/POST, appended in ~5MB PATCH chunks (tus-compatible), then
+// consumed by a ticket update which moves the file to the sharded final
+// location and flips the row to consumed. Rows cascade with the user; the
+// create endpoint sweeps expired unconsumed rows (UPLOAD_EXPIRY_HOURS).
+export const uploads = pgTable('uploads', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  filename: text('filename').notNull(),
+  mime: text('mime').notNull(),
+  size: bigint('size', { mode: 'number' }).notNull(),
+  offset: bigint('offset', { mode: 'number' }).notNull(),
+  status: text('status').notNull().default('open'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
   createdAt: createdAt(),
 })
 

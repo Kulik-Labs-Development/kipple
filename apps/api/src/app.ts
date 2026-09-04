@@ -45,6 +45,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   }
 
   app.setErrorHandler((error, _req, reply) => {
+    // Fastify rejects bodies of unregistered media types before the route
+    // handler runs (e.g. a non-chunk content-type on a tus PATCH). Map that
+    // to a proper 415 instead of a 500 — the routing of this error between
+    // the default handler and this one varies with the app configuration
+    // (present when the SPA static root is found, absent on a fresh
+    // checkout), so both paths must yield the same client-visible status.
+    if ((error as { code?: string } | null | undefined)?.code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE') {
+      return reply
+        .code(415)
+        .send({ error: 'unsupported_media_type', message: 'unsupported content-type for this endpoint' })
+    }
     reply.code(500).send(toErrorBody(error))
   })
 

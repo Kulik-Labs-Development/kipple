@@ -27,12 +27,20 @@ export function storageDir(): string {
   return path.resolve(process.env.STORAGE_DIR || path.join(process.cwd(), 'storage'))
 }
 
-// Per-file cap in MB; read fresh on every call (tests override the env).
-export function maxAttachmentBytes(): number {
+// Per-file cap in MB from env only; read fresh on every call (tests
+// override the env). The instance settings row ('uploads') can raise or
+// lower this at runtime — see effectiveUploadSettings() in uploads.ts.
+export function envMaxAttachmentMb(): number {
   const raw = process.env.ATTACHMENT_MAX_MB
   const mb = raw ? Number.parseInt(raw, 10) : 25
-  if (!Number.isFinite(mb) || mb <= 0) return 25 * 1024 * 1024
-  return mb * 1024 * 1024
+  if (!Number.isFinite(mb) || mb <= 0) return 25
+  return mb
+}
+
+// Per-file cap in bytes (env default; the upload settings row wins at
+// runtime — effectiveUploadSettings in uploads.ts is the live source).
+export function maxAttachmentBytes(): number {
+  return envMaxAttachmentMb() * 1024 * 1024
 }
 
 export function attachmentPath(storageKey: string): string {
