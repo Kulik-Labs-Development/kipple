@@ -222,6 +222,7 @@ describe('pre-sign-in portal branding (login screen)', () => {
     expect(res.json()).toEqual({
       clientName: 'Acme Corp',
       logoUrl: `/api/portal/logo?email=${encodeURIComponent(adaEmail)}`,
+      selfRegister: false,
     })
 
     const logo = await app.inject({ method: 'GET', url: res.json().logoUrl })
@@ -240,7 +241,7 @@ describe('pre-sign-in portal branding (login screen)', () => {
     for (const email of ['nobody@nowhere.test', owner.ownerEmail]) {
       const res = await brandingFor(email)
       expect(res.statusCode).toBe(200)
-      expect(res.json()).toEqual({ clientName: null, logoUrl: null })
+      expect(res.json()).toEqual({ clientName: null, logoUrl: null, selfRegister: false })
     }
     for (const body of [{}, { email: 'nope' }]) {
       const res = await app.inject({
@@ -259,6 +260,7 @@ describe('pre-sign-in portal branding (login screen)', () => {
     expect(res.json()).toEqual({
       clientName: 'Globex',
       logoUrl: 'https://cdn.globex.test/logo.png',
+      selfRegister: false,
     })
     const logo = await app.inject({
       method: 'GET',
@@ -287,7 +289,7 @@ describe('pre-sign-in portal branding (login screen)', () => {
   it('resolves the primary client when a contact is linked to several', async () => {
     const res = await brandingFor(caraEmail)
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ clientName: 'Initech', logoUrl: null })
+    expect(res.json()).toEqual({ clientName: 'Initech', logoUrl: null, selfRegister: false })
   })
 
   it('stops serving the logo after it is removed', async () => {
@@ -300,7 +302,7 @@ describe('pre-sign-in portal branding (login screen)', () => {
 
     const res = await brandingFor(adaEmail)
     expect(res.statusCode).toBe(200)
-    expect(res.json()).toEqual({ clientName: 'Acme Corp', logoUrl: null })
+    expect(res.json()).toEqual({ clientName: 'Acme Corp', logoUrl: null, selfRegister: false })
 
     const logo = await app.inject({
       method: 'GET',

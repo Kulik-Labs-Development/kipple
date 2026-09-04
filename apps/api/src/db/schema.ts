@@ -112,6 +112,11 @@ export const clients = pgTable('clients', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   domain: text('domain').unique(),
+  // Self-registration gate (issue #33): allowed email domains for the
+  // unauthenticated client signup path. null/absent = disabled (off by
+  // default); a non-empty list enables self-registration for exactly those
+  // domains.
+  selfRegDomains: text('self_reg_domains').array(),
   branding: jsonb('branding'),
   slaPolicyId: text('sla_policy_id').references(() => slaPolicies.id, { onDelete: 'set null' }),
   createdAt: createdAt(),

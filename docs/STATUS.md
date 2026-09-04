@@ -15,11 +15,11 @@ presence) are live end-to-end.
 All 13 items in the plan table below are shipped — including per-client
 branding for the portal (item 12) and attachments on updates v1 (item 13:
 local-disk storage, multipart uploads capped at ATTACHMENT_MAX_MB per
-file). The remaining Phase 1 scope from PLAN.md
-(chunked/tus uploads + S3 backend, hold states, staff client
-restriction, agent invites, client self-registration) is tracked as
-backlog rows 14–18; after those, Phase 2 (API + MCP + integrations) is
-next. Update composers (workspace + portal) are now a rich text editor
+file). Client self-registration (row 17) is live: per-client allowed
+email domains, off by default. The remaining Phase 1 scope from
+PLAN.md (chunked/tus uploads + S3 backend, hold states, staff client
+restriction, agent invites) is tracked as backlog rows 14–16 + 18;
+after those, Phase 2 (API + MCP + integrations) is next. Update composers (workspace + portal) are now a rich text editor
 (TipTap): headings, lists, code, quotes, links, image embeds by URL, font
 size — sanitized HTML in the web timeline, plain-text email egress.
 
@@ -258,10 +258,33 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 14 | Hold states "waiting on client/vendor" + hold timers, auto-close with pre-close warning (template + rule) | backlog |
 | 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | backlog |
 | 16 | Agent signups: admin-invited via email token link, MFA on first login | backlog |
-| 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | backlog |
+| 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | done |
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (client self-registration — per-client allowed email domains, issue #33)** —
+  Clients can optionally let their own people create portal accounts from
+  the login screen, gated by a per-client list of allowed email domains.
+  Off by default: `clients.self_reg_domains` (hand-rolled migration 0015;
+  this branch carries the unmerged 0014 snapshot for merge-order safety)
+  is null unless staff set it. `POST /api/portal/self-register`
+  (unauthenticated) always answers `{status:true}`, so the endpoint cannot
+  be used to probe accounts or clients; when the email's domain is on an
+  enabled client's list and no account exists, it creates the contact
+  (+ primary client link) and a portal user (`emailVerified: true` by
+  construction — the better-auth unproven-account landmine) with a random
+  credential account, and writes a `contact.self_register` audit row
+  (null actor). Re-requests are idempotent; staff-created contacts are
+  never re-homed or duplicated (a contact linked only to another client is
+  left for an admin). The login screen shows a create-account section
+  only when `POST /api/portal/branding` reports `selfRegister: true` (no
+  account exists + domain enabled), and the web chains the normal
+  magic-link request after account creation — the only mail the flow
+  sends, through the existing contact gate. Domain matching is exact +
+  case-insensitive (subdomains do NOT match); two enabled clients on one
+  domain = first by client id wins. Web: ClientManager gains a per-client
+  domains field under the branding section. 12 new api e2e tests
+  (`self-register.test.ts`) + shared domain-matcher tests.
 - **2026-09-03 (staff per-client access restriction, issue #31)** —
   `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
   a `users.client_id` association sees only that client's tickets, clients,
