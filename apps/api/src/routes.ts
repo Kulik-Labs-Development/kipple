@@ -9,6 +9,7 @@ import { registerAttachmentRoutes } from './routes/attachments'
 import { normalizeBranding, registerClientRoutes } from './routes/clients'
 import { registerContactRoutes } from './routes/contacts'
 import { registerDefaultRoutes } from './routes/defaults'
+import { registerInstanceUploadRoutes } from './routes/instance-uploads'
 import { registerHoldRoutes } from './routes/holds'
 import { registerEmailRoutes } from './routes/email'
 import { registerEventRoutes } from './routes/events'
@@ -20,6 +21,7 @@ import { registerSlaRoutes } from './routes/sla'
 import { registerTicketRoutes } from './routes/tickets'
 import { registerTimeRoutes } from './routes/time'
 import { registerUserRoutes } from './routes/users'
+import { registerUploadRoutes } from './routes/uploads'
 import { seedDefaultTemplates } from './templates'
 
 async function instanceSetupRequired(): Promise<boolean> {
@@ -172,4 +174,6 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerTicketRoutes(app)
   await registerTimeRoutes(app)
   await registerUserRoutes(app)
+  await registerInstanceUploadRoutes(app)
+  await registerUploadRoutes(app)
 }
