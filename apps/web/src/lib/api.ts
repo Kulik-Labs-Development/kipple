@@ -79,6 +79,7 @@ export interface ClientSummary {
   name: string
   domain: string | null
   branding: ClientBranding | null
+  selfRegDomains: string[] | null
 }
 
 export interface ContactSummary {
@@ -326,7 +327,10 @@ export const api = {
   listClients: () => request<ClientSummary[]>('/api/clients'),
   createClient: (body: { name: string; domain?: string; branding?: ClientBranding }) =>
     request<ClientSummary>('/api/clients', { method: 'POST', body: JSON.stringify(body) }),
-  updateClient: (id: string, body: { branding: ClientBranding | null }) =>
+  updateClient: (
+    id: string,
+    body: { branding?: ClientBranding | null; selfRegDomains?: string[] | null },
+  ) =>
     request<ClientSummary>(`/api/clients/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -339,9 +343,21 @@ export const api = {
   deleteClientLogo: (id: string) =>
     request<{ logoUrl: null }>(`/api/clients/${id}/logo`, { method: 'DELETE' }),
   portalBranding: (email: string) =>
-    request<{ clientName: string | null; logoUrl: string | null }>('/api/portal/branding', {
+    request<{
+      clientName: string | null
+      logoUrl: string | null
+      selfRegister: boolean
+    }>('/api/portal/branding', {
       method: 'POST',
       body: JSON.stringify({ email }),
+    }),
+  // Client self-registration (issue #33): always answers {status:true} -
+  // rows are only created when the email's domain is on an enabled
+  // client's allowed list. The caller chains the magic-link request.
+  selfRegister: (email: string, name: string) =>
+    request<{ status: boolean }>('/api/portal/self-register', {
+      method: 'POST',
+      body: JSON.stringify({ email, name }),
     }),
   listContacts: (clientId: string) =>
     request<ContactSummary[]>(`/api/clients/${clientId}/contacts`),

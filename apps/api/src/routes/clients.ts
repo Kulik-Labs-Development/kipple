@@ -4,6 +4,7 @@ import {
   ClientCreate,
   ClientUpdate,
   isPortalTheme,
+  normalizeSelfRegDomains,
   type ClientBranding,
 } from '@kipple/shared'
 import type { FastifyInstance } from 'fastify'
@@ -82,6 +83,7 @@ export async function registerClientRoutes(app: FastifyInstance): Promise<void> 
         id: randomUUID(),
         name: parsed.data.name,
         domain: parsed.data.domain || null,
+        selfRegDomains: normalizeSelfRegDomains(parsed.data.selfRegDomains),
         slaPolicyId: parsed.data.slaPolicyId ?? null,
         branding: normalizeBranding(parsed.data.branding),
       })
@@ -121,6 +123,10 @@ export async function registerClientRoutes(app: FastifyInstance): Promise<void> 
       .set({
         name: parsed.data.name ?? undefined,
         domain: parsed.data.domain !== undefined ? parsed.data.domain || null : undefined,
+        selfRegDomains:
+          parsed.data.selfRegDomains !== undefined
+            ? normalizeSelfRegDomains(parsed.data.selfRegDomains)
+            : undefined,
         slaPolicyId:
           parsed.data.slaPolicyId !== undefined ? parsed.data.slaPolicyId : undefined,
         branding:
