@@ -26,6 +26,7 @@ import {
   type TimeEntryRow,
 } from '../lib/api'
 import { applyTheme, resolveThemeChoice } from '../lib/theme'
+import { useI18n, type I18nKey } from '../lib/i18n'
 import {
   dailySeries,
   formatClock,
@@ -35,6 +36,23 @@ import {
 } from '../lib/tickets'
 
 const PRESENCE_VALUES = ['online', 'away', 'busy', 'offline'] as const
+
+// The presence state arrives as a plain string from the API — an unmapped
+// value falls back to 'presence.offline' at the call sites.
+const PRESENCE_KEY: Record<string, I18nKey> = {
+  online: 'presence.online',
+  away: 'presence.away',
+  busy: 'presence.busy',
+  offline: 'presence.offline',
+}
+
+const STAT_KEY: Record<'assignedToMe' | 'inQueue' | 'openedToday' | 'closedToday' | 'overdue', I18nKey> = {
+  assignedToMe: 'workspace.stat.assignedToMe',
+  inQueue: 'workspace.stat.inQueue',
+  openedToday: 'workspace.stat.openedToday',
+  closedToday: 'workspace.stat.closedToday',
+  overdue: 'workspace.stat.overdue',
+}
 
 const PRESENCE_DOT: Record<string, string> = {
   online: 'bg-ok',
@@ -62,6 +80,7 @@ export function WorkspaceView({
   onSignedOut: () => void
   onUserUpdated: (next: MeUser) => void
 }) {
+  const { t } = useI18n()
   const isStaff = user.role !== 'contact'
   const [signingOut, setSigningOut] = useState(false)
   const [clients, setClients] = useState<ClientSummary[]>([])
@@ -100,7 +119,7 @@ export function WorkspaceView({
       setAllTickets(await api.listTickets())
       setError(null)
     } catch (err) {
-      setError(errorMessage(err, 'failed to load tickets'))
+      setError(errorMessage(err, t('workspace.error.loadTickets')))
     }
   }, [])
 
@@ -141,7 +160,7 @@ export function WorkspaceView({
         setClients(clientRows)
         setStaff(staffRows)
       } catch (err) {
-        if (!cancelled) setError(errorMessage(err, 'failed to load workspace data'))
+        if (!cancelled) setError(errorMessage(err, t('workspace.error.loadData')))
       }
     }
     init()
@@ -234,7 +253,7 @@ export function WorkspaceView({
       }
       await refreshActiveTimer()
     } catch (err) {
-      setError(errorMessage(err, 'timer action failed'))
+      setError(errorMessage(err, t('workspace.error.timer')))
     }
   }
 
@@ -312,7 +331,7 @@ export function WorkspaceView({
     try {
       await api.setPresence(next)
     } catch (err) {
-      setError(errorMessage(err, 'failed to update presence'))
+      setError(errorMessage(err, t('workspace.error.presence')))
     }
   }
 
@@ -325,7 +344,7 @@ export function WorkspaceView({
         resolveThemeChoice(me.preferences, me.instanceTheme, me.user.role, me.primaryClient?.branding ?? null),
       )
     } catch (err) {
-      setError(errorMessage(err, 'failed to update theme'))
+      setError(errorMessage(err, t('workspace.error.theme')))
     }
   }
 
@@ -341,7 +360,7 @@ export function WorkspaceView({
       await api.patchTicket(id, patch)
       await Promise.all([refreshDetail(id), refreshList()])
     } catch (err) {
-      setError(errorMessage(err, 'failed to update ticket'))
+      setError(errorMessage(err, t('workspace.error.patchTicket')))
     }
   }
 
@@ -355,7 +374,7 @@ export function WorkspaceView({
       }
       await Promise.all([refreshDetail(id), refreshList()])
     } catch (err) {
-      setError(errorMessage(err, 'failed to send update'))
+      setError(errorMessage(err, t('workspace.error.reply')))
       throw err
     }
   }
@@ -368,7 +387,7 @@ export function WorkspaceView({
       await refreshList()
       setSelectedId(row.id)
     } catch (err) {
-      setFormError(errorMessage(err, 'failed to create ticket'))
+      setFormError(errorMessage(err, t('workspace.error.createTicket')))
     }
   }
 
@@ -379,7 +398,7 @@ export function WorkspaceView({
       setSelectedId(null)
       await refreshList()
     } catch (err) {
-      setError(errorMessage(err, 'failed to delete ticket'))
+      setError(errorMessage(err, t('workspace.error.deleteTicket')))
     }
   }
 
@@ -398,7 +417,7 @@ export function WorkspaceView({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowSettings(true)}
-            title="settings"
+            title={t('workspace.settings')}
             className="flex items-center gap-1.5 border border-transparent px-1 py-0.5 hover:border-line"
           >
             <Avatar src={user.image ? '/api/me/avatar' : null} name={user.name} size="sm" />
@@ -407,7 +426,7 @@ export function WorkspaceView({
             <span className="text-xs uppercase text-dim">{user.role}</span>
           </button>
           <span className="tracking-widest text-accent">KIPPLE</span>
-          <span className="text-xs text-dim">agent workspace</span>
+          <span className="text-xs text-dim">{t('workspace.sub')}</span>
         </div>
         <div className="flex items-center gap-4 text-xs">
           {isStaff && (
@@ -416,13 +435,13 @@ export function WorkspaceView({
           {isStaff && user.role === 'superuser' && (
             <button
               onClick={() => setShowSlaManager(true)}
-              title="SLA settings (superuser)"
+              title={t('workspace.sla.title')}
               className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
                 slaConfig?.enabled ? 'border-ok text-ok' : 'border-line text-dim'
               }`}
             >
               <PhosphorIcon name="clock" size="sm" />
-              sla
+              {t('workspace.sla.label')}
             </button>
           )}
           {isStaff && (
@@ -432,8 +451,8 @@ export function WorkspaceView({
               }
               title={
                 user.role === 'superuser'
-                  ? 'email templates + rules (superuser)'
-                  : 'automation (superuser only)'
+                  ? t('workspace.auto.titleSuperuser')
+                  : t('workspace.auto.titleStaff')
               }
               className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
             >
@@ -442,13 +461,13 @@ export function WorkspaceView({
                 size="sm"
                 className="transition-transform duration-300 group-hover:rotate-90"
               />
-              auto
+              {t('workspace.auto.label')}
             </button>
           )}
           {isStaff && (
             <button
               onClick={() => setView('tickets')}
-              title="ticket queue"
+              title={t('workspace.tickets.title')}
               className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
                 view === 'tickets'
                   ? 'border-accent text-accent'
@@ -460,7 +479,7 @@ export function WorkspaceView({
                 size="sm"
                 className="transition-transform duration-300 group-hover:-translate-y-0.5"
               />
-              tickets
+              {t('workspace.tickets.label')}
             </button>
           )}
           {isStaff && (
@@ -472,8 +491,8 @@ export function WorkspaceView({
               }
               title={
                 user.role === 'superuser' || user.role === 'admin'
-                  ? 'clients + portal branding'
-                  : 'clients (admin or superuser only)'
+                  ? t('workspace.clients.title')
+                  : t('workspace.clients.titleStaff')
               }
               className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
                 view === 'clients'
@@ -486,63 +505,63 @@ export function WorkspaceView({
                 size="sm"
                 className="transition-transform duration-300 group-hover:-translate-y-0.5"
               />
-              clients
+              {t('workspace.clients.label')}
             </button>
           )}
           {isStaff && user.role === 'superuser' && (
             <button
               onClick={() => setShowUsers(true)}
-              title="users + client assignment (superuser)"
+              title={t('workspace.users.title')}
               className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
             >
               <PhosphorIcon name="user-gear" size="sm" />
-              users
+              {t('workspace.users.label')}
             </button>
           )}
           {isStaff && user.role === 'superuser' && (
             <button
               onClick={() => setShowDefaults(true)}
-              title="instance defaults (superuser)"
+              title={t('workspace.defaults.title')}
               className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
             >
               <PhosphorIcon name="sliders" size="sm" />
-              defaults
+              {t('workspace.defaults.label')}
             </button>
           )}
           {isStaff && user.role === 'superuser' && (
             <button
               onClick={() => setShowHolds(true)}
-              title="hold states — auto-close + pre-close warning (superuser)"
+              title={t('workspace.holds.title')}
               className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
             >
               <PhosphorIcon name="hourglass" size="sm" />
-              holds
+              {t('workspace.holds.label')}
             </button>
           )}
           {isStaff && activeEntry && (
             <button
               onClick={toggleTimer}
-              title="stop timer (T)"
+              title={t('workspace.timer.stop')}
               className="border border-ok bg-ok/10 px-2 py-1 tabular-nums text-ok"
             >
-              TIMER {activeNumber ? `#${activeNumber}` : ''} ·{' '}
+              {t('workspace.timer.label')} {activeNumber ? `#${activeNumber}` : ''} ·{' '}
               {formatClock((now - new Date(activeEntry.startedAt).getTime()) / 1000)}
             </button>
           )}
           <span className="relative inline-flex items-center">
             <span
               className={`presence-dot pointer-events-none absolute left-1.5 h-2 w-2 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
-              title={`presence: ${presence}`}
+              title={t('workspace.presence.label', { presence: t(PRESENCE_KEY[presence] ?? 'presence.offline') })}
             />
             <select
               value={presence}
               onChange={(event) => void changePresence(event.target.value)}
-              title="presence"
+              title={t('workspace.presence.title')}
               className="border border-line bg-panel py-1 pl-5 pr-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
             >
               {PRESENCE_VALUES.map((value) => (
                 <option key={value} value={value}>
-                  {value}
+                  {t(PRESENCE_KEY[value])}
                 </option>
               ))}
             </select>
@@ -550,10 +569,10 @@ export function WorkspaceView({
           <select
             value={theme}
             onChange={(event) => void changeTheme(event.target.value)}
-            title="theme (default = company setting)"
+            title={t('workspace.theme.title')}
             className="border border-line bg-panel px-1 py-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
           >
-            <option value="default">default</option>
+            <option value="default">{t('workspace.theme.default')}</option>
             {agentThemes().map((meta) => (
               <option key={meta.id} value={meta.id}>
                 {meta.label}
@@ -565,7 +584,7 @@ export function WorkspaceView({
             disabled={signingOut}
             className="border border-line px-2 py-1 text-dim hover:border-danger hover:text-danger"
           >
-            sign out
+            {t('workspace.signOut')}
           </button>
         </div>
       </header>
@@ -573,30 +592,32 @@ export function WorkspaceView({
       <div className="grid grid-cols-2 gap-3 p-3 md:grid-cols-5">
         {(
           [
-            ['assigned to me', stats.assignedToMe],
-            ['in queue', stats.inQueue],
-            ['opened today', stats.openedToday],
-            ['closed today', stats.closedToday],
+            ['assignedToMe', stats.assignedToMe],
+            ['inQueue', stats.inQueue],
+            ['openedToday', stats.openedToday],
+            ['closedToday', stats.closedToday],
             ['overdue', stats.overdue],
           ] as const
-        ).map(([label, value]) => (
-          <div key={label} className="border border-line bg-panel p-3">
+        ).map(([key, value]) => (
+          <div key={key} className="border border-line bg-panel p-3">
             <div
               className={`text-2xl tabular-nums ${
-                label === 'overdue' && value > 0 ? 'text-danger' : 'text-fg'
+                key === 'overdue' && value > 0 ? 'text-danger' : 'text-fg'
               }`}
             >
               {value}
             </div>
-            <div className="mt-1 text-xs uppercase tracking-widest text-dim">{label}</div>
+            <div className="mt-1 text-xs uppercase tracking-widest text-dim">
+              {t(STAT_KEY[key])}
+            </div>
           </div>
         ))}
       </div>
 
       <div className="mx-3 mb-3 flex flex-wrap items-center gap-6 border border-line bg-panel px-3 py-2">
-        <span className="text-xs uppercase tracking-widest text-dim">14 days</span>
-        <Sparkline label="opened" values={series.opened} barClass="bg-accent" />
-        <Sparkline label="closed" values={series.closed} barClass="bg-ok" />
+        <span className="text-xs uppercase tracking-widest text-dim">{t('workspace.days14')}</span>
+        <Sparkline label={t('workspace.sparkline.opened')} values={series.opened} barClass="bg-accent" />
+        <Sparkline label={t('workspace.sparkline.closed')} values={series.closed} barClass="bg-ok" />
       </div>
 
       {error && (
@@ -662,13 +683,13 @@ export function WorkspaceView({
             ) : (
               <div className="grid flex-1 place-items-center">
                 <div className="text-center">
-                  <div className="text-sm tracking-widest text-dim">QUEUE</div>
+                  <div className="text-sm tracking-widest text-dim">{t('workspace.empty.heading')}</div>
                   <p className="mt-2 text-fg">
                     {visibleTickets.length === 0
-                      ? 'No tickets. The board is clean.'
-                      : 'Select a ticket to open it.'}
+                      ? t('queue.empty')
+                      : t('workspace.empty.select')}
                   </p>
-                  <p className="mt-1 text-xs text-dim">press / to search</p>
+                  <p className="mt-1 text-xs text-dim">{t('workspace.empty.searchHint')}</p>
                 </div>
               </div>
             )}
@@ -740,7 +761,7 @@ export function WorkspaceView({
           >
             kipple v0.1.0
           </a>{' '}
-          · presence: <span className="uppercase">{presence}</span>
+          · <span className="uppercase">{t('workspace.footer.presence', { presence })}</span>
         </span>
         <span>{user.email}</span>
       </footer>

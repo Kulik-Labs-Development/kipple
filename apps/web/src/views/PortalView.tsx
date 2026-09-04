@@ -19,6 +19,7 @@ import {
   statusLedClass,
   type StatusFilter,
 } from '../lib/tickets'
+import { STATUS_KEY, useI18n } from '../lib/i18n'
 
 const POLL_MS = 30_000
 const PORTAL_STATUSES: StatusFilter[] = ['all', 'open', 'pending', 'hold', 'closed']
@@ -41,6 +42,7 @@ export function PortalView({
   } | null
   onSignedOut: () => void
 }) {
+  const { t } = useI18n()
   const [tickets, setTickets] = useState<TicketRow[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<TicketDetailData | null>(null)
@@ -69,10 +71,12 @@ export function PortalView({
       target.rel = 'icon'
       target.href = logo
       if (!link) document.head.appendChild(target)
-      document.title = `${primaryClient?.name ?? 'Support'} · Client Portal`
+      document.title = t('portal.title.withClient', {
+        client: primaryClient?.name ?? t('portal.fallbackClient'),
+      })
     } else {
       link?.remove()
-      document.title = 'Kipple'
+      document.title = t('portal.title.fallback')
     }
     setLogoBroken(false)
   }, [logoSrc, primaryClient?.name])
@@ -82,7 +86,7 @@ export function PortalView({
       setTickets(await api.listTickets())
       setError(null)
     } catch (err) {
-      setError(errorMessage(err, 'failed to load requests'))
+      setError(errorMessage(err, t('portal.error.load')))
     }
   }, [])
 
@@ -153,7 +157,7 @@ export function PortalView({
       if (fileInputRef.current) fileInputRef.current.value = ''
       await Promise.all([refreshDetail(selectedId), refreshList()])
     } catch (err) {
-      setError(errorMessage(err, 'failed to send reply'))
+      setError(errorMessage(err, t('portal.error.reply')))
     } finally {
       setBusy(false)
     }
@@ -176,7 +180,7 @@ export function PortalView({
       await refreshList()
       setSelectedId(row.id)
     } catch (err) {
-      setError(errorMessage(err, 'failed to create request'))
+      setError(errorMessage(err, t('portal.error.create')))
     } finally {
       setBusy(false)
     }
@@ -205,9 +209,9 @@ export function PortalView({
           )}
           <div className="flex items-baseline gap-3">
             <span className="text-base font-semibold text-fg">
-              {primaryClient?.name ?? 'Support'}
+              {primaryClient?.name ?? t('portal.fallbackClient')}
             </span>
-            <span className="text-xs text-dim">client portal</span>
+            <span className="text-xs text-dim">{t('portal.sub')}</span>
           </div>
         </div>
         <div className="flex items-center gap-4 text-sm">
@@ -217,7 +221,7 @@ export function PortalView({
             disabled={signingOut}
             className="border border-line px-3 py-1 text-xs text-dim hover:border-danger hover:text-danger"
           >
-            sign out
+            {t('workspace.signOut')}
           </button>
         </div>
       </header>
@@ -232,13 +236,13 @@ export function PortalView({
         <section className="flex min-h-0 flex-col border border-line bg-panel">
           <div className="flex items-center justify-between border-b border-line p-3">
             <span className="text-xs uppercase tracking-widest text-dim">
-              your requests
+              {t('portal.yourRequests')}
             </span>
             <button
               onClick={() => setShowNew(true)}
               className="border border-accent bg-accent/10 px-2 py-1 text-xs text-accent"
             >
-              + new request
+              {t('portal.newRequest')}
             </button>
           </div>
           <div className="flex flex-wrap gap-1 p-2">
@@ -252,7 +256,7 @@ export function PortalView({
                     : 'border-line text-dim'
                 }`}
               >
-                {status}
+                {t(STATUS_KEY[status])}
               </button>
             ))}
           </div>
@@ -260,12 +264,12 @@ export function PortalView({
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="search ( / )"
+            placeholder={t('portal.searchPlaceholder')}
             className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none placeholder:text-dim"
           />
           <div className="min-h-0 flex-1 overflow-y-auto">
             {visible.length === 0 ? (
-              <p className="p-4 text-sm text-dim">No requests here.</p>
+              <p className="p-4 text-sm text-dim">{t('portal.empty')}</p>
             ) : (
               visible.map((ticket) => (
                 <button
@@ -297,9 +301,13 @@ export function PortalView({
                 <h2 className="text-lg font-semibold text-fg">{detail.subject}</h2>
                 <p className="mt-1 text-xs text-dim">
                   #{detail.number} ·{' '}
-                  <span className="capitalize">{detail.status}</span>
+                  <span className="capitalize">
+                    {detail.status in STATUS_KEY
+                      ? t(STATUS_KEY[detail.status as keyof typeof STATUS_KEY])
+                      : detail.status}
+                  </span>
                   {detail.status === 'hold' && detail.holdOn
-                    ? ` · waiting on ${detail.holdOn}`
+                    ? ` · ${t('portal.waitingOn', { who: detail.holdOn })}`
                     : ''}
                   {' '}· opened {formatStamp(detail.createdAt)}
                 </p>
@@ -308,7 +316,7 @@ export function PortalView({
                 {detail.updates.map((update) => (
                   <div key={update.id} className="border-b border-line px-4 py-3">
                     <p className="text-xs text-dim">
-                      <span className="text-fg">{update.authorName ?? 'Support team'}</span> ·{' '}
+                      <span className="text-fg">{update.authorName ?? t('portal.supportTeam')}</span> ·{' '}
                       {formatStamp(update.createdAt)}
                     </p>
                     <div
@@ -336,7 +344,7 @@ export function PortalView({
               <div className="border-t border-line p-3">
                 <RichTextEditor
                   key={`${selectedId}-${replyKey}`}
-                  placeholder="Write a reply…"
+                  placeholder={t('portal.replyPlaceholder')}
                   onHtmlChange={setReply}
                 />
                 {files.length > 0 && (
@@ -353,7 +361,7 @@ export function PortalView({
                           type="button"
                           onClick={() => setFiles(files.filter((_, i) => i !== index))}
                           className="hover:text-danger"
-                          aria-label={`remove ${file.name}`}
+                          aria-label={t('portal.removeFile', { file: file.name })}
                         >
                           ×
                         </button>
@@ -379,7 +387,7 @@ export function PortalView({
                       className="flex items-center gap-1.5 border border-line px-2 py-1 text-xs text-dim hover:border-accent hover:text-accent"
                     >
                       <PhosphorIcon name="paperclip" size="sm" />
-                      attach
+                      {t('portal.attach')}
                     </button>
                   </div>
                   <button
@@ -388,7 +396,7 @@ export function PortalView({
                     className="flex items-center gap-1.5 border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
                   >
                     <PhosphorIcon name="paper-plane-tilt" size="sm" />
-                    send reply
+                    {t('portal.sendReply')}
                   </button>
                 </div>
               </div>
@@ -398,11 +406,11 @@ export function PortalView({
               <div className="text-center">
                 <p className="text-sm text-fg">
                   {tickets.length === 0
-                    ? "You don't have any requests yet."
-                    : 'Select a request to open it.'}
+                    ? t('portal.emptyDetail.none')
+                    : t('portal.emptyDetail.select')}
                 </p>
                 <p className="mt-1 text-xs text-dim">
-                  You can also reply by email to your ticket address.
+                  {t('portal.emptyDetail.emailNote')}
                 </p>
               </div>
             </div>
@@ -416,20 +424,20 @@ export function PortalView({
             onSubmit={createTicket}
             className="w-full max-w-md space-y-4 border border-line bg-panel p-5"
           >
-            <h3 className="text-sm uppercase tracking-widest text-accent">new request</h3>
+            <h3 className="text-sm uppercase tracking-widest text-accent">{t('portal.modal.heading')}</h3>
             <Field
-              label="subject"
+              label={t('portal.modal.field.subject')}
               value={newSubject}
               onChange={(e) => setNewSubject(e.target.value)}
-              placeholder="What do you need help with?"
+              placeholder={t('portal.modal.placeholder.subject')}
               required
             />
             <Field
-              label="description"
+              label={t('portal.modal.field.description')}
               type="textarea"
               value={newBody}
               onChange={(e) => setNewBody(e.target.value)}
-              placeholder="Tell us what happened (optional)"
+              placeholder={t('portal.modal.placeholder.description')}
             />
             <div className="flex justify-end gap-2">
               <button
@@ -437,19 +445,19 @@ export function PortalView({
                 onClick={() => setShowNew(false)}
                 className="border border-line px-4 py-1.5 text-sm text-dim"
               >
-                cancel
+                {t('portal.modal.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={busy || !newSubject.trim() || !clientId}
                 className="border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
               >
-                create request
+                {t('portal.modal.create')}
               </button>
             </div>
             {!clientId && (
               <p className="text-xs text-danger">
-                No company is linked to your account yet. Ask your MSP to link it.
+                {t('portal.modal.noClient')}
               </p>
             )}
           </form>

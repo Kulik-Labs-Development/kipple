@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ClientBranding } from '@kipple/shared/themes'
 import { api, ApiError, type MeUser } from './lib/api'
 import { applyTheme, resolveThemeChoice, watchSystemScheme } from './lib/theme'
+import { useI18n } from './lib/i18n'
 import { LoginView } from './views/LoginView'
 import { PortalView } from './views/PortalView'
 import { SetupView } from './views/SetupView'
@@ -10,6 +11,7 @@ import { WorkspaceView } from './views/WorkspaceView'
 type Mode = 'loading' | 'setup' | 'login' | 'app'
 
 export default function App() {
+  const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('loading')
   const [user, setUser] = useState<MeUser | null>(null)
   const [preferences, setPreferences] = useState<{
@@ -72,7 +74,7 @@ export default function App() {
   if (mode === 'loading') {
     return (
       <div className="grid min-h-full place-items-center text-xs tracking-widest text-dim">
-        CONNECTING…
+        {t('app.connecting')}
       </div>
     )
   }
