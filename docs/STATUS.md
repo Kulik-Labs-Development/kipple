@@ -262,6 +262,21 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-04 (S3-compatible storage adapter, row 18 part 2, issue #34)** —
+  attachment storage is now backend-pluggable: local disk under `STORAGE_DIR`
+  (default, unchanged) or an S3-compatible object store, activated all-or-
+  nothing by env (`S3_ENDPOINT` + `S3_BUCKET` + `S3_ACCESS_KEY_ID` +
+  `S3_SECRET_ACCESS_KEY`; plus `S3_REGION`, `S3_FORCE_PATH_STYLE` for
+  path-style/IP endpoints, `S3_PATH_PREFIX` key namespace). Zero dependencies:
+  the SigV4 client is `node:crypto` + `node:http(s)` (`s3.ts`), PUT/GET/HEAD/
+  DELETE + presigned GETs. Downloads of stored attachments on the S3 backend
+  302 to a short-lived presigned URL (direct-to-bucket; scope checks run
+  first, out-of-scope still 404s) with the DB mime + content-disposition
+  applied via S3 response overrides; avatars/logos/uploads ride the same
+  storage seam unchanged. Objects are stored without a content-type (the
+  house never trusts stored mimes — the DB row mime / magic-sniff wins).
+  17 tests (`s3.test.ts`), incl. a mock S3 that independently re-verifies
+  every SigV4 signature on the wire.
 - **2026-09-03 (staff per-client access restriction, issue #31)** —
   `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
   a `users.client_id` association sees only that client's tickets, clients,
