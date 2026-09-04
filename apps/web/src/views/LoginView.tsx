@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Field } from '../components/Field'
 import { api, ApiError } from '../lib/api'
+import { useI18n } from '../lib/i18n'
 
 type Mode = 'client' | 'agent'
 
 export function LoginView({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('client')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -53,7 +55,7 @@ export function LoginView({ onDone }: { onDone: () => void }) {
         onDone()
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'sign-in failed')
+      setError(err instanceof ApiError ? err.message : t('login.error.fallback'))
     } finally {
       setBusy(false)
     }
@@ -69,7 +71,7 @@ export function LoginView({ onDone }: { onDone: () => void }) {
       await api.requestMagicLink(email, '/')
       setSentTo(email)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'sign-in failed')
+      setError(err instanceof ApiError ? err.message : t('login.error.fallback'))
     } finally {
       setBusy(false)
     }
@@ -98,10 +100,10 @@ export function LoginView({ onDone }: { onDone: () => void }) {
               <h1 className="text-lg tracking-widest text-accent">{branding.clientName}</h1>
             </>
           ) : (
-            <h1 className="text-lg tracking-widest text-accent">KIPPLE</h1>
+            <h1 className="text-lg tracking-widest text-accent">{t('login.heading')}</h1>
           )}
           <p className="mt-1 text-xs text-dim">
-            {mode === 'client' ? 'client portal sign in' : 'agent workspace sign in'}
+            {mode === 'client' ? t('login.sub.client') : t('login.sub.agent')}
           </p>
         </div>
 
@@ -113,7 +115,7 @@ export function LoginView({ onDone }: { onDone: () => void }) {
               mode === 'client' ? 'border-accent text-accent' : 'border-line text-dim'
             }`}
           >
-            client
+            {t('login.tab.client')}
           </button>
           <button
             type="button"
@@ -122,38 +124,40 @@ export function LoginView({ onDone }: { onDone: () => void }) {
               mode === 'agent' ? 'border-accent text-accent' : 'border-line text-dim'
             }`}
           >
-            agent
+            {t('login.tab.agent')}
           </button>
         </div>
 
         {sentTo ? (
           <div className="mt-4 border border-ok p-4 text-sm text-fg">
             <p>
-              A sign-in link was sent to <span className="text-accent">{sentTo}</span>.
+              {t('login.linkSent.before')}
+              <span className="text-accent">{sentTo}</span>
+              {t('login.linkSent.after')}
             </p>
             <p className="mt-2 text-xs text-dim">
               {mode === 'agent'
-                ? 'A link is only sent if you enabled magic-link login in your profile settings. It expires in 10 minutes and works only once.'
-                : 'Check your inbox. The link expires in 10 minutes and works only once.'}
+                ? t('login.linkSent.agentNote')
+                : t('login.linkSent.clientNote')}
             </p>
           </div>
         ) : (
           <form onSubmit={submit} className="mt-4 space-y-4">
             <Field
-              label="email"
+              label={t('login.field.email')}
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
+              placeholder={t('login.placeholder.email')}
               required
             />
             {mode === 'agent' && (
               <Field
-                label="password"
+                label={t('login.field.password')}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="password"
+                placeholder={t('login.placeholder.password')}
                 required
               />
             )}
@@ -164,10 +168,10 @@ export function LoginView({ onDone }: { onDone: () => void }) {
               className="w-full border border-accent bg-accent/10 py-2 text-sm tracking-widest text-accent disabled:opacity-50"
             >
               {busy
-                ? 'WORKING…'
+                ? t('login.submit.working')
                 : mode === 'client'
-                  ? 'SEND SIGN-IN LINK'
-                  : 'SIGN IN'}
+                  ? t('login.submit.client')
+                  : t('login.submit.agent')}
             </button>
             {mode === 'agent' && (
               <div>
@@ -177,10 +181,10 @@ export function LoginView({ onDone }: { onDone: () => void }) {
                   disabled={busy}
                   className="w-full border border-line py-2 text-xs tracking-widest text-dim hover:border-accent hover:text-accent disabled:opacity-50"
                 >
-                  sign in with email link
+                  {t('login.magicLinkButton')}
                 </button>
                 <p className="mt-1 text-center text-[10px] text-dim">
-                  only sent if you enabled magic-link login in your profile settings
+                  {t('login.magicLinkNote')}
                 </p>
               </div>
             )}

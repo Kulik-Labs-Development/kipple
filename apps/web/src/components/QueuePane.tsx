@@ -1,7 +1,8 @@
 import type { RefObject } from 'react'
 import type { SlaConfig, TicketRow } from '../lib/api'
 import { PhosphorIcon } from './PhosphorIcon'
-import { queueSlaState, slaStateClass, slaStateLabel } from '../lib/sla'
+import { queueSlaState, slaStateClass } from '../lib/sla'
+import { STATUS_KEY, useI18n, type I18nKey } from '../lib/i18n'
 import {
   formatStamp,
   priorityClass,
@@ -11,6 +12,21 @@ import {
   TICKET_STATUSES,
   type StatusFilter,
 } from '../lib/tickets'
+
+// Priority is free-form in the DB (default 'normal') — an unmapped value
+// renders as-is rather than under a wrong label.
+const PRIORITY_KEY: Record<string, I18nKey> = {
+  low: 'priority.low',
+  normal: 'priority.normal',
+  high: 'priority.high',
+  urgent: 'priority.urgent',
+}
+const SLA_KEY: Record<NonNullable<ReturnType<typeof queueSlaState>>, I18nKey> = {
+  pending: 'sla.pending',
+  at_risk: 'sla.at_risk',
+  breached: 'sla.breached',
+  met: 'sla.met',
+}
 
 interface QueuePaneProps {
   tickets: TicketRow[]
@@ -49,6 +65,7 @@ export function QueuePane({
   onSelect,
   onNewTicket,
 }: QueuePaneProps) {
+  const { t } = useI18n()
   return (
     <aside className="flex w-[380px] shrink-0 flex-col border-r border-line">
       <div className="flex flex-wrap gap-1 border-b border-line p-2">
@@ -62,7 +79,7 @@ export function QueuePane({
                 : 'border-line text-dim hover:border-fg hover:text-fg'
             }`}
           >
-            {filter} <span className="tabular-nums">{counts[filter] ?? 0}</span>
+            {t(STATUS_KEY[filter])} <span className="tabular-nums">{counts[filter] ?? 0}</span>
           </button>
         ))}
       </div>
@@ -73,9 +90,9 @@ export function QueuePane({
             value={clientFilter}
             onChange={(event) => onClientFilter(event.target.value)}
             className="w-full border border-line bg-ink px-2 py-1 text-xs text-fg outline-none focus:border-accent"
-            aria-label="filter by client"
+            aria-label={t('queue.aria.clientFilter')}
           >
-            <option value="all">all clients</option>
+            <option value="all">{t('queue.allClients')}</option>
             {[...clientNames.entries()]
               .sort((a, b) => a[1].localeCompare(b[1]))
               .map(([id, name]) => (
@@ -98,7 +115,7 @@ export function QueuePane({
             ref={searchRef}
             value={search}
             onChange={(event) => onSearch(event.target.value)}
-            placeholder="search subject…  ( / )"
+            placeholder={t('queue.searchPlaceholder')}
             className="w-full border border-line bg-ink py-1 pl-7 pr-2 text-xs text-fg outline-none placeholder:text-dim focus:border-accent"
           />
         </div>
@@ -108,7 +125,7 @@ export function QueuePane({
             className="flex shrink-0 items-center gap-1 border border-accent px-2 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink"
           >
             <PhosphorIcon name="plus" size="sm" />
-            new
+            {t('queue.new')}
           </button>
         )}
       </div>
@@ -116,8 +133,8 @@ export function QueuePane({
       <div className="flex-1 overflow-y-auto">
         {tickets.length === 0 ? (
           <div className="p-6 text-center">
-            <div className="text-xs uppercase tracking-widest text-dim">queue</div>
-            <p className="mt-2 text-sm text-fg">No tickets. The board is clean.</p>
+            <div className="text-xs uppercase tracking-widest text-dim">{t('queue.emptyHeading')}</div>
+            <p className="mt-2 text-sm text-fg">{t('queue.empty')}</p>
           </div>
         ) : (
           tickets.map((ticket) => (
@@ -139,13 +156,13 @@ export function QueuePane({
               </div>
               <div className="mt-1 flex items-center gap-2 pl-4 text-xs text-dim">
                 <span className="truncate">
-                  {clientNames.get(ticket.clientId) ?? 'unknown client'}
+                  {clientNames.get(ticket.clientId) ?? t('queue.unknownClient')}
                 </span>
                 <span className="shrink-0">·</span>
                 <span
                   className={`shrink-0 border px-1 uppercase ${priorityClass(ticket.priority)}`}
                 >
-                  {ticket.priority}
+                  {ticket.priority in PRIORITY_KEY ? t(PRIORITY_KEY[ticket.priority]) : ticket.priority}
                 </span>
                 {slaConfig?.enabled &&
                   (() => {
@@ -154,15 +171,15 @@ export function QueuePane({
                     return (
                       <span
                         className={`shrink-0 border px-1 uppercase ${slaStateClass(state)}`}
-                        title={`SLA ${slaStateLabel(state)}`}
+                        title={t('queue.sla.title', { state: t(SLA_KEY[state]) })}
                       >
-                        sla {slaStateLabel(state)}
+                        {t('queue.sla.label', { state: t(SLA_KEY[state]) })}
                       </span>
                     )
                   })()}
                 <span
                   className="ml-auto flex shrink-0 items-center gap-1 tabular-nums"
-                  title={`opened ${formatStamp(ticket.createdAt)}`}
+                  title={t('queue.row.openedTitle', { at: formatStamp(ticket.createdAt) })}
                 >
                   <PhosphorIcon name="calendar" size="xs" />
                   {shortDate(ticket.createdAt)} · {relativeTime(ticket.updatedAt)}
