@@ -15,11 +15,11 @@ presence) are live end-to-end.
 All 13 items in the plan table below are shipped — including per-client
 branding for the portal (item 12) and attachments on updates v1 (item 13:
 local-disk storage, multipart uploads capped at ATTACHMENT_MAX_MB per
-file). The remaining Phase 1 scope from PLAN.md
-(chunked/tus uploads + S3 backend, hold states, staff client
-restriction, agent invites, client self-registration) is tracked as
-backlog rows 14–18; after those, Phase 2 (API + MCP + integrations) is
-next. Update composers (workspace + portal) are now a rich text editor
+file). Client self-registration (row 17) is live: per-client allowed
+email domains, off by default. The remaining Phase 1 scope from
+PLAN.md (chunked/tus uploads + S3 backend, hold states, staff client
+restriction, agent invites) is tracked as backlog rows 14–16 + 18;
+after those, Phase 2 (API + MCP + integrations) is next. Update composers (workspace + portal) are now a rich text editor
 (TipTap): headings, lists, code, quotes, links, image embeds by URL, font
 size — sanitized HTML in the web timeline, plain-text email egress.
 
@@ -256,12 +256,90 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | done |
 | 13 | Attachments on updates v1 (multipart uploads, local disk, client-scoped) | done (v1 — chunked/S3 = row 18) |
 | 14 | Hold states "waiting on client/vendor" + hold timers, auto-close with pre-close warning (template + rule) | backlog |
-| 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | backlog |
-| 16 | Agent signups: admin-invited via email token link, MFA on first login | backlog |
-| 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | backlog |
-| 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
+| 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | done |
+| 16 | Agent signups: admin-invited via email token link, MFA on first login | done |
+| 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | done |
+| 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-04 (S3-compatible storage adapter, row 18 part 2, issue #34)** —
+  attachment storage is now backend-pluggable: local disk under `STORAGE_DIR`
+  (default, unchanged) or an S3-compatible object store, activated all-or-
+  nothing by env (`S3_ENDPOINT` + `S3_BUCKET` + `S3_ACCESS_KEY_ID` +
+  `S3_SECRET_ACCESS_KEY`; plus `S3_REGION`, `S3_FORCE_PATH_STYLE` for
+  path-style/IP endpoints, `S3_PATH_PREFIX` key namespace). Zero dependencies:
+  the SigV4 client is `node:crypto` + `node:http(s)` (`s3.ts`), PUT/GET/HEAD/
+  DELETE + presigned GETs. Downloads of stored attachments on the S3 backend
+  302 to a short-lived presigned URL (direct-to-bucket; scope checks run
+  first, out-of-scope still 404s) with the DB mime + content-disposition
+  applied via S3 response overrides; avatars/logos/uploads ride the same
+  storage seam unchanged. Objects are stored without a content-type (the
+  house never trusts stored mimes — the DB row mime / magic-sniff wins).
+  17 tests (`s3.test.ts`), incl. a mock S3 that independently re-verifies
+  every SigV4 signature on the wire.
+- **2026-09-03 (attachments v2, part 1: tus uploads + upload settings, issue #34)** —
+  chunked (tus-compatible) upload pipeline + superuser upload settings.
+  Files stage in `/api/uploads` (`OPTIONS` advertises tus 1.0; `POST` with
+  `Upload-Length` + `Upload-Metadata` (base64 filename/mime) creates a
+  staging row, `PATCH` appends with `Upload-Offset` in
+  `application/offset+octet-stream` chunks — 409 on offset mismatch, 413
+  rollback on overshoot, `GET`/`HEAD` for resume state, `DELETE` to abandon;
+  all owner-only, foreign/unknown = 404). Staged files attach through the
+  SAME `POST /api/tickets/:id/updates` endpoint with `uploadIds` (JSON;
+  the v1 multipart path is unchanged): each id must be the caller's own,
+  complete, unexpired, on-disk row — moved to the sharded final location
+  and marked consumed in the update's transaction (single-use, no reuse).
+  Unconsumed uploads expire (`UPLOAD_EXPIRY_HOURS`, default 24h) and are
+  swept on the next create. New superuser `GET/POST /api/instance/uploads`
+  sets max file size (1–4096MB, was env-only) + an editable MIME allowlist
+  (exact or `type/*`; empty = allow all) — enforced on BOTH the tus create
+  and the legacy multipart path (415 `mime_not_allowed`); the instance
+  setting beats the env; every change audit-logged `instance.uploads`.
+  Web: a minimal tus client (`lib/uploads.ts`, 5MB chunks, auto-resume) +
+  `useStagedUploads` composer hook — both composers stage on pick with
+  per-file progress and send `uploadIds` (the FormData path is no longer
+  used); the instance defaults panel gained the uploads section.
+  Migration `0016_open_ramp` (uploads table). 21 api tests + 7 shared
+  tests (client-scoping case included). Row 18 part 2 (S3-compatible
+  storage adapter behind `storage.ts`) is the follow-up PR.
+- **2026-09-03 (client self-registration — per-client allowed email domains, issue #33)** —
+  Clients can optionally let their own people create portal accounts from
+  the login screen, gated by a per-client list of allowed email domains.
+  Off by default: `clients.self_reg_domains` (hand-rolled migration 0015;
+  this branch carries the unmerged 0014 snapshot for merge-order safety)
+  is null unless staff set it. `POST /api/portal/self-register`
+  (unauthenticated) always answers `{status:true}`, so the endpoint cannot
+  be used to probe accounts or clients; when the email's domain is on an
+  enabled client's list and no account exists, it creates the contact
+  (+ primary client link) and a portal user (`emailVerified: true` by
+  construction — the better-auth unproven-account landmine) with a random
+  credential account, and writes a `contact.self_register` audit row
+  (null actor). Re-requests are idempotent; staff-created contacts are
+  never re-homed or duplicated (a contact linked only to another client is
+  left for an admin). The login screen shows a create-account section
+  only when `POST /api/portal/branding` reports `selfRegister: true` (no
+  account exists + domain enabled), and the web chains the normal
+  magic-link request after account creation — the only mail the flow
+  sends, through the existing contact gate. Domain matching is exact +
+  case-insensitive (subdomains do NOT match); two enabled clients on one
+  domain = first by client id wins. Web: ClientManager gains a per-client
+  domains field under the branding section. 12 new api e2e tests
+  (`self-register.test.ts`) + shared domain-matcher tests.
+- **2026-09-03 (agent invites — email token link + MFA on first login, issue #32)** —
+  staff can now be admin-invited by email: superuser sends a one-time link
+  (`POST /api/invites`, 72h TTL, single-use, sha256-only token storage), the
+  invitee creates the account at `/invite/<token>` (email + role come from
+  the invite, never the request) and is then locked behind the MFA setup
+  screen until a TOTP device is enrolled (per-user `users.mfa_required` flag,
+  enforced by an API preHandler gate that allows only `/api/me` + the
+  two-factor setup endpoints; the flag self-clears once a verified device
+  exists and is one-shot — disabling 2FA later does not re-arm it). `DELETE
+  /api/invites/:id` revokes; `GET/POST /api/instance/invites` is the
+  "disable signups entirely" kill switch (absent settings row = on).
+  `POST /api/users` (direct creation) stays available for the same roles.
+  Migration 0014 (users.mfa_required + staff_invites; this branch carries
+  the unmerged 0012/0013 snapshots for merge-order safety). 10 tests
+  (`staff-invites.test.ts`).
 - **2026-09-03 (staff per-client access restriction, issue #31)** —
   `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
   a `users.client_id` association sees only that client's tickets, clients,

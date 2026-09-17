@@ -95,11 +95,16 @@ modal edits it. That completes the original 12-item Phase 1 plan table.
 Attachments on updates are live at v1 (plan item 13): multipart uploads
 on `POST /api/tickets/:id/updates` (1–10 files, `ATTACHMENT_MAX_MB`
 per-file cap), local-disk storage on the `storage-data` volume, and
-client-scoped download/delete endpoints; chunked (tus) uploads and the
-S3 adapter are backlog (row 18). The remaining PLAN.md Phase 1 scope
-(hold states, staff client restriction, agent invites, client
-self-registration) is backlog, then Phase 2 (API + MCP + integrations).
-Update this file as each phase lands.
+client-scoped download/delete endpoints. Row 18 part 1 is live: chunked
+(tus-compatible) uploads stage in `/api/uploads` (5MB chunks, resumable,
+expire after `UPLOAD_EXPIRY_HOURS`) and attach via `uploadIds` on the same
+updates endpoint (the multipart v1 path stays); superuser upload settings
+(max file size + editable MIME allowlist) live in the instance defaults
+panel and gate both upload paths. Row 17 (client self-registration) is
+live: per-client allowed email domains, off by default. The S3 adapter is
+row 18 part 2 (backlog). The remaining PLAN.md Phase 1 scope (hold
+states) is backlog, then Phase 2 (API + MCP + integrations). Update this
+file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
 (active plan, what's live, open questions) and update it — including a dated

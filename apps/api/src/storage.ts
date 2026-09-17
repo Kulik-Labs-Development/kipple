@@ -1,12 +1,20 @@
-import { mkdir, open, stat, unlink } from 'node:fs/promises'
+import { mkdir, open, readFile, stat, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import type { Readable } from 'node:stream'
+import {
+  isS3Configured,
+  s3DeleteObject,
+  s3GetObject,
+  s3HeadObject,
+  s3PutObject,
+} from './s3'
 
-// Local-disk attachment storage (plan item 13, v1). Files are sharded under
-// STORAGE_DIR by the first two characters of the storage key; the storage key
-// is always a server-generated id, so client-supplied filenames never touch
-// the path (traversal-safe by construction). A later backend (S3 adapter,
-// chunked/tus uploads) swaps in behind this same surface.
+// Attachment storage (plan item 13, v1). Two backends share one surface:
+// local disk sharded under STORAGE_DIR by the first two characters of the
+// storage key (default) and the S3-compatible object store (when configured,
+// see s3.ts). The storage key is always a server-generated id, so
+// client-supplied filenames never touch the path or object key
+// (traversal-safe by construction).
 
 export const MAX_ATTACHMENTS_PER_UPDATE = 10
 
@@ -27,12 +35,27 @@ export function storageDir(): string {
   return path.resolve(process.env.STORAGE_DIR || path.join(process.cwd(), 'storage'))
 }
 
-// Per-file cap in MB; read fresh on every call (tests override the env).
-export function maxAttachmentBytes(): number {
+// Active backend, resolved on every call so tests (and config reloads) can
+// flip it without restarting. 's3' only when all S3 env vars are set and
+// valid — otherwise local disk (see s3Config()).
+export function storageBackend(): 's3' | 'local' {
+  return isS3Configured() ? 's3' : 'local'
+}
+
+// Per-file cap in MB from env only; read fresh on every call (tests
+// override the env). The instance settings row ('uploads') can raise or
+// lower this at runtime — see effectiveUploadSettings() in uploads.ts.
+export function envMaxAttachmentMb(): number {
   const raw = process.env.ATTACHMENT_MAX_MB
   const mb = raw ? Number.parseInt(raw, 10) : 25
-  if (!Number.isFinite(mb) || mb <= 0) return 25 * 1024 * 1024
-  return mb * 1024 * 1024
+  if (!Number.isFinite(mb) || mb <= 0) return 25
+  return mb
+}
+
+// Per-file cap in bytes (env default; the upload settings row wins at
+// runtime — effectiveUploadSettings in uploads.ts is the live source).
+export function maxAttachmentBytes(): number {
+  return envMaxAttachmentMb() * 1024 * 1024
 }
 
 export function attachmentPath(storageKey: string): string {
@@ -58,6 +81,20 @@ export async function writeAttachmentFile(
   stream: Readable,
   maxBytes: number,
 ): Promise<number> {
+  if (storageBackend() === 's3') {
+    // Buffer with the same size count, then PUT: the S3 object is written
+    // with a known Content-Length + payload hash, and overflow semantics are
+    // identical — nothing is persisted when the cap is exceeded.
+    const chunks: Buffer[] = []
+    let bytes = 0
+    for await (const chunk of stream) {
+      bytes += (chunk as Buffer).length
+      if (bytes > maxBytes) throw new AttachmentSizeError(maxBytes)
+      chunks.push(chunk as Buffer)
+    }
+    await s3PutObject(storageKey, Buffer.concat(chunks))
+    return bytes
+  }
   const target = attachmentPath(storageKey)
   await mkdir(path.dirname(target), { recursive: true })
   let bytes = 0
@@ -121,6 +158,10 @@ export function sniffImageMime(bytes: Buffer): string | null {
 }
 
 export async function attachmentFileSize(storageKey: string): Promise<number | null> {
+  if (storageBackend() === 's3') {
+    const head = await s3HeadObject(storageKey)
+    return head ? head.size : null
+  }
   try {
     const info = await stat(attachmentPath(storageKey))
     return info.size
@@ -130,6 +171,10 @@ export async function attachmentFileSize(storageKey: string): Promise<number | n
 }
 
 export async function deleteAttachmentFile(storageKey: string): Promise<void> {
+  if (storageBackend() === 's3') {
+    await s3DeleteObject(storageKey).catch(() => undefined)
+    return
+  }
   await unlink(attachmentPath(storageKey)).catch(() => undefined)
 }
 
@@ -139,8 +184,14 @@ export async function streamImageFile(
   reply: { header: (name: string, value: string) => void; send: (body: Buffer) => unknown },
   storageKey: string,
 ): Promise<unknown> {
-  const { readFile } = await import('node:fs/promises')
-  const bytes = await readFile(attachmentPath(storageKey))
+  let bytes: Buffer
+  if (storageBackend() === 's3') {
+    const found = await s3GetObject(storageKey)
+    if (!found) throw new Error(`s3 object not found: ${storageKey}`)
+    bytes = found
+  } else {
+    bytes = await readFile(attachmentPath(storageKey))
+  }
   const mime = sniffImageMime(bytes)
   if (mime) reply.header('content-type', mime)
   return reply.send(bytes)
