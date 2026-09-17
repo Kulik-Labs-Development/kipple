@@ -9,6 +9,7 @@ import {
   type TicketRow,
 } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { useStagedUploads } from '../lib/useStagedUploads'
 import { PhosphorIcon } from '../components/PhosphorIcon'
 import { RichTextEditor } from '../components/RichTextEditor'
 import { textOfHtml, toRenderable } from '../lib/rich'
@@ -48,7 +49,7 @@ export function PortalView({
   const [search, setSearch] = useState('')
   const [reply, setReply] = useState('')
   const [replyKey, setReplyKey] = useState(0)
-  const [files, setFiles] = useState<File[]>([])
+  const { staged, addFiles, removeFile, clear, readyIds, inFlight } = useStagedUploads()
   const [showNew, setShowNew] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [newSubject, setNewSubject] = useState('')
@@ -101,8 +102,8 @@ export function PortalView({
   useEffect(() => {
     if (selectedId) void refreshDetail(selectedId)
     else setDetail(null)
-    setFiles([])
-  }, [selectedId, refreshDetail])
+    clear()
+  }, [selectedId, refreshDetail, clear])
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -138,17 +139,16 @@ export function PortalView({
   )
 
   async function sendReply() {
-    if (!selectedId || (!textOfHtml(reply) && files.length === 0)) return
+    if (!selectedId || inFlight || (!textOfHtml(reply) && readyIds.length === 0)) return
     setBusy(true)
     setError(null)
     try {
-      if (files.length > 0) {
-        await api.uploadUpdate(selectedId, { body: reply.trim() }, files)
-      } else {
-        await api.addTicketUpdate(selectedId, { body: reply.trim() })
-      }
+      await api.addTicketUpdate(selectedId, {
+        body: reply.trim(),
+        ...(readyIds.length > 0 ? { uploadIds: readyIds } : {}),
+      })
       setReply('')
-      setFiles([])
+      clear()
       setReplyKey((k) => k + 1)
       if (fileInputRef.current) fileInputRef.current.value = ''
       await Promise.all([refreshDetail(selectedId), refreshList()])
@@ -339,21 +339,34 @@ export function PortalView({
                   placeholder="Write a reply…"
                   onHtmlChange={setReply}
                 />
-                {files.length > 0 && (
+                {staged.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {files.map((file, index) => (
+                    {staged.map((upload, index) => (
                       <span
-                        key={`${file.name}-${index}`}
-                        className="flex items-center gap-1 border border-line px-2 py-0.5 text-xs text-dim transition-colors hover:text-fg"
+                        key={`${upload.file.name}-${index}`}
+                        title={upload.error ?? upload.file.name}
+                        className={`flex items-center gap-1 border px-2 py-0.5 text-xs transition-colors ${
+                          upload.status === 'error'
+                            ? 'border-danger text-danger'
+                            : 'border-line text-dim hover:text-fg'
+                        }`}
                       >
                         <PhosphorIcon name="paperclip" size="sm" />
-                        <span className="max-w-52 truncate">{file.name}</span>
-                        <span className="tabular-nums">{formatFileSize(file.size)}</span>
+                        <span className="max-w-52 truncate">{upload.file.name}</span>
+                        {upload.status === 'staging' && (
+                          <span className="tabular-nums">
+                            {Math.round((upload.offset / upload.file.size) * 100)}%
+                          </span>
+                        )}
+                        {upload.status === 'ready' && (
+                          <span className="tabular-nums">{formatFileSize(upload.file.size)}</span>
+                        )}
+                        {upload.status === 'error' && <span>failed</span>}
                         <button
                           type="button"
-                          onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                          onClick={() => removeFile(upload.file)}
                           className="hover:text-danger"
-                          aria-label={`remove ${file.name}`}
+                          aria-label={`remove ${upload.file.name}`}
                         >
                           ×
                         </button>
@@ -369,8 +382,7 @@ export function PortalView({
                       multiple
                       className="hidden"
                       onChange={(e) => {
-                        const picked = Array.from(e.target.files ?? [])
-                        setFiles((current) => [...current, ...picked].slice(0, 10))
+                        addFiles(Array.from(e.target.files ?? []))
                       }}
                     />
                     <button
@@ -384,7 +396,9 @@ export function PortalView({
                   </div>
                   <button
                     onClick={sendReply}
-                    disabled={busy || (!textOfHtml(reply) && files.length === 0)}
+                    disabled={
+                      busy || inFlight || (!textOfHtml(reply) && readyIds.length === 0)
+                    }
                     className="flex items-center gap-1.5 border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
                   >
                     <PhosphorIcon name="paper-plane-tilt" size="sm" />

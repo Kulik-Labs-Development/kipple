@@ -12,15 +12,18 @@ const dimButtonClass =
 export function DefaultsManager({ onClose }: { onClose: () => void }) {
   const [agentTheme, setAgentTheme] = useState('')
   const [portalTheme, setPortalTheme] = useState('')
+  const [maxMb, setMaxMb] = useState('')
+  const [allowedMimes, setAllowedMimes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api
-      .instanceDefaults()
-      .then((defaults) => {
+    Promise.all([api.instanceDefaults(), api.uploadSettings()])
+      .then(([defaults, uploads]) => {
         setAgentTheme(defaults.agentTheme ?? '')
         setPortalTheme(defaults.portalTheme ?? '')
+        setMaxMb(String(uploads.maxMb))
+        setAllowedMimes(uploads.allowedMimes.join('\n'))
       })
       .catch((err) =>
         setError(err instanceof Error ? err.message : 'failed to load instance defaults'),
@@ -35,6 +38,14 @@ export function DefaultsManager({ onClose }: { onClose: () => void }) {
         agentTheme: agentTheme || null,
         portalTheme: portalTheme || null,
       })
+      const mb = Number.parseInt(maxMb, 10)
+      const mimes = allowedMimes
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+      if (Number.isFinite(mb) && mb >= 1) {
+        await api.patchUploadSettings({ maxMb: mb, allowedMimes: mimes })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'failed to save instance defaults')
     } finally {
@@ -97,6 +108,34 @@ export function DefaultsManager({ onClose }: { onClose: () => void }) {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="border-t border-line pt-3">
+            <p className="mb-2 text-xs text-dim">
+              Upload limits: max file size in MB (1–4096) and the allowed MIME types — one
+              per line, e.g. <span className="font-mono">image/*</span> or{' '}
+              <span className="font-mono">application/pdf</span>. An empty list allows
+              everything.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="w-24 text-xs text-dim">max size</span>
+              <input
+                value={maxMb}
+                onChange={(event) => setMaxMb(event.target.value)}
+                inputMode="numeric"
+                className={inputClass}
+              />
+              <span className="text-xs text-dim">MB</span>
+            </div>
+            <div className="mt-2 flex items-start gap-2">
+              <span className="w-24 pt-1 text-xs text-dim">allowed types</span>
+              <textarea
+                value={allowedMimes}
+                onChange={(event) => setAllowedMimes(event.target.value)}
+                rows={4}
+                className={inputClass + ' w-full font-mono'}
+                placeholder="image/*&#10;application/pdf"
+              />
+            </div>
           </div>
           <div className="flex justify-end">
             <button onClick={() => void save()} disabled={busy} className={buttonClass}>

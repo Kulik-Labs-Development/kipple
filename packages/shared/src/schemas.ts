@@ -22,16 +22,55 @@ export const SetupRequest = z.object({
 })
 export type SetupRequest = z.infer<typeof SetupRequest>
 
+// Client self-registration (issue #33): allowed email domains for the
+// unauthenticated signup path. Off by default — a client with no allowed
+// domains (null/absent) never self-registers anyone.
+export const EmailDomain = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(253)
+  .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/)
+
+export const SelfRegDomains = z.array(EmailDomain).min(1).max(10)
+export type SelfRegDomains = z.infer<typeof SelfRegDomains>
+
+// Storage normalization for the allowed-domain list: trim, lowercase,
+// dedupe. null/empty = self-registration off (stored as null).
+export function normalizeSelfRegDomains(
+  domains: readonly string[] | null | undefined,
+): string[] | null {
+  if (!domains) return null
+  const out = [...new Set(domains.map((d) => d.trim().toLowerCase()).filter(Boolean))]
+  return out.length > 0 ? out : null
+}
+
+// Exact-domain match, case-insensitive. Subdomains do NOT match: a client
+// that allows "corp.com" does not allow "sub.corp.com".
+export function emailDomainMatches(
+  email: string,
+  domains: readonly string[] | null | undefined,
+): boolean {
+  if (!domains || domains.length === 0) return false
+  const at = email.lastIndexOf('@')
+  if (at < 1) return false // no local part ('@corp.com' is not an email)
+  const domain = email.slice(at + 1).toLowerCase()
+  return domains.some((d) => d.toLowerCase() === domain)
+}
+
 export const ClientCreate = z.object({
   name: z.string().min(1).max(200),
   domain: z.string().max(253).optional().or(z.literal('')),
   slaPolicyId: z.string().min(1).nullable().optional(),
   branding: ClientBranding.optional(),
+  selfRegDomains: SelfRegDomains.optional(),
 })
 export type ClientCreate = z.infer<typeof ClientCreate>
 
 export const ClientUpdate = ClientCreate.partial().extend({
   branding: ClientBranding.nullable().optional(),
+  selfRegDomains: SelfRegDomains.nullable().optional(),
 })
 
 // Staff-to-client association (UI triage 09-02 item 11): which client a staff
@@ -61,6 +100,32 @@ export const UserRolePatch = z.object({
   role: z.enum(['agent', 'admin', 'superuser']),
 })
 export type UserRolePatch = z.infer<typeof UserRolePatch>
+
+// Agent invites (issue #32): an admin invites a staff account by email; the
+// invited person creates the account (name + password) through the token
+// link. superuser is absent from the role union, same bar as UserCreate.
+export const InviteCreate = z.object({
+  email: z.string().email().max(200),
+  role: z.enum(['admin', 'agent']).optional().default('agent'),
+})
+export type InviteCreate = z.infer<typeof InviteCreate>
+
+// Accepting an invite: the token is the credential; the account is created
+// server-side from the invite row (email + role come from the invite, never
+// the body).
+export const InviteAccept = z.object({
+  token: z.string().min(1).max(128),
+  name: z.string().min(2).max(120),
+  password: z.string().min(8).max(128),
+})
+export type InviteAccept = z.infer<typeof InviteAccept>
+
+// 'Admin can disable signups entirely' (PLAN §3): the invitations kill
+// switch. Absent settings row = enabled.
+export const InstanceInvites = z.object({
+  enabled: z.boolean(),
+})
+export type InstanceInvites = z.infer<typeof InstanceInvites>
 
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),
@@ -119,6 +184,11 @@ export type TicketUpdate = z.infer<typeof TicketUpdate>
 export const UpdateCreate = z.object({
   kind: z.enum(['public', 'internal']).optional().default('public'),
   body: z.string().min(1).max(100000),
+  // Chunked (tus) staged uploads to attach (row 18 part 1): the caller's own
+  // completed /api/uploads staging rows, moved to the attachment's final
+  // location when the update commits. Max = MAX_ATTACHMENTS_PER_UPDATE (10).
+  // The v1 multipart path is unchanged.
+  uploadIds: z.array(z.string().min(1).max(64)).max(10).optional(),
 })
 export type UpdateCreate = z.infer<typeof UpdateCreate>
 
@@ -337,3 +407,50 @@ export const RuleUpdate = z.object({
   action: RuleAction.optional(),
 })
 export type RuleUpdate = z.infer<typeof RuleUpdate>
+
+// --- Upload settings (plan row 18, part 1) ---
+// A MIME pattern is an exact type ('application/pdf') or a type wildcard
+// ('image/*'). An EMPTY allowlist means allow all — the list restricts, it
+// never replaces the default-open behavior.
+export const UploadMimePattern = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(128)
+  .regex(/^[a-z0-9*]+\/[a-z0-9*.-]+$/, 'a MIME type like image/* or application/pdf')
+export type UploadMimePattern = z.infer<typeof UploadMimePattern>
+
+export const UploadSettings = z.object({
+  maxMb: z.number().int().min(1).max(4096),
+  allowedMimes: z.array(UploadMimePattern).max(500),
+})
+export type UploadSettings = z.infer<typeof UploadSettings>
+
+export const UploadSettingsPatch = z.object({
+  maxMb: z.number().int().min(1).max(4096).optional(),
+  allowedMimes: z.array(UploadMimePattern).max(500).optional(),
+})
+export type UploadSettingsPatch = z.infer<typeof UploadSettingsPatch>
+
+// Effective defaults when no settings row exists: the v1 env defaults
+// (ATTACHMENT_MAX_MB default 25) + no MIME restriction.
+export const DEFAULT_UPLOAD_SETTINGS: UploadSettings = { maxMb: 25, allowedMimes: [] }
+
+// Case-insensitive exact or type/* wildcard match. Empty pattern list =
+// allow everything (a missing MIME header degrades to
+// 'application/octet-stream', which only passes a non-empty list that
+// explicitly admits it).
+export function mimeAllowed(mime: string, patterns: string[]): boolean {
+  if (patterns.length === 0) return true
+  const m = mime.trim().toLowerCase()
+  if (!m) return false
+  for (const rawPattern of patterns) {
+    // normalize defensively — the settings schema lowercases on parse, but
+    // this helper is also the gate for hand-written/legacy rows
+    const pattern = rawPattern.trim().toLowerCase()
+    if (pattern === m) return true
+    if (pattern.endsWith('/*') && m.startsWith(pattern.slice(0, -1))) return true
+  }
+  return false
+}

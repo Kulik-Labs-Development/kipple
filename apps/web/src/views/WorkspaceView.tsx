@@ -345,14 +345,14 @@ export function WorkspaceView({
     }
   }
 
-  async function reply(id: string, kind: 'public' | 'internal', body: string, files: File[]) {
+  async function reply(id: string, kind: 'public' | 'internal', body: string, uploadIds: string[]) {
     setError(null)
     try {
-      if (files.length > 0) {
-        await api.uploadUpdate(id, { kind, body }, files)
-      } else {
-        await api.addTicketUpdate(id, { kind, body })
-      }
+      await api.addTicketUpdate(id, {
+        kind,
+        body,
+        ...(uploadIds.length > 0 ? { uploadIds } : {}),
+      })
       await Promise.all([refreshDetail(id), refreshList()])
     } catch (err) {
       setError(errorMessage(err, 'failed to send update'))

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import type { SlaConfig, StaffUser, TicketDetail as TicketDetailData } from '../lib/api'
 import { formatFileSize } from '../lib/format'
+import { useStagedUploads } from '../lib/useStagedUploads'
 import { Avatar } from './Avatar'
 import { PhosphorIcon } from './PhosphorIcon'
 import { RichTextEditor } from './RichTextEditor'
@@ -36,7 +37,12 @@ interface TicketDetailProps {
   isStaff: boolean
   slaConfig: SlaConfig | null
   onPatch: (id: string, patch: TicketPatch) => Promise<void>
-  onReply: (id: string, kind: 'public' | 'internal', body: string, files: File[]) => Promise<void>
+  onReply: (
+    id: string,
+    kind: 'public' | 'internal',
+    body: string,
+    uploadIds: string[],
+  ) => Promise<void>
   onDelete: (id: string) => Promise<void>
 }
 
@@ -78,7 +84,7 @@ export function TicketDetail({
   const [kind, setKind] = useState<'public' | 'internal'>('public')
   const [tagsDraft, setTagsDraft] = useState(detail.tags.join(', '))
   const [sending, setSending] = useState(false)
-  const [files, setFiles] = useState<File[]>([])
+  const { staged, addFiles, removeFile, clear, readyIds, inFlight } = useStagedUploads()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function commitTags() {
@@ -91,12 +97,12 @@ export function TicketDetail({
   async function submit(event: FormEvent) {
     event.preventDefault()
     const text = body.trim()
-    if ((!textOfHtml(text) && files.length === 0) || sending) return
+    if ((!textOfHtml(text) && readyIds.length === 0) || sending || inFlight) return
     setSending(true)
     try {
-      await onReply(detail.id, kind, text, files)
+      await onReply(detail.id, kind, text, readyIds)
       setBody('')
-      setFiles([])
+      clear()
       setEditorKey((k) => k + 1)
       if (fileInputRef.current) fileInputRef.current.value = ''
     } finally {
@@ -349,21 +355,32 @@ export function TicketDetail({
             }
             onHtmlChange={setBody}
           />
-          {files.length > 0 && (
+          {staged.length > 0 && (
             <div className="flex flex-wrap gap-1">
-              {files.map((file, index) => (
+              {staged.map((upload, index) => (
                 <span
-                  key={`${file.name}-${index}`}
-                  className="flex items-center gap-1 border border-line bg-ink px-2 py-0.5 text-xs text-dim transition-colors hover:text-fg"
+                  key={`${upload.file.name}-${index}`}
+                  title={upload.error ?? upload.file.name}
+                  className={`flex items-center gap-1 border bg-ink px-2 py-0.5 text-xs transition-colors ${
+                    upload.status === 'error'
+                      ? 'border-danger text-danger'
+                      : 'border-line text-dim hover:text-fg'
+                  }`}
                 >
                   <PhosphorIcon name="paperclip" size="sm" />
-                  <span className="max-w-52 truncate">{file.name}</span>
-                  <span className="tabular-nums">{formatFileSize(file.size)}</span>
+                  <span className="max-w-52 truncate">{upload.file.name}</span>
+                  {upload.status === 'staging' && (
+                    <span className="tabular-nums">
+                      {Math.round((upload.offset / upload.file.size) * 100)}%
+                    </span>
+                  )}
+                  {upload.status === 'ready' && <span className="tabular-nums">✓</span>}
+                  {upload.status === 'error' && <span>failed</span>}
                   <button
                     type="button"
-                    onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                    onClick={() => removeFile(upload.file)}
                     className="hover:text-danger"
-                    aria-label={`remove ${file.name}`}
+                    aria-label={`remove ${upload.file.name}`}
                   >
                     ×
                   </button>
@@ -394,8 +411,7 @@ export function TicketDetail({
                 multiple
                 className="hidden"
                 onChange={(event) => {
-                  const picked = Array.from(event.target.files ?? [])
-                  setFiles((current) => [...current, ...picked].slice(0, 10))
+                  addFiles(Array.from(event.target.files ?? []))
                 }}
               />
               <button
@@ -408,7 +424,9 @@ export function TicketDetail({
               </button>
               <button
                 type="submit"
-                disabled={sending || (!textOfHtml(body) && files.length === 0)}
+                disabled={
+                  sending || inFlight || (!textOfHtml(body) && readyIds.length === 0)
+                }
                 className="flex items-center gap-1.5 border border-accent px-3 py-1 text-xs uppercase tracking-widest text-accent hover:bg-accent hover:text-ink disabled:opacity-40"
               >
                 <PhosphorIcon name="paper-plane-tilt" size="sm" />

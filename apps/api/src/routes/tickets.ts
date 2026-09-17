@@ -19,9 +19,17 @@ import {
   MAX_ATTACHMENTS_PER_UPDATE,
   cleanFilename,
   deleteAttachmentFile,
-  maxAttachmentBytes,
   writeAttachmentFile,
 } from '../storage'
+import {
+  MimeNotAllowedError,
+  effectiveUploadSettings,
+  markUploadsConsumed,
+  mimeAllowed,
+  mimeNotAllowedBody,
+  moveUploadToFinal,
+  resolveUploadsForConsume,
+} from '../uploads'
 import { loadEmailSettings, queueTicketReply } from '../mail'
 import {
   applyHoldTransition,
@@ -345,7 +353,9 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     // streams and writing them later would deadlock the request.
     let kind: 'public' | 'internal'
     let body: string
+    let uploadIds: string[] = []
     let writtenKeys: string[] = []
+    const movedKeys: string[] = []
     let createdAttachments: Array<{
       id: string
       filename: string
@@ -354,6 +364,8 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     }> = []
     let tooManyFiles = false
     if (request.isMultipart()) {
+      // Settings row beats env (row 18 part 1): max size + MIME allowlist.
+      const eff = await effectiveUploadSettings()
       let rawKind: string | undefined
       let rawBody = ''
       try {
@@ -364,12 +376,17 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
               part.file.destroy()
               break
             }
+            const partMime = (part.mimetype || 'application/octet-stream').slice(0, 128)
+            if (!mimeAllowed(partMime, eff.allowedMimes)) {
+              part.file.destroy()
+              throw new MimeNotAllowedError(partMime)
+            }
             const storageKey = randomUUID()
-            const size = await writeAttachmentFile(storageKey, part.file, maxAttachmentBytes())
+            const size = await writeAttachmentFile(storageKey, part.file, eff.maxBytes)
             createdAttachments.push({
               id: storageKey,
               filename: cleanFilename(part.filename ?? ''),
-              mime: (part.mimetype || 'application/octet-stream').slice(0, 128),
+              mime: partMime,
               size,
             })
             writtenKeys.push(storageKey)
@@ -388,6 +405,9 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
             error: 'file_too_large',
             message: `attachment exceeds the ${error.limitMb}MB limit`,
           })
+        }
+        if (error instanceof MimeNotAllowedError) {
+          return reply.code(415).send(mimeNotAllowedBody(error.mime))
         }
         throw error
       }
@@ -419,6 +439,31 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
       if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
       kind = session.user.role === 'contact' ? 'public' : parsed.data.kind
       body = parsed.data.body
+      uploadIds = parsed.data.uploadIds ?? []
+    }
+
+    // Chunked-upload consumption (row 18 part 1): validate every id (own,
+    // complete, unexpired, file present), move each staged file to the
+    // sharded final location BEFORE the transaction (house v1 pattern —
+    // files on disk first, rows second, cleanup on failure).
+    if (uploadIds.length > 0) {
+      const resolved = await resolveUploadsForConsume(uploadIds, session.user.id)
+      if (resolved.error) {
+        return reply
+          .code(resolved.error.status)
+          .send({ error: resolved.error.error, message: resolved.error.message })
+      }
+      for (const staged of resolved.rows) {
+        const newKey = randomUUID()
+        await moveUploadToFinal(staged.id, newKey)
+        movedKeys.push(newKey)
+        createdAttachments.push({
+          id: newKey,
+          filename: staged.filename,
+          mime: staged.mime,
+          size: staged.size,
+        })
+      }
     }
 
     // The update row and its attachment rows commit together; if the insert
@@ -446,10 +491,11 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
             storageKey: file.id,
           })
         }
+        await markUploadsConsumed(tx, uploadIds)
         return created
       })
     } catch (error) {
-      for (const key of writtenKeys) await deleteAttachmentFile(key)
+      for (const key of [...writtenKeys, ...movedKeys]) await deleteAttachmentFile(key)
       throw error
     }
 

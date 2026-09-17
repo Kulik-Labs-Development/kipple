@@ -16,6 +16,7 @@ function brandingSummary(client: ClientSummary): string {
   if (client.branding?.themeId) parts.push(`theme:${client.branding.themeId}`)
   if (client.branding?.accent) parts.push(`accent:${client.branding.accent}`)
   if (client.branding?.logoUrl) parts.push('logo')
+  if (client.selfRegDomains?.length) parts.push(`selfreg:${client.selfRegDomains.length}`)
   return parts.join(' · ')
 }
 
@@ -35,6 +36,7 @@ export function ClientManager({
   const [logoKey, setLogoKey] = useState<string | null>(null)
   const [logoUploadBusy, setLogoUploadBusy] = useState(false)
   const logoFileRef = useRef<HTMLInputElement>(null)
+  const [selfRegDomains, setSelfRegDomains] = useState('')
   const [newName, setNewName] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +67,7 @@ export function ClientManager({
     setLogoUrl(/^https?:\/\//i.test(savedLogo) ? savedLogo : '')
     setLogoKey(savedLogo && !/^https?:\/\//i.test(savedLogo) ? savedLogo : null)
     setLogoBroken(false)
+    setSelfRegDomains((client?.selfRegDomains ?? []).join(', '))
   }, [selectedId])
 
   function buildBranding(): ClientBranding | null {
@@ -97,6 +100,21 @@ export function ClientManager({
   function clearBranding() {
     if (!selectedId) return
     void run(() => api.updateClient(selectedId, { branding: null }), 'clearing branding failed')
+  }
+
+  function saveSelfReg() {
+    if (!selectedId) return
+    const domains = selfRegDomains
+      .split(',')
+      .map((domain) => domain.trim())
+      .filter(Boolean)
+    void run(
+      () =>
+        api.updateClient(selectedId, {
+          selfRegDomains: domains.length > 0 ? domains : null,
+        }),
+      'saving self-registration domains failed',
+    )
   }
 
   async function uploadLogo() {
@@ -318,6 +336,32 @@ export function ClientManager({
                 </button>
                 <button onClick={clearBranding} disabled={saving} className={dimButtonClass}>
                   clear branding
+                </button>
+              </div>
+            </section>
+          )}
+
+          {selected && (
+            <section className="space-y-3 border-t border-line pt-4">
+              <h2 className="text-xs uppercase tracking-widest text-dim">
+                client self-registration — {selected.name}
+              </h2>
+              <p className="text-xs text-dim">
+                Off by default: only people whose email ends with one of these domains can create
+                a portal account from the login screen. Magic link stays the only sign-in method.
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="w-24 shrink-0 text-xs text-dim">domains</span>
+                <input
+                  value={selfRegDomains}
+                  onChange={(event) => setSelfRegDomains(event.target.value)}
+                  placeholder="clientcorp.com, clientcorp.org (empty = off)"
+                  className={`${inputClass} w-80`}
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-1">
+                <button onClick={saveSelfReg} disabled={saving} className={buttonClass}>
+                  save self-registration
                 </button>
               </div>
             </section>
