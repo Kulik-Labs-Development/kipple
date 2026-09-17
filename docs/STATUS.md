@@ -262,6 +262,21 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | backlog |
 
 ## Recent sessions
+- **2026-09-03 (agent invites — email token link + MFA on first login, issue #32)** —
+  staff can now be admin-invited by email: superuser sends a one-time link
+  (`POST /api/invites`, 72h TTL, single-use, sha256-only token storage), the
+  invitee creates the account at `/invite/<token>` (email + role come from
+  the invite, never the request) and is then locked behind the MFA setup
+  screen until a TOTP device is enrolled (per-user `users.mfa_required` flag,
+  enforced by an API preHandler gate that allows only `/api/me` + the
+  two-factor setup endpoints; the flag self-clears once a verified device
+  exists and is one-shot — disabling 2FA later does not re-arm it). `DELETE
+  /api/invites/:id` revokes; `GET/POST /api/instance/invites` is the
+  "disable signups entirely" kill switch (absent settings row = on).
+  `POST /api/users` (direct creation) stays available for the same roles.
+  Migration 0014 (users.mfa_required + staff_invites; this branch carries
+  the unmerged 0012/0013 snapshots for merge-order safety). 10 tests
+  (`staff-invites.test.ts`).
 - **2026-09-03 (staff per-client access restriction, issue #31)** —
   `clientScope()` now scopes STAFF too, not just contacts: an admin/agent with
   a `users.client_id` association sees only that client's tickets, clients,

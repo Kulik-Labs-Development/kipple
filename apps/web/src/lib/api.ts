@@ -23,7 +23,18 @@ export interface MeUser {
   phone: string | null
   address: string | null
   office: string | null
+  // MFA on first login (issue #32): true until the invited account enrolls
+  // a TOTP device; the API blocks everything but setup + /api/me.
+  mfaRequired: boolean
   magicLinkEnabled: boolean
+}
+
+export interface InviteRow {
+  id: string
+  email: string
+  role: string
+  createdAt: string
+  expiresAt: string
 }
 
 export interface ProfileRow {
@@ -358,6 +369,39 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ clientId }),
     }),
+  // Agent invites (issue #32): management = company settings surface;
+  // accept = the public token link (token is the credential).
+  createInvite: (body: { email: string; role?: 'admin' | 'agent' }) =>
+    request<InviteRow>('/api/invites', { method: 'POST', body: JSON.stringify(body) }),
+  listInvites: () => request<InviteRow[]>('/api/invites'),
+  revokeInvite: (id: string) => request<void>(`/api/invites/${id}`, { method: 'DELETE' }),
+  inviteStatus: (token: string) =>
+    request<{ email: string; role: string; expiresAt: string }>(
+      `/api/invites/accept?token=${encodeURIComponent(token)}`,
+    ),
+  acceptInvite: (body: { token: string; name: string; password: string }) =>
+    request<{ id: string; email: string; role: string; mfaRequired: boolean }>(
+      '/api/invites/accept',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  instanceInvites: () => request<{ enabled: boolean }>('/api/instance/invites'),
+  setInstanceInvites: (body: { enabled: boolean }) =>
+    request<{ enabled: boolean }>('/api/instance/invites', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  // two-factor enroll/confirm (better-auth plugin endpoints, issue #32).
+  enableTwoFactor: (password: string) =>
+    request<{ method: string; totpURI?: string; backupCodes?: string[] }>(
+      '/api/auth/two-factor/enable',
+      { method: 'POST', body: JSON.stringify({ password, method: 'totp' }) },
+    ),
+  verifyTwoFactor: (code: string) =>
+    request<{ token: string }>('/api/auth/two-factor/verify-totp', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
   setUserRole: (id: string, role: string) =>
     request<{ id: string; role: string }>(`/api/users/${id}/role`, {
       method: 'POST',

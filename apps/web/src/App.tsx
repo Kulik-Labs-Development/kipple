@@ -2,12 +2,21 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ClientBranding } from '@kipple/shared/themes'
 import { api, ApiError, type MeUser } from './lib/api'
 import { applyTheme, resolveThemeChoice, watchSystemScheme } from './lib/theme'
+import { InviteView } from './views/InviteView'
 import { LoginView } from './views/LoginView'
+import { MfaSetupView } from './views/MfaSetupView'
 import { PortalView } from './views/PortalView'
 import { SetupView } from './views/SetupView'
 import { WorkspaceView } from './views/WorkspaceView'
 
 type Mode = 'loading' | 'setup' | 'login' | 'app'
+
+// Agent invites (issue #32): /invite/<token> is a public page (no session,
+// no account yet), so it renders before the auth check.
+function inviteToken(): string | null {
+  const match = window.location.pathname.match(/^\/invite\/([^/]+)$/)
+  return match ? decodeURIComponent(match[1]) : null
+}
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('loading')
@@ -79,7 +88,24 @@ export default function App() {
 
   if (mode === 'setup') return <SetupView onDone={() => refresh()} />
 
+  const token = inviteToken()
+  if (token) return <InviteView token={token} onSignedOut={() => window.location.assign('/')} />
+
   if (mode === 'login' || !user) return <LoginView onDone={() => refresh()} />
+
+  // MFA on first login (issue #32): an invited account with no verified
+  // TOTP device yet is locked to the setup screen (the API enforces the
+  // same gate on every endpoint but /api/me + two-factor setup).
+  if (user.mfaRequired) {
+    return (
+      <MfaSetupView
+        user={user}
+        onDone={() =>
+          refresh().then(() => window.location.assign(window.location.pathname)).catch(() => undefined)
+        }
+      />
+    )
+  }
 
   if (user.role === 'contact') {
     return <PortalView user={user} primaryClient={primaryClient} onSignedOut={signedOut} />
