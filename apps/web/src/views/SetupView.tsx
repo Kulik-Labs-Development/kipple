@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Field } from '../components/Field'
 import { api, ApiError } from '../lib/api'
+import { useI18n } from '../lib/i18n'
 
 export function SetupView({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n()
   const [form, setForm] = useState({
     instanceName: '',
     ownerName: '',
@@ -25,7 +27,7 @@ export function SetupView({ onDone }: { onDone: () => void }) {
       await api.setup(form)
       onDone()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'setup failed')
+      setError(err instanceof ApiError ? err.message : t('setup.error.fallback'))
       setBusy(false)
     }
   }
@@ -37,39 +39,39 @@ export function SetupView({ onDone }: { onDone: () => void }) {
         className="w-full max-w-sm space-y-4 border border-line bg-panel p-6"
       >
         <div>
-          <h1 className="text-lg tracking-widest text-accent">KIPPLE</h1>
+          <h1 className="text-lg tracking-widest text-accent">{t('login.heading')}</h1>
           <p className="mt-1 text-xs text-dim">
-            first run — create the instance and owner account
+            {t('setup.sub')}
           </p>
         </div>
         <Field
-          label="instance name"
+          label={t('setup.field.instanceName')}
           value={form.instanceName}
           onChange={update('instanceName')}
-          placeholder="Acme Help Desk"
+          placeholder={t('setup.placeholder.instanceName')}
           required
         />
         <Field
-          label="your name"
+          label={t('setup.field.ownerName')}
           value={form.ownerName}
           onChange={update('ownerName')}
-          placeholder="Your Name"
+          placeholder={t('setup.placeholder.ownerName')}
           required
         />
         <Field
-          label="email"
+          label={t('login.field.email')}
           type="email"
           value={form.ownerEmail}
           onChange={update('ownerEmail')}
-          placeholder="you@company.com"
+          placeholder={t('login.placeholder.email')}
           required
         />
         <Field
-          label="password"
+          label={t('login.field.password')}
           type="password"
           value={form.password}
           onChange={update('password')}
-          placeholder="min 8 characters"
+          placeholder={t('setup.placeholder.password')}
           minLength={8}
           required
         />
@@ -79,7 +81,7 @@ export function SetupView({ onDone }: { onDone: () => void }) {
           disabled={busy}
           className="w-full border border-accent bg-accent/10 py-2 text-sm tracking-widest text-accent disabled:opacity-50"
         >
-          {busy ? 'CREATING…' : 'SET UP INSTANCE'}
+          {busy ? t('setup.submit.working') : t('setup.submit.create')}
         </button>
       </form>
     </div>
