@@ -22,16 +22,55 @@ export const SetupRequest = z.object({
 })
 export type SetupRequest = z.infer<typeof SetupRequest>
 
+// Client self-registration (issue #33): allowed email domains for the
+// unauthenticated signup path. Off by default — a client with no allowed
+// domains (null/absent) never self-registers anyone.
+export const EmailDomain = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(253)
+  .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$/)
+
+export const SelfRegDomains = z.array(EmailDomain).min(1).max(10)
+export type SelfRegDomains = z.infer<typeof SelfRegDomains>
+
+// Storage normalization for the allowed-domain list: trim, lowercase,
+// dedupe. null/empty = self-registration off (stored as null).
+export function normalizeSelfRegDomains(
+  domains: readonly string[] | null | undefined,
+): string[] | null {
+  if (!domains) return null
+  const out = [...new Set(domains.map((d) => d.trim().toLowerCase()).filter(Boolean))]
+  return out.length > 0 ? out : null
+}
+
+// Exact-domain match, case-insensitive. Subdomains do NOT match: a client
+// that allows "corp.com" does not allow "sub.corp.com".
+export function emailDomainMatches(
+  email: string,
+  domains: readonly string[] | null | undefined,
+): boolean {
+  if (!domains || domains.length === 0) return false
+  const at = email.lastIndexOf('@')
+  if (at < 1) return false // no local part ('@corp.com' is not an email)
+  const domain = email.slice(at + 1).toLowerCase()
+  return domains.some((d) => d.toLowerCase() === domain)
+}
+
 export const ClientCreate = z.object({
   name: z.string().min(1).max(200),
   domain: z.string().max(253).optional().or(z.literal('')),
   slaPolicyId: z.string().min(1).nullable().optional(),
   branding: ClientBranding.optional(),
+  selfRegDomains: SelfRegDomains.optional(),
 })
 export type ClientCreate = z.infer<typeof ClientCreate>
 
 export const ClientUpdate = ClientCreate.partial().extend({
   branding: ClientBranding.nullable().optional(),
+  selfRegDomains: SelfRegDomains.nullable().optional(),
 })
 
 // Staff-to-client association (UI triage 09-02 item 11): which client a staff
@@ -61,6 +100,32 @@ export const UserRolePatch = z.object({
   role: z.enum(['agent', 'admin', 'superuser']),
 })
 export type UserRolePatch = z.infer<typeof UserRolePatch>
+
+// Agent invites (issue #32): an admin invites a staff account by email; the
+// invited person creates the account (name + password) through the token
+// link. superuser is absent from the role union, same bar as UserCreate.
+export const InviteCreate = z.object({
+  email: z.string().email().max(200),
+  role: z.enum(['admin', 'agent']).optional().default('agent'),
+})
+export type InviteCreate = z.infer<typeof InviteCreate>
+
+// Accepting an invite: the token is the credential; the account is created
+// server-side from the invite row (email + role come from the invite, never
+// the body).
+export const InviteAccept = z.object({
+  token: z.string().min(1).max(128),
+  name: z.string().min(2).max(120),
+  password: z.string().min(8).max(128),
+})
+export type InviteAccept = z.infer<typeof InviteAccept>
+
+// 'Admin can disable signups entirely' (PLAN §3): the invitations kill
+// switch. Absent settings row = enabled.
+export const InstanceInvites = z.object({
+  enabled: z.boolean(),
+})
+export type InstanceInvites = z.infer<typeof InstanceInvites>
 
 export const ContactCreate = z.object({
   name: z.string().min(1).max(200),

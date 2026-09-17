@@ -30,6 +30,10 @@ export const users = pgTable('users', {
   presence: text('presence').notNull().default('offline'),
   authSource: text('auth_source').notNull().default('local'),
   twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+  // MFA on first login (issue #32): set when an invited staff account is
+  // accepted; the API gate blocks everything except two-factor setup until a
+  // TOTP device is verified, then clears it.
+  mfaRequired: boolean('mfa_required').notNull().default(false),
   theme: text('theme'),
   colorMode: text('color_mode').notNull().default('system'),
   contactId: text('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
@@ -97,6 +101,21 @@ export const twoFactor = pgTable('twoFactor', {
   updatedAt: updatedAt(),
 })
 
+// Admin invites for new staff (issue #32): single-use token links sent by
+// email. Only the sha256 of the token is stored; the token itself rides in
+// the link (and the outbox email).
+export const staffInvites = pgTable('staff_invites', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull(),
+  role: text('role').notNull().default('agent'),
+  tokenHash: text('token_hash').notNull().unique(),
+  invitedBy: text('invited_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: createdAt(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+})
+
 // Named SLA policies (PLAN item 10). targets = per-priority response/resolve
 // targets in business minutes (see SlaTargets in @kipple/shared). Exactly one
 // policy may be the instance default.
@@ -113,6 +132,11 @@ export const clients = pgTable('clients', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   domain: text('domain').unique(),
+  // Self-registration gate (issue #33): allowed email domains for the
+  // unauthenticated client signup path. null/absent = disabled (off by
+  // default); a non-empty list enables self-registration for exactly those
+  // domains.
+  selfRegDomains: text('self_reg_domains').array(),
   branding: jsonb('branding'),
   slaPolicyId: text('sla_policy_id').references(() => slaPolicies.id, { onDelete: 'set null' }),
   createdAt: createdAt(),

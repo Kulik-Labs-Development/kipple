@@ -11,8 +11,13 @@ export function LoginView({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [sentTo, setSentTo] = useState<string | null>(null)
-  const [branding, setBranding] = useState<{ clientName: string | null; logoUrl: string | null } | null>(null)
+  const [branding, setBranding] = useState<{
+    clientName: string | null
+    logoUrl: string | null
+    selfRegister: boolean
+  } | null>(null)
   const [logoBroken, setLogoBroken] = useState(false)
+  const [selfRegName, setSelfRegName] = useState('')
 
   // The client-mode login card shows the client's own branding (name + logo)
   // once the email matches a known portal contact. Debounced; invalid emails
@@ -23,6 +28,7 @@ export function LoginView({ onDone }: { onDone: () => void }) {
     if (mode !== 'client' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
       setBranding(null)
       setLogoBroken(false)
+      setSelfRegName('')
       return
     }
     let live = true
@@ -70,6 +76,25 @@ export function LoginView({ onDone }: { onDone: () => void }) {
       setSentTo(email)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'sign-in failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createAccount(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      // Account creation is idempotent and silent (always {status:true}).
+      // The magic-link request right after is the only mail that goes out,
+      // and only when the account is a portal contact (the server-side
+      // gate decides; unknown emails and staff get nothing).
+      await api.selfRegister(email, selfRegName)
+      await api.requestMagicLink(email)
+      setSentTo(email)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'account creation failed')
     } finally {
       setBusy(false)
     }
@@ -147,6 +172,28 @@ export function LoginView({ onDone }: { onDone: () => void }) {
               placeholder="you@company.com"
               required
             />
+            {mode === 'client' && branding?.selfRegister && (
+              <div className="space-y-2 border-t border-line pt-3">
+                <p className="text-[10px] uppercase tracking-widest text-dim">
+                  new here — create your account
+                </p>
+                <Field
+                  label="name"
+                  value={selfRegName}
+                  onChange={(e) => setSelfRegName(e.target.value)}
+                  placeholder="your name"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={(e) => void createAccount(e)}
+                  disabled={busy}
+                  className="w-full border border-line py-2 text-xs tracking-widest text-dim hover:border-accent hover:text-accent disabled:opacity-50"
+                >
+                  create account
+                </button>
+              </div>
+            )}
             {mode === 'agent' && (
               <Field
                 label="password"

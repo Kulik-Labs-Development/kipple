@@ -13,6 +13,7 @@ import { registerInstanceUploadRoutes } from './routes/instance-uploads'
 import { registerHoldRoutes } from './routes/holds'
 import { registerEmailRoutes } from './routes/email'
 import { registerEventRoutes } from './routes/events'
+import { registerInviteRoutes } from './routes/invites'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
 import { registerPortalRoutes } from './routes/portal'
 import { registerProfileRoutes } from './routes/profile'
@@ -74,7 +75,12 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
     const session = await requireUser(request, reply)
     if (!session) return null
     const [prefs] = await db
-      .select({ theme: users.theme, colorMode: users.colorMode, contactId: users.contactId })
+      .select({
+        theme: users.theme,
+        colorMode: users.colorMode,
+        contactId: users.contactId,
+        mfaRequired: users.mfaRequired,
+      })
       .from(users)
       .where(eq(users.id, session.user.id))
     const [themeSetting] = await db
@@ -126,7 +132,13 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       }
     }
     return {
-      user: session.user,
+      // mfaRequired rides the session token (stale until the next sign-in);
+      // the live column wins so the UI can leave the MFA setup screen the
+      // moment the gate self-clears (issue #32).
+      user: {
+        ...session.user,
+        mfaRequired: prefs?.mfaRequired ?? session.user.mfaRequired,
+      },
       sessionId: session.session.id,
       instanceTheme,
       agentDefaultTheme,
@@ -165,6 +177,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerHoldRoutes(app)
   await registerEmailRoutes(app)
   await registerEventRoutes(app)
+  await registerInviteRoutes(app)
   await registerNotificationRoutes(app)
   await registerPresenceRoutes(app)
   await registerPortalRoutes(app)

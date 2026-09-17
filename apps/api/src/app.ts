@@ -4,6 +4,10 @@ import multipart from '@fastify/multipart'
 import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { toErrorBody } from '@kipple/shared'
+import { and, eq } from 'drizzle-orm'
+import { getSession } from './access'
+import { db } from './db'
+import { twoFactor, users } from './db/schema'
 import { registerAuthRoutes } from './auth-routes'
 import { registerApiRoutes } from './routes'
 
@@ -22,6 +26,45 @@ export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
 
   app.get('/healthz', async () => ({ ok: true, service: 'api' }))
+
+  // MFA on first login (issue #32): an invited staff account that has not
+  // yet enrolled a TOTP device is locked to the two-factor setup endpoints
+  // (+ /api/me, so the UI can render that screen). The flag is one-shot —
+  // once a verified device exists the gate clears it, and disabling 2FA
+  // later does not re-arm it ("MFA on first login", not a standing mandate).
+  app.addHook('preHandler', async (request, reply) => {
+    if (!request.url.startsWith('/api/')) return
+    const session = await getSession(request)
+    if (!session?.session) return
+    if (session.user.role === 'contact') return
+    if (!session.user.mfaRequired) return
+    const [twoFactorRow] = await db
+      .select({ id: twoFactor.id, verified: twoFactor.verified })
+      .from(twoFactor)
+      .where(eq(twoFactor.userId, session.user.id))
+    if (twoFactorRow?.verified) {
+      // self-heal: setup completed (possibly on another replica) — the flag
+      // is one-shot and no longer gates anything. The no-op WHERE keeps this
+      // a pure no-op once the column is already clear (the session payload
+      // keeps the stale flag until the next sign-in).
+      await db
+        .update(users)
+        .set({ mfaRequired: false })
+        .where(and(eq(users.id, session.user.id), eq(users.mfaRequired, true)))
+      return
+    }
+    const path = request.url.split('?')[0]
+    // /api/me (the UI reads it to render this screen) and the two-factor
+    // setup endpoints are reachable; everything else is gated.
+    const pass =
+      path === '/api/me' ||
+      path === '/api/auth/two-factor/enable' ||
+      path === '/api/auth/two-factor/verify-totp'
+    if (pass) return
+    return reply
+      .code(403)
+      .send({ error: 'mfa_required', message: 'set up two-factor authentication to continue' })
+  })
 
   await registerAuthRoutes(app)
   // Multipart parsing for attachment uploads (plan item 13). The plugin's
