@@ -101,10 +101,12 @@ expire after `UPLOAD_EXPIRY_HOURS`) and attach via `uploadIds` on the same
 updates endpoint (the multipart v1 path stays); superuser upload settings
 (max file size + editable MIME allowlist) live in the instance defaults
 panel and gate both upload paths. Row 17 (client self-registration) is
-live: per-client allowed email domains, off by default. The S3 adapter is
-row 18 part 2 (backlog). The remaining PLAN.md Phase 1 scope (hold
-states) is backlog, then Phase 2 (API + MCP + integrations). Update this
-file as each phase lands.
+live: per-client allowed email domains, off by default. Row 18 is live in
+full (the S3 adapter was row 18 part 2). Hold states (row 14, issue #30)
+and staff per-client access restriction (row 15) shipped 2026-09-03;
+agent invites (row 16) and attachments v2 (row 18) are on main as well.
+Phase 1 is complete; Phase 2 (API + MCP + integrations) is next. Update
+this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
 (active plan, what's live, open questions) and update it — including a dated

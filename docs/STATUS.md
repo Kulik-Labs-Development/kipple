@@ -12,14 +12,15 @@ Email outbound (§5b), email inbound, the client portal with magic-link
 login, time tracking v1, the SLA feature (backend + workspace UI), and
 item 11 (email templates + rules, notification center, dashboard stats +
 presence) are live end-to-end.
-All 13 items in the plan table below are shipped — including per-client
-branding for the portal (item 12) and attachments on updates v1 (item 13:
-local-disk storage, multipart uploads capped at ATTACHMENT_MAX_MB per
-file). Client self-registration (row 17) is live: per-client allowed
-email domains, off by default. The remaining Phase 1 scope from
-PLAN.md (chunked/tus uploads + S3 backend, hold states, staff client
-restriction, agent invites) is tracked as backlog rows 14–16 + 18;
-after those, Phase 2 (API + MCP + integrations) is next. Update composers (workspace + portal) are now a rich text editor
+All 18 rows in the plan table are shipped — including per-client
+branding for the portal (row 12), attachments v1 (row 13), hold states
+(row 14 — waiting on client/vendor, hold timers, auto-close with
+pre-close warning, issue #30, shipped 09-03), staff per-client access
+restriction (row 15), agent invites (row 16), client self-registration
+(row 17), and attachments v2 (row 18 — tus uploads + S3 adapter).
+Phase 1 is complete; Phase 2 (API + MCP + integrations) is next.
+
+Update composers (workspace + portal) are now a rich text editor
 (TipTap): headings, lists, code, quotes, links, image embeds by URL, font
 size — sanitized HTML in the web timeline, plain-text email egress.
 
@@ -255,13 +256,24 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 11 | Email templates + rules v1 (nothing auto-sends by default), notification center, dashboard stats + presence | done |
 | 12 | Per-client branding override for portal theme (uses `clients.branding`) | done |
 | 13 | Attachments on updates v1 (multipart uploads, local disk, client-scoped) | done (v1 — chunked/S3 = row 18) |
-| 14 | Hold states "waiting on client/vendor" + hold timers, auto-close with pre-close warning (template + rule) | backlog |
+| 14 | Hold states "waiting on client/vendor" + hold timers, auto-close with pre-close warning (template + rule) | done (09-03, issue #30) |
 | 15 | Staff per-client access restriction (query-layer scoping, unrestricted by default) | done |
 | 16 | Agent signups: admin-invited via email token link, MFA on first login | done |
 | 17 | Optional client self-registration, gated by per-client allowed email domains (off by default) | done |
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-17 (docs fix — Phase 1 table + status paragraphs current, no code change)** —
+  no code change. Hold states (row 14, issue #30) shipped 2026-09-03 —
+  migration 0012 (`hold_on`/`hold_since`/`hold_warned_at`), `/api/holds`
+  settings, worker auto-close + `ticket.hold_warning` rule event,
+  workspace + portal UI — before the plan table and `Current phase`
+  paragraph were last updated, so both still listed rows 14–18 as
+  remaining; staff per-client restriction (row 15) shipped the same day
+  (PR #111), rows 16–18 landed 2026-09-17 (PRs #112–#115). The table now
+  reads done on all 18 rows; the `Current phase` paragraph and the
+  `AGENTS.md` status paragraph were updated to match. Issue #30 is
+  closed (completed) on the board.
 - **2026-09-04 (S3-compatible storage adapter, row 18 part 2, issue #34)** —
   attachment storage is now backend-pluggable: local disk under `STORAGE_DIR`
   (default, unchanged) or an S3-compatible object store, activated all-or-
