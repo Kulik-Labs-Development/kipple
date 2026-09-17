@@ -113,6 +113,13 @@
             "when": 1788510000000,
             "tag": "0015_client_selfreg",
             "breakpoints": true
+        },
+        {
+            "idx": 16,
+            "version": "7",
+            "when": 1788520000000,
+            "tag": "0016_open_ramp",
+            "breakpoints": true
         }
     ]
 }
