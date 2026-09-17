@@ -96,10 +96,11 @@ Attachments on updates are live at v1 (plan item 13): multipart uploads
 on `POST /api/tickets/:id/updates` (1–10 files, `ATTACHMENT_MAX_MB`
 per-file cap), local-disk storage on the `storage-data` volume, and
 client-scoped download/delete endpoints; chunked (tus) uploads and the
-S3 adapter are backlog (row 18). The remaining PLAN.md Phase 1 scope
-(hold states, staff client restriction, agent invites, client
-self-registration) is backlog, then Phase 2 (API + MCP + integrations).
-Update this file as each phase lands.
+S3 adapter are backlog (row 18). Client self-registration (row 17) is
+live: per-client allowed email domains, off by default (see
+docs/STATUS.md). The remaining PLAN.md Phase 1 scope (hold states,
+staff client restriction, agent invites) is backlog, then Phase 2
+(API + MCP + integrations). Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
 (active plan, what's live, open questions) and update it — including a dated
