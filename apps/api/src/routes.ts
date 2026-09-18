@@ -95,6 +95,12 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       .where(eq(settings.key, 'agentTheme'))
     const agentDefaultTheme =
       ((agentThemeSetting?.value as { id?: string } | null) ?? {}).id ?? 'console'
+    const [instanceSetting] = await db
+      .select({ value: settings.value })
+      .from(settings)
+      .where(eq(settings.key, 'instance'))
+    const instanceName =
+      ((instanceSetting?.value as { name?: string } | null) ?? {}).name ?? null
     const [ssoSetting] = await db
       .select({ value: settings.value })
       .from(settings)
@@ -142,6 +148,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
       sessionId: session.session.id,
       instanceTheme,
       agentDefaultTheme,
+      instanceName,
       ssoEnabled,
       contactId: prefs?.contactId ?? null,
       primaryClient,

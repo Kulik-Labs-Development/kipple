@@ -51,6 +51,7 @@ export interface MeResponse {
   sessionId: string
   instanceTheme: string
   agentDefaultTheme: string
+  instanceName: string | null
   contactId: string | null
   primaryClient: {
     id: string

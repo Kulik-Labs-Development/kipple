@@ -280,7 +280,7 @@ export function PortalView({
                   }`}
                 >
                   <span
-                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${statusLedClass(ticket.status)}`}
+                    className={`mt-1.5 h-2 w-2 shrink-0 ${statusLedClass(ticket.status)}`}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-fg">{ticket.subject}</span>

@@ -1,0 +1,31 @@
+:root[data-theme='swiss'][data-mode='light'] {
+  --color-ink: #ededec;
+  --color-panel: #e8e8e6;
+  --color-line: #c6c3bf;
+  --color-fg: #23201a;
+  --color-dim: #524f49;
+  --color-accent: #b63a00;
+  --color-ok: #3aa06b;
+  --color-warn: #d28c1e;
+  --color-danger: #b91c1c;
+  --font-app: Helvetica, Arial, 'DejaVu Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: Helvetica, Arial, 'DejaVu Sans', sans-serif;
+  --radius-app: 0;
+}
+
+:root[data-theme='swiss'][data-mode='dark'] {
+  --color-ink: #0e0d0c;
+  --color-panel: #191817;
+  --color-line: #3c3a36;
+  --color-fg: #efeeeb;
+  --color-dim: #b7b2ab;
+  --color-accent: #fe6c0b;
+  --color-ok: #3aa06b;
+  --color-warn: #d28c1e;
+  --color-danger: #f87171;
+  --font-app: Helvetica, Arial, 'DejaVu Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --font-sans: Helvetica, Arial, 'DejaVu Sans', sans-serif;
+  --radius-app: 0;
+}

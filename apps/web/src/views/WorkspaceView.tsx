@@ -73,12 +73,14 @@ export function WorkspaceView({
   ssoEnabled,
   onSignedOut,
   onUserUpdated,
+  instanceName,
 }: {
   user: MeUser
   preferences: { theme: string | null; colorMode: string }
   ssoEnabled: boolean
   onSignedOut: () => void
   onUserUpdated: (next: MeUser) => void
+  instanceName: string | null
 }) {
   const { t } = useI18n()
   const isStaff = user.role !== 'contact'
@@ -751,19 +753,31 @@ export function WorkspaceView({
         />
       )}
 
-      <footer className="flex items-center justify-between border-t border-line bg-panel px-4 py-2 text-xs text-dim">
-        <span>
+      <footer className="flex items-center justify-between gap-4 border-t border-line bg-panel px-4 py-2 text-xs text-dim">
+        <span className="flex min-w-0 items-center gap-2">
           <a
-            href="https://kippleticket.com/"
+            href="https://github.com/Kulik-Labs-Development/kipple"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-accent hover:underline"
+            aria-label="Kipple on GitHub"
+            className="shrink-0 hover:text-accent"
           >
-            kipple v0.1.0
-          </a>{' '}
-          · <span className="uppercase">{t('workspace.footer.presence', { presence })}</span>
+            <PhosphorIcon name="github" />
+          </a>
+          <span className="truncate">
+            <a
+              href="https://kippleticket.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-accent hover:underline"
+            >
+              kipple v0.1.0
+            </a>{' '}
+            · <span className="uppercase">{t('workspace.footer.presence', { presence })}</span>
+          </span>
         </span>
-        <span>{user.email}</span>
+        <span className="hidden truncate uppercase tracking-widest sm:block">{instanceName}</span>
+        <span className="shrink-0">{user.email}</span>
       </footer>
     </div>
   )

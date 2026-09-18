@@ -30,6 +30,7 @@ export default function App() {
   // Org-wide SSO flag (issue #98): read-only seam; hides/locks the
   // magic-link toggle while true.
   const [ssoEnabled, setSsoEnabled] = useState(false)
+  const [instanceName, setInstanceName] = useState<string | null>(null)
   const [primaryClient, setPrimaryClient] = useState<{
     id: string
     name: string
@@ -54,6 +55,7 @@ export default function App() {
         })
       }
       setUser(me.user)
+      setInstanceName(me.instanceName)
       setPrimaryClient(me.primaryClient)
       setPreferences(me.preferences)
       setSsoEnabled(me.ssoEnabled)
@@ -74,6 +76,7 @@ export default function App() {
 
   const signedOut = () => {
     setUser(null)
+    setInstanceName(null)
     setPrimaryClient(null)
     setPreferences(null)
     setSsoEnabled(false)
@@ -118,6 +121,7 @@ export default function App() {
       user={user}
       preferences={preferences ?? { theme: null, colorMode: 'system' }}
       ssoEnabled={ssoEnabled}
+      instanceName={instanceName}
       onSignedOut={signedOut}
       onUserUpdated={(next) => setUser(next)}
     />

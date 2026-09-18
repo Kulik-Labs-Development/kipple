@@ -115,7 +115,7 @@ export function TicketDetail({
       <header className="space-y-2 border-b border-line px-4 py-3">
         <div className="flex items-baseline gap-3">
           <span className="flex items-center gap-2 text-sm text-accent">
-            <span className={`h-2.5 w-2.5 rounded-full ${statusLedClass(detail.status)}`} />
+            <span className={`h-2.5 w-2.5 ${statusLedClass(detail.status)}`} />
             <span className="tabular-nums">#{detail.number}</span>
           </span>
           <h1 className="truncate text-lg text-fg">{detail.subject}</h1>

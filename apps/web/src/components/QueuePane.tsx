@@ -147,7 +147,7 @@ export function QueuePane({
             >
               <div className="flex items-center gap-2">
                 <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${statusLedClass(ticket.status)}`}
+                  className={`h-2 w-2 shrink-0 ${statusLedClass(ticket.status)}`}
                 />
                 <span className="shrink-0 text-xs tabular-nums text-dim">
                   #{ticket.number}

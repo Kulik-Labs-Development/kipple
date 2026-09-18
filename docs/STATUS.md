@@ -263,6 +263,19 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-18 (Swiss theme, light + dark, issue #149)** — new `swiss` theme
+  in the existing 13-token system: `packages/ui/themes/swiss.css` (both modes,
+  all 13 tokens, `--radius-app: 0`, Helvetica grotesque stack) + registry entry in
+  shared themes (agent + portal surfaces); the registry<->CSS sync test passes by
+  lockstep. Square status LEDs: dropped `rounded-full` at the 3 `statusLedClass`
+  sites (queue, portal list, ticket detail); presence dots stay round. Workspace
+  footer gains a GitHub icon to the project (left, beside version + presence) and
+  a centered instance name; `/api/me` now exposes `instanceName` (read from the
+  `instance` settings row written at setup) -> `MeResponse` -> `App` ->
+  `WorkspaceView`. Flags: light accent = text-safe step 11 (`#b63a00`) — a single
+  accent token can't carry the mockup's vivid step-9 solids at text size; dark
+  keeps the vivid step 9. Danger red = house values (the mockups never defined
+  a red).
 - **2026-09-17 (docs fix — Phase 1 table + status paragraphs current, no code change)** —
   no code change. Hold states (row 14, issue #30) shipped 2026-09-03 —
   migration 0012 (`hold_on`/`hold_since`/`hold_warned_at`), `/api/holds`
