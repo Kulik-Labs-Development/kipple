@@ -263,6 +263,27 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-19 (dep audit — clean the CI audit job)** — `pnpm audit`
+  was reporting 7 findings (6 moderate + 1 high), red on the CI `audit`
+  job (continue-on-error — cosmetic, but treated as failure). nodemailer
+  ×4: GHSA-2x7j-588g-ccc2 (HIGH — quadratic-complexity address parsing,
+  remote DoS via a crafted address list, <9.1.0) · GHSA-wmmp-3585-3rmp
+  (IDN/Punycode domain allow-list bypass, <9.1.0) · GHSA-cc9r-2j5m-2m83
+  (recipient-domain bypass via RFC 5322 comment mis-parse, >=6.9.16
+  <9.1.0) · GHSA-8m3c-c648-2xjj (resolveContent() bypass on MailMessage,
+  <=9.1.0) → strictest floor 9.1.1, forced through the root
+  `pnpm.overrides` (`"nodemailer": "^9.1.1"` — the house pattern, same
+  as the 08-31 esbuild override; no code change, the direct dep in
+  packages/mail keeps its range and the override pins the resolved
+  version). vitest + @vitest/mocker ×2: GHSA-82fw-gwwq-j7x9 (path
+  traversal / arbitrary file read, >=2.1.0 <4.1.11) → root devDep
+  `vitest` ^3.2.6 → ^4.1.11 (resolved 4.1.11; 5.x not jumped). Lock
+  verified: nodemailer 9.1.1 is the only nodemailer in the lock (9.0.6
+  transitive + 9.1.0 direct both gone), vitest 4.1.11 +
+  @vitest/mocker 4.1.11 (zero 3.x copies). `pnpm audit` — the same
+  command the CI job runs — is clean. Full gate green, full log read:
+  lint clean, typecheck 7/7, 363 tests on vitest 4.1.11 (ui 3, mail 30,
+  shared 42, web 46, api 242), build 4/4.
 - **2026-09-18 (Swiss theme, light + dark, issue #149)** — new `swiss` theme
   in the existing 13-token system: `packages/ui/themes/swiss.css` (both modes,
   all 13 tokens, `--radius-app: 0`, Helvetica grotesque stack) + registry entry in
