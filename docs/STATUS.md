@@ -299,7 +299,13 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   updates with rich text + attachment chips, composer with staged chips) +
   new-request modal. Layout is shared across themes (token-driven; swiss is
   the default). i18n: +login.field.name / login.placeholder.name; dead
-  login tab/sub keys removed.
+  login tab/sub keys removed. Same session (follow-up after Max's review):
+  rail rows gained right padding on the counts; the topbar search now
+  aligns over the tickets column (wordmark + WORKSPACE sit in a 252px
+  block matching the rail, search starts at the card-column edge); the
+  ticket detail is a right slide-over (58% width, 2px rule, CLOSE button)
+  instead of a third flex pane, so the ticket list keeps the full main
+  width.
 - **2026-09-17 (docs fix — Phase 1 table + status paragraphs current, no code change)** —
   no code change. Hold states (row 14, issue #30) shipped 2026-09-03 —
   migration 0012 (`hold_on`/`hold_since`/`hold_warned_at`), `/api/holds`

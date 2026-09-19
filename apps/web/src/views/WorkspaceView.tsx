@@ -464,22 +464,26 @@ export function WorkspaceView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-7 border-b-2 border-line bg-panel px-7">
-        <span className="shrink-0 text-[19px] leading-none font-bold tracking-[-.03em] text-fg">
-          kip<span className="text-accent">p</span>le
-        </span>
-        <span className="shrink-0 border-l border-line pl-7 text-[9px] tracking-[.28em] text-dim uppercase">
-          {t('workspace.workspace')}
-        </span>
-        <input
-          ref={searchRef}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder={t('queue.searchPlaceholder')}
-          aria-label={t('queue.searchPlaceholder')}
-          className="min-w-0 max-w-[520px] flex-1 border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
-        />
-        <div className="ml-auto flex shrink-0 items-center gap-[18px]">
+      <header className="flex h-14 shrink-0 items-center border-b-2 border-line bg-panel">
+        <div className="flex w-[252px] shrink-0 items-center gap-7 px-7">
+          <span className="shrink-0 text-[19px] leading-none font-bold tracking-[-.03em] text-fg">
+            kip<span className="text-accent">p</span>le
+          </span>
+          <span className="shrink-0 border-l border-line pl-7 text-[9px] tracking-[.28em] text-dim uppercase">
+            {t('workspace.workspace')}
+          </span>
+        </div>
+        <div className="min-w-0 flex-1 pl-9">
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('queue.searchPlaceholder')}
+            aria-label={t('queue.searchPlaceholder')}
+            className="w-full max-w-[520px] border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+          />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-[18px] pr-7">
           {isStaff && <NotificationBell onOpenTicket={selectTicket} />}
           {isStaff && activeEntry && (
             <button
@@ -586,7 +590,7 @@ export function WorkspaceView({
         </div>
       )}
 
-      <main className="flex min-h-0 flex-1">
+      <main className="relative flex min-h-0 flex-1">
         {view === 'clients' ? (
           <div className="flex min-h-0 flex-1 bg-ink">
             <ClientManager
@@ -612,43 +616,30 @@ export function WorkspaceView({
               slaConfig={slaConfig}
               overdue={overdue}
             />
-            <div className="flex min-h-0 flex-1 flex-col border-l border-line">
-              {detail ? (
-                <>
-                  <TicketDetail
-                    key={detail.id}
-                    detail={detail}
-                    staff={staff}
-                    isStaff={isStaff}
-                    slaConfig={slaConfig}
-                    onPatch={patchTicket}
-                    onReply={reply}
-                    onDelete={deleteTicket}
+            {detail && (
+              <div className="absolute inset-y-0 right-0 z-10 flex w-[58%] min-w-[520px] flex-col border-l-2 border-line bg-panel">
+                <TicketDetail
+                  key={detail.id}
+                  detail={detail}
+                  staff={staff}
+                  isStaff={isStaff}
+                  slaConfig={slaConfig}
+                  onPatch={patchTicket}
+                  onReply={reply}
+                  onDelete={deleteTicket}
+                  onClose={() => setSelectedId(null)}
+                />
+                {isStaff && (
+                  <TimePanel
+                    ticketId={detail.id}
+                    onChanged={() => {
+                      void refreshList()
+                      void refreshActiveTimer()
+                    }}
                   />
-                  {isStaff && (
-                    <TimePanel
-                      ticketId={detail.id}
-                      onChanged={() => {
-                        void refreshList()
-                        void refreshActiveTimer()
-                      }}
-                    />
-                  )}
-                </>
-              ) : (
-                <div className="grid flex-1 place-items-center">
-                  <div className="text-center">
-                    <div className="text-sm tracking-widest text-dim">{t('workspace.empty.heading')}</div>
-                    <p className="mt-2 text-fg">
-                      {visibleTickets.length === 0
-                        ? t('queue.empty')
-                        : t('workspace.empty.select')}
-                    </p>
-                    <p className="mt-1 text-xs text-dim">{t('workspace.empty.searchHint')}</p>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </>
         )}
         {isStaff && user.role === 'superuser' && drawerOpen && (

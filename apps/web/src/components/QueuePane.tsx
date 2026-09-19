@@ -87,8 +87,8 @@ function RailRow({
       onClick={onClick}
       className={`flex h-[23px] w-full items-baseline justify-between text-left text-xs hover:bg-panel ${
         selected
-          ? 'border-l-[3px] border-l-accent bg-ink pl-[17px] font-bold'
-          : 'border-l-[3px] border-l-transparent pl-5'
+          ? 'border-l-[3px] border-l-accent bg-ink pl-[17px] pr-5 font-bold'
+          : 'border-l-[3px] border-l-transparent pl-5 pr-5'
       }`}
     >
       <span className="min-w-0 truncate tracking-[.02em] text-fg">{label}</span>

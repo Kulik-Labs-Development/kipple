@@ -44,6 +44,8 @@ interface TicketDetailProps {
     uploadIds: string[],
   ) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  /** Present when rendered as the workspace slide-over (swiss layout). */
+  onClose?: () => void
 }
 
 const selectClass =
@@ -78,6 +80,7 @@ export function TicketDetail({
   onPatch,
   onReply,
   onDelete,
+  onClose,
 }: TicketDetailProps) {
   const [body, setBody] = useState('')
   const [editorKey, setEditorKey] = useState(0)
@@ -119,6 +122,15 @@ export function TicketDetail({
             <span className="tabular-nums">#{detail.number}</span>
           </span>
           <h1 className="truncate text-lg text-fg">{detail.subject}</h1>
+          {onClose && (
+            <button
+              onClick={onClose}
+              aria-label="Close ticket detail"
+              className="ml-auto shrink-0 self-center border border-line px-2.5 py-1 text-[9px] tracking-[.2em] text-dim uppercase hover:border-accent hover:text-accent"
+            >
+              close
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-dim">
           <span>{detail.clientName ?? 'unknown client'}</span>
