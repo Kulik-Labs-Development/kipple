@@ -13,7 +13,13 @@ const PRESENCE_DOT: Record<string, string> = {
   offline: 'bg-dim',
 }
 
-export function UsersManager({ onClose }: { onClose: () => void }) {
+export function UsersManager({
+  onClose,
+  embedded = false,
+}: {
+  onClose: () => void
+  embedded?: boolean
+}) {
   const [staff, setStaff] = useState<StaffUser[]>([])
   const [clients, setClients] = useState<ClientSummary[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -175,12 +181,20 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
-      onMouseDown={onClose}
+      className={
+        embedded
+          ? 'flex h-full min-h-0 min-w-0 flex-1 flex-col bg-ink'
+          : 'fixed inset-0 z-50 grid place-items-center bg-black/60 p-4'
+      }
+      onMouseDown={embedded ? undefined : onClose}
     >
       <div
-        className="max-h-full w-full max-w-2xl overflow-y-auto border border-line bg-ink"
-        onMouseDown={(event) => event.stopPropagation()}
+        className={
+          embedded
+            ? 'min-h-0 flex-1 overflow-y-auto'
+            : 'max-h-full w-full max-w-2xl overflow-y-auto border border-line bg-ink'
+        }
+        onMouseDown={embedded ? undefined : (event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="text-sm tracking-widest text-accent">company settings</div>
@@ -274,7 +288,7 @@ export function UsersManager({ onClose }: { onClose: () => void }) {
             <ul className="space-y-1">
               {staff.map((user) => (
                 <li key={user.id} className="flex items-center gap-3 border border-line px-3 py-2">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${PRESENCE_DOT[user.presence] ?? 'bg-dim'}`} />
+                  <span className={`presence-dot h-2 w-2 shrink-0 rounded-full ${PRESENCE_DOT[user.presence] ?? 'bg-dim'}`} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm text-fg">
                       {user.name}

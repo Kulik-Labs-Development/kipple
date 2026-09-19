@@ -16,7 +16,13 @@ const dimButtonClass =
 // (set on the Clients page) sits between the two. The panel surfaces every
 // factor, because a saved default that a per-user row shadows looks like a
 // dead save button.
-export function DefaultsManager({ onClose }: { onClose: () => void }) {
+export function DefaultsManager({
+  onClose,
+  embedded = false,
+}: {
+  onClose: () => void
+  embedded?: boolean
+}) {
   const [agentTheme, setAgentTheme] = useState('')
   const [portalTheme, setPortalTheme] = useState('')
   const [personalTheme, setPersonalTheme] = useState('')
@@ -109,12 +115,20 @@ export function DefaultsManager({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
-      onMouseDown={onClose}
+      className={
+        embedded
+          ? 'flex h-full min-h-0 min-w-0 flex-1 flex-col bg-ink'
+          : 'fixed inset-0 z-50 grid place-items-center bg-black/60 p-4'
+      }
+      onMouseDown={embedded ? undefined : onClose}
     >
       <div
-        className="w-full max-w-md border border-line bg-ink"
-        onMouseDown={(event) => event.stopPropagation()}
+        className={
+          embedded
+            ? 'min-h-0 flex-1 overflow-y-auto'
+            : 'w-full max-w-md border border-line bg-ink'
+        }
+        onMouseDown={embedded ? undefined : (event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="text-sm tracking-widest text-accent">instance defaults</div>

@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import { useI18n, type I18nKey } from '../lib/i18n'
 
 /**
- * System settings drawer (Swiss layout, superuser only). Overlay on the
- * queue area — no dim. Items wire the existing superuser panels; unbuilt
- * rows render as honest stubs with a tag.
+ * System settings drawer (Swiss layout, superuser only). An in-flow column
+ * that slides out from the left edge — the page area (the queue) stays
+ * beside it. Items open system settings sections in that page area;
+ * unbuilt rows render as honest stubs with a tag.
  */
 export type DrawerPanel =
   | 'general'
@@ -69,14 +69,16 @@ const GROUPS: { id: DrawerGroupId; items: DrawerItem[] }[] = [
 ]
 
 export function SettingsDrawer({
+  current,
   onOpen,
   onClose,
 }: {
+  /** The system settings section open in the page area (highlighted row). */
+  current: DrawerPanel | null
   onOpen: (panel: DrawerPanel) => void
   onClose: () => void
 }) {
   const { t } = useI18n()
-  const [active, setActive] = useState<DrawerPanel | null>(null)
 
   // Type-level backstop for the onClick path: stub rows are disabled, but the
   // id union still carries the stub ids, so narrow before onOpen.
@@ -84,7 +86,7 @@ export function SettingsDrawer({
     id !== 'mail' && id !== 'notifications' && id !== 'audit' && id !== 'api' && id !== 'webhooks'
 
   return (
-    <aside className="fixed left-0 top-14 bottom-10 z-20 flex w-[340px] flex-col border-r-2 border-line bg-panel">
+    <aside className="drawer-slide-in flex w-[340px] shrink-0 flex-col border-r-2 border-line bg-panel">
       <div className="flex items-baseline justify-between border-b-2 border-line px-5 py-3">
         <span className="text-[11px] font-bold tracking-[.26em] text-fg uppercase">
           {t('drawer.title')}
@@ -104,21 +106,22 @@ export function SettingsDrawer({
               {t(`drawer.group.${group.id}`)}
             </div>
             {group.items.map((item) => {
-              const isActive = active === item.id
+              const isActive = current === item.id
               return (
                 <button
                   key={item.id}
                   disabled={item.stub !== undefined}
                   onClick={() => {
                     if (!isPanel(item.id)) return
-                    setActive(item.id)
                     onOpen(item.id)
                   }}
-                  className={`flex h-6 w-full items-center justify-between px-5 text-xs hover:bg-panel/60 ${
-                    isActive
-                      ? 'border-l-[3px] border-l-accent bg-ink pl-[17px] font-bold'
-                      : 'border-l-[3px] border-l-transparent'
-                  } ${item.stub ? 'cursor-default text-dim/70 hover:bg-transparent' : 'text-fg'}`}
+                  className={`flex h-6 w-full items-center justify-between px-5 text-xs ${
+                    item.stub
+                      ? 'border-l-[3px] border-l-transparent cursor-default text-dim/70 hover:bg-transparent'
+                      : isActive
+                        ? 'border-l-[3px] border-l-accent bg-ink hover:bg-ink font-bold'
+                        : 'border-l-[3px] border-l-transparent hover:bg-ink text-fg'
+                  }`}
                 >
                   <span className="truncate">{t(item.label)}</span>
                   {item.stub && (

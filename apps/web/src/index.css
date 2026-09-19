@@ -216,3 +216,26 @@ body {
   animation: presence-pulse 2.4s ease-in-out infinite;
 }
 
+
+/* System settings drawer (the toolbox column) — a short slide-in from the
+   left edge so the panel reads as opening, not teleporting. */
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.drawer-slide-in {
+  animation: drawer-slide-in 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-slide-in {
+    animation: none;
+  }
+}

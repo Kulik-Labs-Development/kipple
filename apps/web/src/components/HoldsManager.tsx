@@ -8,7 +8,13 @@ const buttonClass =
 const dimButtonClass =
   'border border-line px-2 py-1 text-xs uppercase tracking-widest text-dim hover:border-danger hover:text-danger'
 
-export function HoldsManager({ onClose }: { onClose: () => void }) {
+export function HoldsManager({
+  onClose,
+  embedded = false,
+}: {
+  onClose: () => void
+  embedded?: boolean
+}) {
   const [autoCloseDays, setAutoCloseDays] = useState('')
   const [warnDays, setWarnDays] = useState('')
   const [busy, setBusy] = useState(false)
@@ -48,12 +54,20 @@ export function HoldsManager({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
-      onMouseDown={onClose}
+      className={
+        embedded
+          ? 'flex h-full min-h-0 min-w-0 flex-1 flex-col bg-ink'
+          : 'fixed inset-0 z-50 grid place-items-center bg-black/60 p-4'
+      }
+      onMouseDown={embedded ? undefined : onClose}
     >
       <div
-        className="w-full max-w-md border border-line bg-ink"
-        onMouseDown={(event) => event.stopPropagation()}
+        className={
+          embedded
+            ? 'min-h-0 flex-1 overflow-y-auto'
+            : 'w-full max-w-md border border-line bg-ink'
+        }
+        onMouseDown={embedded ? undefined : (event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="text-sm tracking-widest text-accent">hold states</div>
