@@ -83,12 +83,8 @@ export function WorkspaceView({
   const [activeEntry, setActiveEntry] = useState<TimeEntryRow | null>(null)
   const [activeNumber, setActiveNumber] = useState<number | null>(null)
   const [slaConfig, setSlaConfig] = useState<SlaConfig | null>(null)
-  const [showSlaManager, setShowSlaManager] = useState(false)
-  const [showAutomation, setShowAutomation] = useState(false)
-  const [view, setView] = useState<'tickets' | 'clients'>('tickets')
-  const [showDefaults, setShowDefaults] = useState(false)
-  const [showHolds, setShowHolds] = useState(false)
-  const [showUsers, setShowUsers] = useState(false)
+  const [view, setView] = useState<'tickets' | 'clients' | 'system'>('tickets')
+  const [systemSection, setSystemSection] = useState<DrawerPanel | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -284,7 +280,7 @@ export function WorkspaceView({
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (viewRef.current === 'clients') return
+      if (viewRef.current === 'clients' || viewRef.current === 'system') return
       if (event.key === 't' || event.key === 'T') {
         const target = event.target as HTMLElement | null
         if (
@@ -430,36 +426,24 @@ export function WorkspaceView({
     }
   }
 
-  // Drawer items open the existing superuser panels (clients / self-registration
-  // switch to the clients page, which carries the per-client settings).
+  // Drawer items open the system settings page (the queue area swaps for
+  // the section view, the drawer stays open); clients / self-registration
+  // switch to the clients page, which carries the per-client settings.
   function openPanel(panel: DrawerPanel) {
-    setDrawerOpen(false)
-    switch (panel) {
-      case 'general':
-        setShowSettings(true)
-        break
-      case 'appearance':
-      case 'uploads':
-        setShowDefaults(true)
-        break
-      case 'users':
-      case 'invites':
-        setShowUsers(true)
-        break
-      case 'clients':
-      case 'selfReg':
-        setView('clients')
-        break
-      case 'sla':
-        setShowSlaManager(true)
-        break
-      case 'automation':
-        setShowAutomation(true)
-        break
-      case 'holds':
-        setShowHolds(true)
-        break
+    if (panel === 'clients' || panel === 'selfReg') {
+      setView('clients')
+      return
     }
+    setView('system')
+    setSystemSection(panel)
+  }
+
+  // Back out of a system settings page: the section unmounts, the queue
+  // returns, and the drawer collapses (the expander rail stays).
+  function closeSystem() {
+    setSystemSection(null)
+    setView('tickets')
+    setDrawerOpen(false)
   }
 
   return (
@@ -493,14 +477,6 @@ export function WorkspaceView({
             >
               {t('workspace.timer.label')} {activeNumber ? `#${activeNumber}` : ''} ·{' '}
               {formatClock((now - new Date(activeEntry.startedAt).getTime()) / 1000)}
-            </button>
-          )}
-          {isStaff && user.role === 'superuser' && (
-            <button
-              onClick={() => setDrawerOpen(true)}
-              className="border border-line px-3 py-[7px] text-[9px] tracking-[.2em] text-dim uppercase hover:border-accent hover:text-accent"
-            >
-              {t('workspace.system')}
             </button>
           )}
           {isStaff && (
@@ -591,7 +567,82 @@ export function WorkspaceView({
       )}
 
       <main className="relative flex min-h-0 flex-1">
-        {view === 'clients' ? (
+        {isStaff && user.role === 'superuser' && (
+          <div className="flex w-[28px] shrink-0 items-start border-r-2 border-line bg-panel pt-3">
+            <button
+              onClick={() => setDrawerOpen((open) => !open)}
+              aria-label={t('workspace.system')}
+              title={t('workspace.system')}
+              className={`mx-auto block text-sm ${drawerOpen ? 'text-accent' : 'text-dim hover:text-fg'}`}
+            >
+              <PhosphorIcon name="sliders" />
+            </button>
+          </div>
+        )}
+        {isStaff && user.role === 'superuser' && drawerOpen && (
+          <SettingsDrawer
+            current={systemSection}
+            onOpen={openPanel}
+            onClose={() => {
+              setDrawerOpen(false)
+              if (view === 'system') {
+                setView('tickets')
+                setSystemSection(null)
+              }
+            }}
+          />
+        )}
+        {view === 'system' && systemSection ? (
+          <div className="flex min-h-0 min-w-0 flex-1 bg-ink">
+            {systemSection === 'general' && (
+              <SettingsPanel
+                user={user}
+                ssoEnabled={ssoEnabled}
+                onProfileSaved={(patch) => {
+                  if (patch.name || patch.email) {
+                    onUserUpdated({ ...user, name: patch.name ?? user.name, email: patch.email ?? user.email })
+                  }
+                }}
+                onClose={closeSystem}
+                embedded
+              />
+            )}
+            {(systemSection === 'appearance' || systemSection === 'uploads') && (
+              <DefaultsManager onClose={closeSystem} embedded />
+            )}
+            {(systemSection === 'users' || systemSection === 'invites') && (
+              <UsersManager onClose={closeSystem} embedded />
+            )}
+            {systemSection === 'sla' &&
+              (slaConfig ? (
+                <SlaManager
+                  config={slaConfig}
+                  onChanged={() => {
+                    void refreshSlaConfig()
+                    void refreshList()
+                    if (selectedId) void refreshDetail(selectedId)
+                  }}
+                  onClose={closeSystem}
+                  embedded
+                />
+              ) : null)}
+            {systemSection === 'automation' && (
+              <AutomationManager
+                clients={clients}
+                staff={staff}
+                ticketId={selectedId}
+                onTicketId={setSelectedId}
+                onClose={closeSystem}
+                embedded
+                onChanged={() => {
+                  void refreshList()
+                  if (selectedId) void refreshDetail(selectedId)
+                }}
+              />
+            )}
+            {systemSection === 'holds' && <HoldsManager onClose={closeSystem} embedded />}
+          </div>
+        ) : view === 'clients' ? (
           <div className="flex min-h-0 flex-1 bg-ink">
             <ClientManager
               onSaved={() => {
@@ -642,9 +693,6 @@ export function WorkspaceView({
             )}
           </>
         )}
-        {isStaff && user.role === 'superuser' && drawerOpen && (
-          <SettingsDrawer onOpen={openPanel} onClose={() => setDrawerOpen(false)} />
-        )}
       </main>
 
       {showNewTicket && (
@@ -656,21 +704,6 @@ export function WorkspaceView({
         />
       )}
 
-      {showSlaManager && slaConfig && (
-        <SlaManager
-          config={slaConfig}
-          onChanged={() => {
-            void refreshSlaConfig()
-            void refreshList()
-            if (selectedId) void refreshDetail(selectedId)
-          }}
-          onClose={() => setShowSlaManager(false)}
-        />
-      )}
-
-      {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
-      {showHolds && <HoldsManager onClose={() => setShowHolds(false)} />}
-      {showUsers && <UsersManager onClose={() => setShowUsers(false)} />}
       {showSettings && (
         <SettingsPanel
           user={user}
@@ -684,20 +717,6 @@ export function WorkspaceView({
         />
       )}
 
-      {showAutomation && (
-        <AutomationManager
-          clients={clients}
-          staff={staff}
-          ticketId={selectedId}
-          onTicketId={setSelectedId}
-          onClose={() => setShowAutomation(false)}
-          onChanged={() => {
-            void refreshList()
-            if (selectedId) void refreshDetail(selectedId)
-          }}
-        />
-      )}
-
       <footer className="flex items-center justify-between gap-4 border-t border-line bg-panel px-4 py-2 text-xs text-dim">
         <span className="flex min-w-0 items-center gap-2">
           <a
@@ -707,7 +726,7 @@ export function WorkspaceView({
             aria-label="Kipple on GitHub"
             className="shrink-0 hover:text-accent"
           >
-            <PhosphorIcon name="github" />
+            <PhosphorIcon name="github-logo" />
           </a>
           <span className="truncate">
             <a

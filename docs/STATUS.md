@@ -263,6 +263,31 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-19 (web: system settings as left drawer + page, queue rail fixes, presence pulse)** —
+  Six UI fixes from Max's 09-19 work order. (1+2) Queue rail rows: the
+  selected highlight died on hover (a `hover:` utility in the row's class
+  string wins the Tailwind v4 cascade over the selected `bg-ink` band) and
+  the label/count sat off-center on `items-baseline` with a 3px padding
+  jump on selection — rows now carry exactly one hover rule per state
+  branch (selected stays `bg-ink`; unselected hovers to `bg-ink`),
+  `items-center` centers label + count, and both branches share `pl-5`.
+  (3) Footer GitHub icon was invisible (Phosphor ships no `github`
+  ligature — the span rendered nothing): now `github-logo`. (4) The
+  topbar "System" button is gone; superusers get a 28px expander rail at
+  the far left (sliders glyph) that opens the settings drawer as an
+  in-flow column sliding in from the left edge (no fixed overlay;
+  `drawer-slide-in` keyframes, reduced-motion safe). (5) Drawer items now
+  open the system settings PAGE in the queue area (new `system` view):
+  the six superuser panels (profile, appearance/uploads defaults,
+  users/invites, SLA, automation, holds) render via a new optional
+  `embedded` prop (full-bleed page, no centered modal/scrim) with the
+  drawer open and the active row highlighted; `close` (or the expander)
+  returns to the queue; clients/self-registration still navigate to the
+  clients page; `t`/`/` shortcuts inert on the page. (6) The staff-row
+  presence dot in `UsersManager` lost the `presence-dot` pulse class in
+  the Swiss rework — restored. Web-only, no API changes; no new tests
+  (presentational changes; web's suite is lib-level, no render tests in
+  the house).
 - **2026-09-19 (fix: personal theme shadow in the instance defaults panel)** —
   A saved instance default could look dead: a per-user `users.theme` row
   (e.g. a pre-upgrade choice) sits above the saved agent default in the

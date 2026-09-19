@@ -801,6 +801,7 @@ export function AutomationManager({
   onTicketId,
   onClose,
   onChanged,
+  embedded = false,
 }: {
   clients: ClientSummary[]
   staff: StaffUser[]
@@ -808,6 +809,7 @@ export function AutomationManager({
   onTicketId: (id: string | null) => void
   onClose: () => void
   onChanged: () => void
+  embedded?: boolean
 }) {
   const [tab, setTab] = useState<'templates' | 'rules'>('templates')
   const [templates, setTemplates] = useState<EmailTemplate[]>([])
@@ -835,12 +837,20 @@ export function AutomationManager({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4"
-      onMouseDown={onClose}
+      className={
+        embedded
+          ? 'flex h-full min-h-0 min-w-0 flex-1 flex-col bg-ink'
+          : 'fixed inset-0 z-50 grid place-items-center bg-black/60 p-4'
+      }
+      onMouseDown={embedded ? undefined : onClose}
     >
       <div
-        className="max-h-full w-full max-w-3xl overflow-y-auto border border-line bg-ink"
-        onMouseDown={(event) => event.stopPropagation()}
+        className={
+          embedded
+            ? 'min-h-0 flex-1 overflow-y-auto'
+            : 'max-h-full w-full max-w-3xl overflow-y-auto border border-line bg-ink'
+        }
+        onMouseDown={embedded ? undefined : (event) => event.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <div className="flex items-center gap-4 text-sm tracking-widest text-accent">
