@@ -263,6 +263,27 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-19 (fix: personal theme shadow in the instance defaults panel)** —
+  A saved instance default could look dead: a per-user `users.theme` row
+  (e.g. a pre-upgrade choice) sits above the saved agent default in the
+  resolution chain (`preferences.theme ?? fallback`), but the panel neither
+  showed the viewer's own row nor applied the new default to the open page
+  (the theme only resolved at load). `DefaultsManager` (superuser
+  appearance panel) now loads `/api/me` alongside the defaults and surfaces
+  the viewer's own choice in a new "your theme" row (empty = default,
+  follows the agent default); changing it patches `PATCH /api/preferences`
+  and applies live via `resolveThemeChoice` (the same house pattern as the
+  topbar picker, optimistic with revert on error). Save now re-reads
+  `/api/me` and `applyTheme`s, so a non-shadowed default is visible without
+  a reload, and the saved notice names the shadow when a personal theme
+  still applies. Intro copy states the precedence; a note line states that
+  client branding still wins over the portal default. Web-only — no API or
+  schema change (both endpoints pre-existed). Three new `theme.test.ts`
+  cases pin the 5th `agentDefault` argument of `resolveThemeChoice`: no
+  personal choice → the agent default (or the built-in console when unset);
+  a personal choice shadows the agent default. Full gate green, full log
+  read: lint clean, typecheck 7/7, 366 tests (ui 3, mail 30, shared 42, web
+  49, api 242), build 4/4.
 - **2026-09-19 (dep audit — clean the CI audit job)** — `pnpm audit`
   was reporting 7 findings (6 moderate + 1 high), red on the CI `audit`
   job (continue-on-error — cosmetic, but treated as failure). nodemailer

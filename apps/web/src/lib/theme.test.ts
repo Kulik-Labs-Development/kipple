@@ -48,4 +48,26 @@ describe('resolveThemeChoice', () => {
     expect(agent.theme).toBe('console')
     expect(agent.accent).toBeNull()
   })
+
+  it('falls back to the built-in console when no agent default is set', () => {
+    expect(resolveThemeChoice(prefs, 'slate', 'agent').theme).toBe('console')
+  })
+
+  it('uses the agent default for staff when they have no personal theme', () => {
+    const choice = resolveThemeChoice(prefs, 'slate', 'agent', null, 'graphite')
+    expect(choice.theme).toBe('graphite')
+    expect(choice.accent).toBeNull()
+  })
+
+  it('keeps the personal theme above the agent default (the saved-default shadow)', () => {
+    const choice = resolveThemeChoice(
+      { theme: 'slate', colorMode: 'dark' as const },
+      'slate',
+      'superuser',
+      null,
+      'graphite',
+    )
+    expect(choice.theme).toBe('slate')
+    expect(choice.colorMode).toBe('dark')
+  })
 })
