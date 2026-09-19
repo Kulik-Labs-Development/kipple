@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Field } from '../components/Field'
 import { api, ApiError } from '../lib/api'
 import { useI18n } from '../lib/i18n'
 
 type Mode = 'client' | 'agent'
+
+const STEPS = [
+  { title: 'login.step1.title', desc: 'login.step1.desc' },
+  { title: 'login.step2.title', desc: 'login.step2.desc' },
+  { title: 'login.step3.title', desc: 'login.step3.desc' },
+] as const
 
 export function LoginView({ onDone }: { onDone: () => void }) {
   const { t } = useI18n()
@@ -21,10 +26,10 @@ export function LoginView({ onDone }: { onDone: () => void }) {
   const [logoBroken, setLogoBroken] = useState(false)
   const [selfRegName, setSelfRegName] = useState('')
 
-  // The client-mode login card shows the client's own branding (name + logo)
-  // once the email matches a known portal contact. Debounced; invalid emails
-  // fall back to the default KIPPLE heading. The logo src comes pre-resolved
-  // from the api (external URL as-is, uploaded logo via /api/portal/logo).
+  // The left branding rail shows the client's own name + logo once the email
+  // matches a known portal contact. Debounced; invalid emails fall back to the
+  // default KIPPLE monogram. The logo src comes pre-resolved from the api
+  // (external URL as-is, uploaded logo via /api/portal/logo).
   useEffect(() => {
     const value = email.trim()
     if (mode !== 'client' || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
@@ -83,8 +88,7 @@ export function LoginView({ onDone }: { onDone: () => void }) {
     }
   }
 
-  async function createAccount(e: React.FormEvent) {
-    e.preventDefault()
+  async function createAccount() {
     setBusy(true)
     setError(null)
     try {
@@ -108,135 +112,182 @@ export function LoginView({ onDone }: { onDone: () => void }) {
     setSentTo(null)
   }
 
+  const clientName = branding?.clientName ?? t('login.heading')
+
   return (
-    <div className="grid min-h-full place-items-center">
-      <div className="w-full max-w-sm border border-line bg-panel p-6">
-        <div>
-          {mode === 'client' && branding?.clientName ? (
+    <div className="flex h-full bg-ink">
+      {/* Left: client branding rail */}
+      <aside className="flex w-[420px] shrink-0 flex-col border-r-2 border-line bg-panel px-12 py-[60px]">
+        {branding?.logoUrl && !logoBroken ? (
+          <img
+            src={branding.logoUrl}
+            alt=""
+            onError={() => setLogoBroken(true)}
+            className="h-[72px] w-[72px] border-2 border-fg object-contain"
+          />
+        ) : (
+          <div className="flex h-[72px] w-[72px] items-center justify-center border-2 border-fg text-3xl font-bold text-fg">
+            {clientName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <h1 className="mt-7 text-[22px] leading-tight font-bold text-fg">{clientName}</h1>
+        <div className="mt-2 text-[9px] tracking-[.26em] text-dim uppercase">
+          {t('login.clientPortal')}
+        </div>
+        <div className="my-7 h-0.5 bg-line" />
+        <p className="text-[13px] leading-relaxed text-dim">{t('login.tagline')}</p>
+        <div className="mt-auto pt-10 text-[9px] tracking-[.26em] text-dim uppercase">
+          {t('login.poweredBy')} <span className="text-accent">KIPPLE</span>
+        </div>
+      </aside>
+
+      {/* Right: sign-in (client = magic link + self-reg, agent = password) */}
+      <div className="grid min-h-full min-w-0 flex-1 place-items-center">
+        <div className="w-[460px] py-10">
+          <div className="text-[9px] tracking-[.3em] text-dim uppercase">{t('login.kicker')}</div>
+          <h2 className="mt-3 text-[32px] leading-[1.1] font-bold text-fg">{t('login.hero')}</h2>
+          <p className="mt-3 text-[13px] leading-relaxed text-dim">{t('login.intro')}</p>
+
+          {mode === 'client' && (
+            <div className="mt-8 grid grid-cols-3">
+              {STEPS.map((step, index) => (
+                <div
+                  key={step.title}
+                  className={
+                    index === 0 ? 'pr-4' : index === 1 ? 'border-l border-line pl-4 pr-4' : 'border-l border-line pl-4'
+                  }
+                >
+                  <div className="text-[9px] font-bold tracking-[.2em] text-accent uppercase">
+                    {t('login.stepNumber', { n: index + 1 })}
+                  </div>
+                  <div className="mt-1.5 text-[11px] font-bold uppercase text-fg">{t(step.title)}</div>
+                  <p className="mt-1 text-[11px] leading-snug text-dim">{t(step.desc)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sentTo ? (
+            <div className="mt-8">
+              <p className="text-[13px] text-fg">
+                {t('login.linkSent.before')}
+                <span className="font-bold text-accent">{sentTo}</span>
+                {t('login.linkSent.after')}
+              </p>
+              <p className="mt-2 text-xs text-dim">
+                {mode === 'agent' ? t('login.linkSent.agentNote') : t('login.linkSent.clientNote')}
+              </p>
+            </div>
+          ) : mode === 'client' ? (
+            <form onSubmit={submit} className="mt-8">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder={t('login.placeholder.email')}
+                aria-label={t('login.field.email')}
+                className="w-full border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+              />
+              {error && <p className="mt-3 text-xs text-danger">{error}</p>}
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-6 w-full bg-accent py-[13px] text-[10px] tracking-[.22em] text-ink uppercase disabled:opacity-50"
+              >
+                {busy ? t('login.submit.working') : t('login.button')}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={submit} className="mt-8">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder={t('login.placeholder.email')}
+                aria-label={t('login.field.email')}
+                className="w-full border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+              />
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder={t('login.placeholder.password')}
+                aria-label={t('login.field.password')}
+                className="mt-4 w-full border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+              />
+              {error && <p className="mt-3 text-xs text-danger">{error}</p>}
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-6 w-full bg-accent py-[13px] text-[10px] tracking-[.22em] text-ink uppercase disabled:opacity-50"
+              >
+                {busy ? t('login.submit.working') : t('login.submit.agent')}
+              </button>
+              <button
+                type="button"
+                onClick={() => void requestLink()}
+                disabled={busy}
+                className="mt-3 w-full border border-line py-2.5 text-[10px] tracking-[.18em] text-dim uppercase hover:border-accent hover:text-accent disabled:opacity-50"
+              >
+                {t('login.magicLinkButton')}
+              </button>
+              <p className="mt-2 text-center text-[10px] text-dim">{t('login.magicLinkNote')}</p>
+            </form>
+          )}
+
+          <div className="mt-8 h-px bg-line" />
+
+          {mode === 'client' ? (
             <>
-              {branding.logoUrl && !logoBroken && (
-                <img
-                  src={branding.logoUrl}
-                  alt=""
-                  onError={() => setLogoBroken(true)}
-                  className="mx-auto mb-2 h-10 max-w-48 object-contain"
+              <div className="mt-4 flex items-baseline justify-between gap-3">
+                <div className="flex flex-wrap items-baseline gap-3">
+                  <span className="text-[10px] tracking-[.18em] text-dim uppercase">
+                    {t('login.newHere')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void createAccount()}
+                    disabled={
+                      busy || !branding?.selfRegister || !email.trim() || !selfRegName.trim()
+                    }
+                    className="text-[10px] tracking-[.18em] text-accent uppercase underline disabled:cursor-default disabled:text-dim/60 disabled:no-underline"
+                  >
+                    {t('login.createAccount')}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => switchMode('agent')}
+                  className="shrink-0 text-[9px] tracking-[.18em] text-dim uppercase hover:text-fg"
+                >
+                  {t('login.staffLink')}
+                </button>
+              </div>
+              {branding?.selfRegister && (
+                <input
+                  value={selfRegName}
+                  onChange={(event) => setSelfRegName(event.target.value)}
+                  placeholder={t('login.placeholder.name')}
+                  aria-label={t('login.field.name')}
+                  className="mt-4 w-full border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
                 />
               )}
-              <h1 className="text-lg tracking-widest text-accent">{branding.clientName}</h1>
             </>
           ) : (
-            <h1 className="text-lg tracking-widest text-accent">{t('login.heading')}</h1>
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => switchMode('client')}
+                className="text-[9px] tracking-[.18em] text-dim uppercase hover:text-fg"
+              >
+                {t('login.clientLink')}
+              </button>
+            </div>
           )}
-          <p className="mt-1 text-xs text-dim">
-            {mode === 'client' ? t('login.sub.client') : t('login.sub.agent')}
-          </p>
         </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-1 text-xs">
-          <button
-            type="button"
-            onClick={() => switchMode('client')}
-            className={`border px-2 py-1 uppercase tracking-widest ${
-              mode === 'client' ? 'border-accent text-accent' : 'border-line text-dim'
-            }`}
-          >
-            {t('login.tab.client')}
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode('agent')}
-            className={`border px-2 py-1 uppercase tracking-widest ${
-              mode === 'agent' ? 'border-accent text-accent' : 'border-line text-dim'
-            }`}
-          >
-            {t('login.tab.agent')}
-          </button>
-        </div>
-
-        {sentTo ? (
-          <div className="mt-4 border border-ok p-4 text-sm text-fg">
-            <p>
-              {t('login.linkSent.before')}
-              <span className="text-accent">{sentTo}</span>
-              {t('login.linkSent.after')}
-            </p>
-            <p className="mt-2 text-xs text-dim">
-              {mode === 'agent'
-                ? t('login.linkSent.agentNote')
-                : t('login.linkSent.clientNote')}
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={submit} className="mt-4 space-y-4">
-            <Field
-              label={t('login.field.email')}
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t('login.placeholder.email')}
-              required
-            />
-            {mode === 'client' && branding?.selfRegister && (
-              <div className="space-y-2 border-t border-line pt-3">
-                <p className="text-[10px] uppercase tracking-widest text-dim">
-                  new here — create your account
-                </p>
-                <Field
-                  label="name"
-                  value={selfRegName}
-                  onChange={(e) => setSelfRegName(e.target.value)}
-                  placeholder="your name"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={(e) => void createAccount(e)}
-                  disabled={busy}
-                  className="w-full border border-line py-2 text-xs tracking-widest text-dim hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  create account
-                </button>
-              </div>
-            )}
-            {mode === 'agent' && (
-              <Field
-                label={t('login.field.password')}
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={t('login.placeholder.password')}
-                required
-              />
-            )}
-            {error && <p className="text-xs text-danger">{error}</p>}
-            <button
-              type="submit"
-              disabled={busy}
-              className="w-full border border-accent bg-accent/10 py-2 text-sm tracking-widest text-accent disabled:opacity-50"
-            >
-              {busy
-                ? t('login.submit.working')
-                : mode === 'client'
-                  ? t('login.submit.client')
-                  : t('login.submit.agent')}
-            </button>
-            {mode === 'agent' && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => void requestLink()}
-                  disabled={busy}
-                  className="w-full border border-line py-2 text-xs tracking-widest text-dim hover:border-accent hover:text-accent disabled:opacity-50"
-                >
-                  {t('login.magicLinkButton')}
-                </button>
-                <p className="mt-1 text-center text-[10px] text-dim">
-                  {t('login.magicLinkNote')}
-                </p>
-              </div>
-            )}
-          </form>
-        )}
       </div>
     </div>
   )

@@ -276,6 +276,30 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   accent token can't carry the mockup's vivid step-9 solids at text size; dark
   keeps the vivid step 9. Danger red = house values (the mockups never defined
   a red).
+  Same session — rework (the approved mockups are the layout spec, not just
+  the palette): WorkspaceView rebuilt around the mockup topbar (wordmark +
+  WORKSPACE label + underline search + SYSTEM button for superusers +
+  + NEW TICKET + square avatar with profile/theme/presence/sign-out
+  dropdown); the 5 stat cards + sparkline row are removed (overdue count is
+  now inline in the queue head). QueuePane rebuilt: 252px filter rail
+  (STATUS group + Assigned to me + CLIENTS group with live counts; selected
+  row = accent bar) over ticket cards (square LED, status, number, subject,
+  client row, ASSIGNEE/PRIORITY/SLA/OPENED strip, sort cycle in the head).
+  New SettingsDrawer (superuser, 340px left overlay) groups INSTANCE/
+  PEOPLE/CLIENTS/TICKETING/INTEGRATIONS — General, Appearance, Uploads,
+  Users & roles, Agent invites, Clients & branding, Self-registration, SLA,
+  Automation, Holds wired to the existing panels; Mail (SMTP),
+  Notifications, Audit log, API & MCP, Webhooks are honest stubs (not built
+  yet / phase 2). LoginView = one split screen (left branding panel: logo or
+  monogram, client name, CLIENT PORTAL, POWERED BY KIPPLE; right: support-
+  center hero + 3 steps + underline fields + EMAIL ME A LOGIN LINK +
+  self-registration; staff/agent sign-in swaps the right column; all auth
+  logic kept). PortalView = two columns: 340px YOUR REQUESTS list (status
+  chips with counts, search, accent-bar selection) + detail (meta row,
+  updates with rich text + attachment chips, composer with staged chips) +
+  new-request modal. Layout is shared across themes (token-driven; swiss is
+  the default). i18n: +login.field.name / login.placeholder.name; dead
+  login tab/sub keys removed.
 - **2026-09-17 (docs fix — Phase 1 table + status paragraphs current, no code change)** —
   no code change. Hold states (row 14, issue #30) shipped 2026-09-03 —
   migration 0012 (`hold_on`/`hold_since`/`hold_warned_at`), `/api/holds`

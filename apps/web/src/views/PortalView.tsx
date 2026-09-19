@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ClientBranding } from '@kipple/shared/themes'
-import { Field } from '../components/Field'
 import {
   api,
   clientLogoSrc,
@@ -142,6 +141,19 @@ export function PortalView({
     [tickets, statusFilter, search],
   )
 
+  // Chip counts are queue-wide (unfiltered) so the chips read as a breakdown
+  // of "your requests", not of the current filter.
+  const chipCounts = useMemo(() => {
+    const base: Record<string, number> = { all: tickets.length }
+    for (const status of PORTAL_STATUSES) {
+      if (status !== 'all') base[status] = 0
+    }
+    for (const ticket of tickets) {
+      if (ticket.status in base) base[ticket.status]++
+    }
+    return base
+  }, [tickets])
+
   async function sendReply() {
     if (!selectedId || inFlight || (!textOfHtml(reply) && readyIds.length === 0)) return
     setBusy(true)
@@ -196,30 +208,34 @@ export function PortalView({
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-line bg-panel px-5 py-3">
-        <div className="flex items-center gap-3">
-          {logoSrc && !logoBroken && (
+    <div className="flex h-full flex-col bg-ink">
+      <header className="flex h-16 shrink-0 items-center border-b-2 border-line bg-panel px-9">
+        <div className="flex min-w-0 items-center gap-4">
+          {logoSrc && !logoBroken ? (
             <img
               src={logoSrc}
               alt=""
               onError={() => setLogoBroken(true)}
-              className="h-5 max-w-40 object-contain"
+              className="h-[30px] w-[30px] shrink-0 border border-fg object-contain"
             />
+          ) : (
+            <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center border border-fg text-sm font-bold text-fg">
+              {(primaryClient?.name ?? t('portal.fallbackClient')).charAt(0).toUpperCase()}
+            </div>
           )}
-          <div className="flex items-baseline gap-3">
-            <span className="text-base font-semibold text-fg">
-              {primaryClient?.name ?? t('portal.fallbackClient')}
-            </span>
-            <span className="text-xs text-dim">{t('portal.sub')}</span>
-          </div>
+          <span className="truncate text-base font-bold text-fg">
+            {primaryClient?.name ?? t('portal.fallbackClient')}
+          </span>
+          <span className="shrink-0 border-l border-line pl-[18px] text-[9px] tracking-[.26em] text-dim uppercase">
+            {t('portal.sub')}
+          </span>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-dim">{user.name}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-4">
+          <span className="text-[10px] tracking-[.18em] text-dim uppercase">{user.name}</span>
           <button
             onClick={signOut}
             disabled={signingOut}
-            className="border border-line px-3 py-1 text-xs text-dim hover:border-danger hover:text-danger"
+            className="border border-line px-3 py-[7px] text-[9px] tracking-[.2em] text-dim uppercase hover:border-danger hover:text-danger"
           >
             {t('workspace.signOut')}
           </button>
@@ -227,64 +243,67 @@ export function PortalView({
       </header>
 
       {error && (
-        <div className="mx-4 mt-4 border border-danger px-3 py-2 text-sm text-danger">
+        <div className="shrink-0 border-b border-danger bg-panel px-9 py-2 text-xs text-danger">
           {error}
         </div>
       )}
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 md:grid-cols-[minmax(280px,380px)_1fr]">
-        <section className="flex min-h-0 flex-col border border-line bg-panel">
-          <div className="flex items-center justify-between border-b border-line p-3">
-            <span className="text-xs uppercase tracking-widest text-dim">
-              {t('portal.yourRequests')}
+      <main className="flex min-h-0 flex-1">
+        {/* Request list */}
+        <section className="flex w-[340px] shrink-0 flex-col border-r border-line bg-panel">
+          <div className="flex items-center justify-between px-[18px] py-3">
+            <span className="text-[11px] font-bold tracking-[.24em] text-fg uppercase">
+              {t('portal.yourRequests')} {tickets.length}
             </span>
             <button
               onClick={() => setShowNew(true)}
-              className="border border-accent bg-accent/10 px-2 py-1 text-xs text-accent"
+              className="bg-accent px-[10px] py-[7px] text-[9px] tracking-[.18em] text-ink uppercase"
             >
               {t('portal.newRequest')}
             </button>
           </div>
-          <div className="flex flex-wrap gap-1 p-2">
+          <div className="flex flex-wrap gap-1 px-2 pb-2">
             {PORTAL_STATUSES.map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
-                className={`border px-2 py-0.5 text-xs capitalize ${
+                className={`border px-2 py-1 text-[9px] tracking-[.14em] uppercase ${
                   statusFilter === status
-                    ? 'border-accent text-accent'
-                    : 'border-line text-dim'
+                    ? 'border-accent bg-ink font-bold text-accent'
+                    : 'border-line text-dim hover:border-fg'
                 }`}
               >
-                {t(STATUS_KEY[status])}
+                {t(STATUS_KEY[status])} {chipCounts[status] ?? 0}
               </button>
             ))}
           </div>
           <input
             ref={searchRef}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             placeholder={t('portal.searchPlaceholder')}
-            className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none placeholder:text-dim"
+            className="border-b border-line bg-transparent px-[18px] py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
           />
           <div className="min-h-0 flex-1 overflow-y-auto">
             {visible.length === 0 ? (
-              <p className="p-4 text-sm text-dim">{t('portal.empty')}</p>
+              <p className="px-[18px] py-4 text-[13px] text-dim">{t('portal.empty')}</p>
             ) : (
               visible.map((ticket) => (
                 <button
                   key={ticket.id}
                   onClick={() => setSelectedId(ticket.id)}
-                  className={`flex w-full items-start gap-2 border-b border-line px-3 py-2 text-left hover:bg-ink ${
-                    selectedId === ticket.id ? 'bg-ink' : ''
+                  className={`flex w-full items-start gap-2 border-b border-line py-[11px] pr-[18px] text-left ${
+                    selectedId === ticket.id
+                      ? 'border-l-[3px] border-l-accent bg-ink pl-[15px]'
+                      : 'pl-[18px] hover:bg-ink/40'
                   }`}
                 >
-                  <span
-                    className={`mt-1.5 h-2 w-2 shrink-0 ${statusLedClass(ticket.status)}`}
-                  />
+                  <span className={`mt-[5px] h-2 w-2 shrink-0 ${statusLedClass(ticket.status)}`} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm text-fg">{ticket.subject}</span>
-                    <span className="text-xs text-dim">
+                    <span className="block truncate text-[13px] font-bold text-fg">
+                      {ticket.subject}
+                    </span>
+                    <span className="mt-[3px] block text-[10px] tracking-[.08em] text-dim">
                       #{ticket.number} · {relativeTime(ticket.updatedAt)}
                     </span>
                   </span>
@@ -294,43 +313,51 @@ export function PortalView({
           </div>
         </section>
 
-        <section className="flex min-h-0 flex-col border border-line bg-panel">
+        {/* Detail */}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-ink">
           {detail ? (
             <>
-              <div className="border-b border-line p-4">
-                <h2 className="text-lg font-semibold text-fg">{detail.subject}</h2>
-                <p className="mt-1 text-xs text-dim">
-                  #{detail.number} ·{' '}
-                  <span className="capitalize">
+              <div className="shrink-0 border-b-2 border-line px-8 pt-[22px] pb-4">
+                <h2 className="text-[22px] leading-tight font-bold tracking-[-.01em] text-fg">
+                  {detail.subject}
+                </h2>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <span className={`h-2 w-2 ${statusLedClass(detail.status)}`} />
+                  <span className="text-[10px] font-bold tracking-[.16em] text-accent uppercase">
                     {detail.status in STATUS_KEY
                       ? t(STATUS_KEY[detail.status as keyof typeof STATUS_KEY])
                       : detail.status}
+                    {detail.status === 'hold' && detail.holdOn
+                      ? ` · ${t('portal.waitingOn', { who: detail.holdOn })}`
+                      : ''}
                   </span>
-                  {detail.status === 'hold' && detail.holdOn
-                    ? ` · ${t('portal.waitingOn', { who: detail.holdOn })}`
-                    : ''}
-                  {' '}· opened {formatStamp(detail.createdAt)}
-                </p>
+                  <span className="text-[10px] text-dim">#{detail.number}</span>
+                  <span className="text-[10px] text-dim">
+                    {t('portal.meta.opened')} {formatStamp(detail.createdAt)}
+                  </span>
+                </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {detail.updates.map((update) => (
-                  <div key={update.id} className="border-b border-line px-4 py-3">
-                    <p className="text-xs text-dim">
-                      <span className="text-fg">{update.authorName ?? t('portal.supportTeam')}</span> ·{' '}
-                      {formatStamp(update.createdAt)}
+                  <div key={update.id} className="border-b border-line px-8 py-[15px]">
+                    <p className="text-[10px] tracking-[.14em]">
+                      <b className="font-bold text-fg">
+                        {update.authorName ?? t('portal.supportTeam')}
+                      </b>{' '}
+                      · <span className="text-dim">{formatStamp(update.createdAt)}</span>
                     </p>
                     <div
-                      className="rich-text mt-1 text-sm text-fg"
+                      className="rich-text mt-1.5 max-w-[900px] text-[13px] text-fg"
                       dangerouslySetInnerHTML={{ __html: toRenderable(update.body) }}
                     />
                     {update.attachments.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         {update.attachments.map((attachment) => (
                           <a
                             key={attachment.id}
                             href={`/api/attachments/${attachment.id}`}
                             download
-                            className="inline-flex items-center gap-1 border border-line px-2 py-0.5 text-xs text-accent hover:border-accent"
+                            className="inline-flex items-center gap-1 border border-line px-2 py-0.5 text-[10px] text-accent hover:border-accent"
                           >
                             <PhosphorIcon name="paperclip" size="sm" />
                             {attachment.filename} ({formatFileSize(attachment.size)})
@@ -341,14 +368,14 @@ export function PortalView({
                   </div>
                 ))}
               </div>
-              <div className="border-t border-line p-3">
+              <div className="shrink-0 border-t-2 border-line px-8 py-3">
                 <RichTextEditor
                   key={`${selectedId}-${replyKey}`}
                   placeholder={t('portal.replyPlaceholder')}
                   onHtmlChange={setReply}
                 />
                 {staged.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1">
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {staged.map((upload, index) => (
                       <span
                         key={`${upload.file.name}-${index}`}
@@ -382,34 +409,32 @@ export function PortalView({
                     ))}
                   </div>
                 )}
-                <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        addFiles(Array.from(e.target.files ?? []))
+                <div className="mt-2 flex items-center gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                        addFiles(Array.from(event.target.files ?? []))
                       }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 border border-line px-2 py-1 text-xs text-dim hover:border-accent hover:text-accent"
-                    >
-                      <PhosphorIcon name="paperclip" size="sm" />
-                      {t('portal.attach')}
-                    </button>
-                  </div>
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 border border-line px-3 py-1.5 text-[9px] tracking-[.2em] text-dim uppercase hover:border-accent hover:text-accent"
+                  >
+                    <PhosphorIcon name="paperclip" size="sm" />
+                    {t('portal.attach')}
+                  </button>
+                  <span className="ml-auto text-[8px] tracking-[.2em] text-dim uppercase">
+                    {t('portal.notesPrivate')}
+                  </span>
                   <button
                     onClick={sendReply}
-                    disabled={
-                      busy || inFlight || (!textOfHtml(reply) && readyIds.length === 0)
-                    }
-                    className="flex items-center gap-1.5 border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
+                    disabled={busy || inFlight || (!textOfHtml(reply) && readyIds.length === 0)}
+                    className="bg-accent px-4 py-[7px] text-[10px] tracking-[.2em] text-ink uppercase disabled:opacity-50"
                   >
-                    <PhosphorIcon name="paper-plane-tilt" size="sm" />
                     {t('portal.sendReply')}
                   </button>
                 </div>
@@ -423,9 +448,7 @@ export function PortalView({
                     ? t('portal.emptyDetail.none')
                     : t('portal.emptyDetail.select')}
                 </p>
-                <p className="mt-1 text-xs text-dim">
-                  {t('portal.emptyDetail.emailNote')}
-                </p>
+                <p className="mt-1 text-xs text-dim">{t('portal.emptyDetail.emailNote')}</p>
               </div>
             </div>
           )}
@@ -433,47 +456,58 @@ export function PortalView({
       </main>
 
       {showNew && (
-        <div className="fixed inset-0 z-10 grid place-items-center bg-ink/60 p-4">
+        <div className="fixed inset-0 z-20 grid place-items-center bg-ink/60 p-4">
           <form
             onSubmit={createTicket}
-            className="w-full max-w-md space-y-4 border border-line bg-panel p-5"
+            className="w-[470px] space-y-4 border-2 border-fg bg-panel p-[26px]"
           >
-            <h3 className="text-sm uppercase tracking-widest text-accent">{t('portal.modal.heading')}</h3>
-            <Field
-              label={t('portal.modal.field.subject')}
-              value={newSubject}
-              onChange={(e) => setNewSubject(e.target.value)}
-              placeholder={t('portal.modal.placeholder.subject')}
-              required
-            />
-            <Field
-              label={t('portal.modal.field.description')}
-              type="textarea"
-              value={newBody}
-              onChange={(e) => setNewBody(e.target.value)}
-              placeholder={t('portal.modal.placeholder.description')}
-            />
+            <div>
+              <h3 className="text-[11px] font-bold tracking-[.3em] text-accent uppercase">
+                {t('portal.modal.heading')}
+              </h3>
+              <div className="mt-2 h-0.5 bg-fg" />
+            </div>
+            <label className="block">
+              <span className="text-[8px] tracking-[.26em] text-dim uppercase">
+                {t('portal.modal.field.subject')}
+              </span>
+              <input
+                value={newSubject}
+                onChange={(event) => setNewSubject(event.target.value)}
+                placeholder={t('portal.modal.placeholder.subject')}
+                required
+                className="mt-1.5 w-full border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[8px] tracking-[.26em] text-dim uppercase">
+                {t('portal.modal.field.description')}
+              </span>
+              <textarea
+                value={newBody}
+                onChange={(event) => setNewBody(event.target.value)}
+                placeholder={t('portal.modal.placeholder.description')}
+                rows={4}
+                className="mt-1.5 w-full resize-y border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+              />
+            </label>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowNew(false)}
-                className="border border-line px-4 py-1.5 text-sm text-dim"
+                className="border border-line px-4 py-1.5 text-[10px] tracking-[.2em] text-dim uppercase hover:border-fg"
               >
                 {t('portal.modal.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={busy || !newSubject.trim() || !clientId}
-                className="border border-accent bg-accent/10 px-4 py-1.5 text-sm text-accent disabled:opacity-50"
+                className="bg-accent px-4 py-[7px] text-[10px] tracking-[.2em] text-ink uppercase disabled:opacity-50"
               >
                 {t('portal.modal.create')}
               </button>
             </div>
-            {!clientId && (
-              <p className="text-xs text-danger">
-                {t('portal.modal.noClient')}
-              </p>
-            )}
+            {!clientId && <p className="text-xs text-danger">{t('portal.modal.noClient')}</p>}
           </form>
         </div>
       )}
