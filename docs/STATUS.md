@@ -263,6 +263,49 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-18 (Swiss theme, light + dark, issue #149)** — new `swiss` theme
+  in the existing 13-token system: `packages/ui/themes/swiss.css` (both modes,
+  all 13 tokens, `--radius-app: 0`, Helvetica grotesque stack) + registry entry in
+  shared themes (agent + portal surfaces); the registry<->CSS sync test passes by
+  lockstep. Square status LEDs: dropped `rounded-full` at the 3 `statusLedClass`
+  sites (queue, portal list, ticket detail); presence dots stay round. Workspace
+  footer gains a GitHub icon to the project (left, beside version + presence) and
+  a centered instance name; `/api/me` now exposes `instanceName` (read from the
+  `instance` settings row written at setup) -> `MeResponse` -> `App` ->
+  `WorkspaceView`. Flags: light accent = text-safe step 11 (`#b63a00`) — a single
+  accent token can't carry the mockup's vivid step-9 solids at text size; dark
+  keeps the vivid step 9. Danger red = house values (the mockups never defined
+  a red).
+  Same session — rework (the approved mockups are the layout spec, not just
+  the palette): WorkspaceView rebuilt around the mockup topbar (wordmark +
+  WORKSPACE label + underline search + SYSTEM button for superusers +
+  + NEW TICKET + square avatar with profile/theme/presence/sign-out
+  dropdown); the 5 stat cards + sparkline row are removed (overdue count is
+  now inline in the queue head). QueuePane rebuilt: 252px filter rail
+  (STATUS group + Assigned to me + CLIENTS group with live counts; selected
+  row = accent bar) over ticket cards (square LED, status, number, subject,
+  client row, ASSIGNEE/PRIORITY/SLA/OPENED strip, sort cycle in the head).
+  New SettingsDrawer (superuser, 340px left overlay) groups INSTANCE/
+  PEOPLE/CLIENTS/TICKETING/INTEGRATIONS — General, Appearance, Uploads,
+  Users & roles, Agent invites, Clients & branding, Self-registration, SLA,
+  Automation, Holds wired to the existing panels; Mail (SMTP),
+  Notifications, Audit log, API & MCP, Webhooks are honest stubs (not built
+  yet / phase 2). LoginView = one split screen (left branding panel: logo or
+  monogram, client name, CLIENT PORTAL, POWERED BY KIPPLE; right: support-
+  center hero + 3 steps + underline fields + EMAIL ME A LOGIN LINK +
+  self-registration; staff/agent sign-in swaps the right column; all auth
+  logic kept). PortalView = two columns: 340px YOUR REQUESTS list (status
+  chips with counts, search, accent-bar selection) + detail (meta row,
+  updates with rich text + attachment chips, composer with staged chips) +
+  new-request modal. Layout is shared across themes (token-driven; swiss is
+  the default). i18n: +login.field.name / login.placeholder.name; dead
+  login tab/sub keys removed. Same session (follow-up after Max's review):
+  rail rows gained right padding on the counts; the topbar search now
+  aligns over the tickets column (wordmark + WORKSPACE sit in a 252px
+  block matching the rail, search starts at the card-column edge); the
+  ticket detail is a right slide-over (58% width, 2px rule, CLOSE button)
+  instead of a third flex pane, so the ticket list keeps the full main
+  width.
 - **2026-09-17 (docs fix — Phase 1 table + status paragraphs current, no code change)** —
   no code change. Hold states (row 14, issue #30) shipped 2026-09-03 —
   migration 0012 (`hold_on`/`hold_since`/`hold_warned_at`), `/api/holds`

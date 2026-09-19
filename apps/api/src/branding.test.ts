@@ -267,4 +267,10 @@ describe('client branding', () => {
     expect(me.statusCode).toBe(200)
     expect(me.json().primaryClient).toBeNull()
   })
+
+  it('exposes the instance name on /api/me', async () => {
+    const me = await app.inject({ method: 'GET', url: '/api/me', headers: { cookie: staffCookie } })
+    expect(me.statusCode).toBe(200)
+    expect(me.json().instanceName).toBe(owner.instanceName)
+  })
 })

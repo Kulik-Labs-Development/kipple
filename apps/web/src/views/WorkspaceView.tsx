@@ -7,11 +7,10 @@ import { HoldsManager } from '../components/HoldsManager'
 import { UsersManager } from '../components/UsersManager'
 import { SettingsPanel } from '../components/SettingsPanel'
 import { NotificationBell } from '../components/NotificationBell'
-import { Avatar } from '../components/Avatar'
 import { PhosphorIcon } from '../components/PhosphorIcon'
-import { QueuePane } from '../components/QueuePane'
+import { QueuePane, type ClientCount, type RailSel } from '../components/QueuePane'
+import { SettingsDrawer, type DrawerPanel } from '../components/SettingsDrawer'
 import { SlaManager } from '../components/SlaManager'
-import { Sparkline } from '../components/Sparkline'
 import { TicketDetail, type TicketPatch } from '../components/TicketDetail'
 import { TicketForm, type TicketFormValues } from '../components/TicketForm'
 import { TimePanel } from '../components/TimePanel'
@@ -27,13 +26,7 @@ import {
 } from '../lib/api'
 import { applyTheme, resolveThemeChoice } from '../lib/theme'
 import { useI18n, type I18nKey } from '../lib/i18n'
-import {
-  dailySeries,
-  formatClock,
-  queueStats,
-  TICKET_STATUSES,
-  type StatusFilter,
-} from '../lib/tickets'
+import { formatClock, queueStats, TICKET_STATUSES } from '../lib/tickets'
 
 const PRESENCE_VALUES = ['online', 'away', 'busy', 'offline'] as const
 
@@ -44,14 +37,6 @@ const PRESENCE_KEY: Record<string, I18nKey> = {
   away: 'presence.away',
   busy: 'presence.busy',
   offline: 'presence.offline',
-}
-
-const STAT_KEY: Record<'assignedToMe' | 'inQueue' | 'openedToday' | 'closedToday' | 'overdue', I18nKey> = {
-  assignedToMe: 'workspace.stat.assignedToMe',
-  inQueue: 'workspace.stat.inQueue',
-  openedToday: 'workspace.stat.openedToday',
-  closedToday: 'workspace.stat.closedToday',
-  overdue: 'workspace.stat.overdue',
 }
 
 const PRESENCE_DOT: Record<string, string> = {
@@ -73,12 +58,14 @@ export function WorkspaceView({
   ssoEnabled,
   onSignedOut,
   onUserUpdated,
+  instanceName,
 }: {
   user: MeUser
   preferences: { theme: string | null; colorMode: string }
   ssoEnabled: boolean
   onSignedOut: () => void
   onUserUpdated: (next: MeUser) => void
+  instanceName: string | null
 }) {
   const { t } = useI18n()
   const isStaff = user.role !== 'contact'
@@ -86,7 +73,7 @@ export function WorkspaceView({
   const [clients, setClients] = useState<ClientSummary[]>([])
   const [staff, setStaff] = useState<StaffUser[]>([])
   const [allTickets, setAllTickets] = useState<TicketRow[]>([])
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [rail, setRail] = useState<RailSel>({ kind: 'all' })
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [detail, setDetail] = useState<TicketDetailData | null>(null)
@@ -102,16 +89,44 @@ export function WorkspaceView({
   const [showDefaults, setShowDefaults] = useState(false)
   const [showHolds, setShowHolds] = useState(false)
   const [showUsers, setShowUsers] = useState(false)
-  const [clientFilter, setClientFilter] = useState('all')
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [presence, setPresence] = useState(user.presence)
   const [theme, setTheme] = useState(preferences.theme ?? 'default')
   const [now, setNow] = useState(() => Date.now())
   const searchRef = useRef<HTMLInputElement>(null)
 
+  const initials = useMemo(
+    () =>
+      user.name
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase() || '?',
+    [user.name],
+  )
+
   const clientNames = useMemo(
     () => new Map(clients.map((client) => [client.id, client.name])),
     [clients],
+  )
+
+  const staffNames = useMemo(
+    () => new Map(staff.map((member) => [member.id, member.name])),
+    [staff],
+  )
+
+  const clientCounts = useMemo<ClientCount[]>(
+    () =>
+      clients.map((client) => ({
+        id: client.id,
+        name: client.name,
+        count: allTickets.filter((ticket) => ticket.clientId === client.id).length,
+      })),
+    [clients, allTickets],
   )
 
   const refreshList = useCallback(async () => {
@@ -303,15 +318,18 @@ export function WorkspaceView({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // The rail IS the filter — one selection at a time (all / status / mine /
+  // client); the topbar search narrows subject within it.
   const visibleTickets = useMemo(() => {
     const query = search.trim().toLowerCase()
     return allTickets.filter((ticket) => {
-      if (statusFilter !== 'all' && ticket.status !== statusFilter) return false
-      if (clientFilter !== 'all' && ticket.clientId !== clientFilter) return false
+      if (rail.kind === 'status' && ticket.status !== rail.status) return false
+      if (rail.kind === 'mine' && ticket.assignedTo !== user.id) return false
+      if (rail.kind === 'client' && ticket.clientId !== rail.clientId) return false
       if (query && !ticket.subject.toLowerCase().includes(query)) return false
       return true
     })
-  }, [allTickets, statusFilter, clientFilter, search])
+  }, [allTickets, rail, search, user.id])
 
   const counts = useMemo(() => {
     const base: Record<string, number> = { all: allTickets.length }
@@ -322,9 +340,10 @@ export function WorkspaceView({
     return base
   }, [allTickets])
 
+  // Queue-wide rail counts (assigned-to-me row) + the overdue count for the
+  // currently visible set (queue head).
   const stats = useMemo(() => queueStats(allTickets, user.id), [allTickets, user.id])
-
-  const series = useMemo(() => dailySeries(allTickets, 14), [allTickets])
+  const overdue = useMemo(() => queueStats(visibleTickets, user.id).overdue, [visibleTickets, user.id])
 
   async function changePresence(next: string) {
     setPresence(next)
@@ -411,255 +430,194 @@ export function WorkspaceView({
     }
   }
 
+  // Drawer items open the existing superuser panels (clients / self-registration
+  // switch to the clients page, which carries the per-client settings).
+  function openPanel(panel: DrawerPanel) {
+    setDrawerOpen(false)
+    switch (panel) {
+      case 'general':
+        setShowSettings(true)
+        break
+      case 'appearance':
+      case 'uploads':
+        setShowDefaults(true)
+        break
+      case 'users':
+      case 'invites':
+        setShowUsers(true)
+        break
+      case 'clients':
+      case 'selfReg':
+        setView('clients')
+        break
+      case 'sla':
+        setShowSlaManager(true)
+        break
+      case 'automation':
+        setShowAutomation(true)
+        break
+      case 'holds':
+        setShowHolds(true)
+        break
+    }
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-line bg-panel px-4 py-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowSettings(true)}
-            title={t('workspace.settings')}
-            className="flex items-center gap-1.5 border border-transparent px-1 py-0.5 hover:border-line"
-          >
-            <Avatar src={user.image ? '/api/me/avatar' : null} name={user.name} size="sm" />
-            <span className="text-xs text-fg">{user.name}</span>
-            <span className="text-xs text-dim">·</span>
-            <span className="text-xs uppercase text-dim">{user.role}</span>
-          </button>
-          <span className="tracking-widest text-accent">KIPPLE</span>
-          <span className="text-xs text-dim">{t('workspace.sub')}</span>
+      <header className="flex h-14 shrink-0 items-center border-b-2 border-line bg-panel">
+        <div className="flex w-[252px] shrink-0 items-center gap-7 px-7">
+          <span className="shrink-0 text-[19px] leading-none font-bold tracking-[-.03em] text-fg">
+            kip<span className="text-accent">p</span>le
+          </span>
+          <span className="shrink-0 border-l border-line pl-7 text-[9px] tracking-[.28em] text-dim uppercase">
+            {t('workspace.workspace')}
+          </span>
         </div>
-        <div className="flex items-center gap-4 text-xs">
-          {isStaff && (
-            <NotificationBell onOpenTicket={selectTicket} />
-          )}
-          {isStaff && user.role === 'superuser' && (
-            <button
-              onClick={() => setShowSlaManager(true)}
-              title={t('workspace.sla.title')}
-              className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
-                slaConfig?.enabled ? 'border-ok text-ok' : 'border-line text-dim'
-              }`}
-            >
-              <PhosphorIcon name="clock" size="sm" />
-              {t('workspace.sla.label')}
-            </button>
-          )}
-          {isStaff && (
-            <button
-              onClick={
-                user.role === 'superuser' ? () => setShowAutomation(true) : undefined
-              }
-              title={
-                user.role === 'superuser'
-                  ? t('workspace.auto.titleSuperuser')
-                  : t('workspace.auto.titleStaff')
-              }
-              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
-            >
-              <PhosphorIcon
-                name="gear"
-                size="sm"
-                className="transition-transform duration-300 group-hover:rotate-90"
-              />
-              {t('workspace.auto.label')}
-            </button>
-          )}
-          {isStaff && (
-            <button
-              onClick={() => setView('tickets')}
-              title={t('workspace.tickets.title')}
-              className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
-                view === 'tickets'
-                  ? 'border-accent text-accent'
-                  : 'border-line text-dim hover:border-accent hover:text-accent'
-              }`}
-            >
-              <PhosphorIcon
-                name="ticket"
-                size="sm"
-                className="transition-transform duration-300 group-hover:-translate-y-0.5"
-              />
-              {t('workspace.tickets.label')}
-            </button>
-          )}
-          {isStaff && (
-            <button
-              onClick={
-                user.role === 'superuser' || user.role === 'admin'
-                  ? () => setView('clients')
-                  : undefined
-              }
-              title={
-                user.role === 'superuser' || user.role === 'admin'
-                  ? t('workspace.clients.title')
-                  : t('workspace.clients.titleStaff')
-              }
-              className={`group flex items-center gap-1.5 border px-2 py-1 uppercase tracking-widest ${
-                view === 'clients'
-                  ? 'border-accent text-accent'
-                  : 'border-line text-dim hover:border-accent hover:text-accent'
-              }`}
-            >
-              <PhosphorIcon
-                name="users"
-                size="sm"
-                className="transition-transform duration-300 group-hover:-translate-y-0.5"
-              />
-              {t('workspace.clients.label')}
-            </button>
-          )}
-          {isStaff && user.role === 'superuser' && (
-            <button
-              onClick={() => setShowUsers(true)}
-              title={t('workspace.users.title')}
-              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
-            >
-              <PhosphorIcon name="user-gear" size="sm" />
-              {t('workspace.users.label')}
-            </button>
-          )}
-          {isStaff && user.role === 'superuser' && (
-            <button
-              onClick={() => setShowDefaults(true)}
-              title={t('workspace.defaults.title')}
-              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
-            >
-              <PhosphorIcon name="sliders" size="sm" />
-              {t('workspace.defaults.label')}
-            </button>
-          )}
-          {isStaff && user.role === 'superuser' && (
-            <button
-              onClick={() => setShowHolds(true)}
-              title={t('workspace.holds.title')}
-              className="group flex items-center gap-1.5 border border-line px-2 py-1 uppercase tracking-widest text-dim hover:border-accent hover:text-accent"
-            >
-              <PhosphorIcon name="hourglass" size="sm" />
-              {t('workspace.holds.label')}
-            </button>
-          )}
+        <div className="min-w-0 flex-1 pl-9">
+          <input
+            ref={searchRef}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('queue.searchPlaceholder')}
+            aria-label={t('queue.searchPlaceholder')}
+            className="w-full max-w-[520px] border-b border-line bg-transparent py-2 text-[13px] text-fg outline-none placeholder:text-dim/70 focus:border-accent"
+          />
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-[18px] pr-7">
+          {isStaff && <NotificationBell onOpenTicket={selectTicket} />}
           {isStaff && activeEntry && (
             <button
               onClick={toggleTimer}
               title={t('workspace.timer.stop')}
-              className="border border-ok bg-ok/10 px-2 py-1 tabular-nums text-ok"
+              className="border border-ok bg-ok/10 px-2.5 py-1 text-[10px] tabular-nums text-ok"
             >
               {t('workspace.timer.label')} {activeNumber ? `#${activeNumber}` : ''} ·{' '}
               {formatClock((now - new Date(activeEntry.startedAt).getTime()) / 1000)}
             </button>
           )}
-          <span className="relative inline-flex items-center">
-            <span
-              className={`presence-dot pointer-events-none absolute left-1.5 h-2 w-2 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
-              title={t('workspace.presence.label', { presence: t(PRESENCE_KEY[presence] ?? 'presence.offline') })}
-            />
-            <select
-              value={presence}
-              onChange={(event) => void changePresence(event.target.value)}
-              title={t('workspace.presence.title')}
-              className="border border-line bg-panel py-1 pl-5 pr-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
+          {isStaff && user.role === 'superuser' && (
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="border border-line px-3 py-[7px] text-[9px] tracking-[.2em] text-dim uppercase hover:border-accent hover:text-accent"
             >
-              {PRESENCE_VALUES.map((value) => (
-                <option key={value} value={value}>
-                  {t(PRESENCE_KEY[value])}
-                </option>
-              ))}
-            </select>
-          </span>
-          <select
-            value={theme}
-            onChange={(event) => void changeTheme(event.target.value)}
-            title={t('workspace.theme.title')}
-            className="border border-line bg-panel px-1 py-1 text-xs uppercase tracking-widest text-dim outline-none focus:border-accent"
-          >
-            <option value="default">{t('workspace.theme.default')}</option>
-            {agentThemes().map((meta) => (
-              <option key={meta.id} value={meta.id}>
-                {meta.label}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={signOut}
-            disabled={signingOut}
-            className="border border-line px-2 py-1 text-dim hover:border-danger hover:text-danger"
-          >
-            {t('workspace.signOut')}
-          </button>
+              {t('workspace.system')}
+            </button>
+          )}
+          {isStaff && (
+            <button
+              onClick={() => {
+                setFormError(null)
+                setShowNewTicket(true)
+              }}
+              className="bg-accent px-4 py-2.5 text-[10px] tracking-[.22em] text-ink uppercase"
+            >
+              + {t('workspace.newTicket')}
+            </button>
+          )}
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((open) => !open)}
+              aria-label={t('workspace.profile')}
+              title={`${user.name} · ${user.role}`}
+              className="flex h-[30px] w-[30px] items-center justify-center border border-fg bg-ink text-[10px] font-bold text-fg"
+            >
+              {initials}
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-[38px] z-40 w-52 border-2 border-fg bg-panel">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setShowSettings(true)
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-[10px] tracking-[.18em] text-fg uppercase hover:bg-ink"
+                  >
+                    {t('workspace.profile')}
+                  </button>
+                  <label className="block border-t border-line px-4 py-2 text-[8px] tracking-[.24em] text-dim uppercase">
+                    {t('workspace.theme.title')}
+                    <select
+                      value={theme}
+                      onChange={(event) => void changeTheme(event.target.value)}
+                      className="mt-1.5 w-full border border-line bg-ink px-1.5 py-1 text-[10px] tracking-[.12em] text-fg uppercase outline-none focus:border-accent"
+                    >
+                      <option value="default">{t('workspace.theme.default')}</option>
+                      {agentThemes().map((meta) => (
+                        <option key={meta.id} value={meta.id}>
+                          {meta.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block border-t border-line px-4 py-2 text-[8px] tracking-[.24em] text-dim uppercase">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className={`presence-dot h-2 w-2 shrink-0 rounded-full ${PRESENCE_DOT[presence] ?? 'bg-dim'}`}
+                      />
+                      {t('workspace.presence.title')}
+                    </span>
+                    <select
+                      value={presence}
+                      onChange={(event) => void changePresence(event.target.value)}
+                      className="mt-1.5 w-full border border-line bg-ink px-1.5 py-1 text-[10px] tracking-[.12em] text-fg uppercase outline-none focus:border-accent"
+                    >
+                      {PRESENCE_VALUES.map((value) => (
+                        <option key={value} value={value}>
+                          {t(PRESENCE_KEY[value])}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    onClick={() => void signOut()}
+                    disabled={signingOut}
+                    className="block w-full border-t border-line px-4 py-2.5 text-left text-[10px] tracking-[.18em] text-dim uppercase hover:bg-ink hover:text-danger"
+                  >
+                    {t('workspace.signOut')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="grid grid-cols-2 gap-3 p-3 md:grid-cols-5">
-        {(
-          [
-            ['assignedToMe', stats.assignedToMe],
-            ['inQueue', stats.inQueue],
-            ['openedToday', stats.openedToday],
-            ['closedToday', stats.closedToday],
-            ['overdue', stats.overdue],
-          ] as const
-        ).map(([key, value]) => (
-          <div key={key} className="border border-line bg-panel p-3">
-            <div
-              className={`text-2xl tabular-nums ${
-                key === 'overdue' && value > 0 ? 'text-danger' : 'text-fg'
-              }`}
-            >
-              {value}
-            </div>
-            <div className="mt-1 text-xs uppercase tracking-widest text-dim">
-              {t(STAT_KEY[key])}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mx-3 mb-3 flex flex-wrap items-center gap-6 border border-line bg-panel px-3 py-2">
-        <span className="text-xs uppercase tracking-widest text-dim">{t('workspace.days14')}</span>
-        <Sparkline label={t('workspace.sparkline.opened')} values={series.opened} barClass="bg-accent" />
-        <Sparkline label={t('workspace.sparkline.closed')} values={series.closed} barClass="bg-ok" />
-      </div>
-
       {error && (
-        <div className="mx-3 mb-3 border border-danger px-3 py-2 text-xs text-danger">
+        <div className="shrink-0 border-b border-danger bg-panel px-7 py-2 text-xs text-danger">
           {error}
         </div>
       )}
 
-      <main className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
-        <div className="flex min-h-0 flex-1 border border-line bg-ink">
-          {view === 'clients' ? (
+      <main className="relative flex min-h-0 flex-1">
+        {view === 'clients' ? (
+          <div className="flex min-h-0 flex-1 bg-ink">
             <ClientManager
               onSaved={() => {
                 void refreshClients()
               }}
               onClose={() => setView('tickets')}
             />
-          ) : (
-            <>
-          <QueuePane
-            tickets={visibleTickets}
-            counts={counts}
-            clientNames={clientNames}
-            selectedId={selectedId}
-            statusFilter={statusFilter}
-            clientFilter={clientFilter}
-            onClientFilter={setClientFilter}
-            search={search}
-            canCreate={isStaff}
-            slaConfig={slaConfig}
-            searchRef={searchRef}
-            onStatusFilter={setStatusFilter}
-            onSearch={setSearch}
-            onSelect={selectTicket}
-            onNewTicket={() => {
-              setFormError(null)
-              setShowNewTicket(true)
-            }}
-          />
-          <div className="flex min-h-0 flex-1 flex-col">
-            {detail ? (
-              <>
+          </div>
+        ) : (
+          <>
+            <QueuePane
+              tickets={visibleTickets}
+              counts={counts}
+              mineCount={stats.assignedToMe}
+              clientCounts={clientCounts}
+              clientNames={clientNames}
+              staffNames={staffNames}
+              selectedId={selectedId}
+              rail={rail}
+              onRail={setRail}
+              onSelect={selectTicket}
+              slaConfig={slaConfig}
+              overdue={overdue}
+            />
+            {detail && (
+              <div className="absolute inset-y-0 right-0 z-10 flex w-[58%] min-w-[520px] flex-col border-l-2 border-line bg-panel">
                 <TicketDetail
                   key={detail.id}
                   detail={detail}
@@ -669,6 +627,7 @@ export function WorkspaceView({
                   onPatch={patchTicket}
                   onReply={reply}
                   onDelete={deleteTicket}
+                  onClose={() => setSelectedId(null)}
                 />
                 {isStaff && (
                   <TimePanel
@@ -679,24 +638,13 @@ export function WorkspaceView({
                     }}
                   />
                 )}
-              </>
-            ) : (
-              <div className="grid flex-1 place-items-center">
-                <div className="text-center">
-                  <div className="text-sm tracking-widest text-dim">{t('workspace.empty.heading')}</div>
-                  <p className="mt-2 text-fg">
-                    {visibleTickets.length === 0
-                      ? t('queue.empty')
-                      : t('workspace.empty.select')}
-                  </p>
-                  <p className="mt-1 text-xs text-dim">{t('workspace.empty.searchHint')}</p>
-                </div>
               </div>
             )}
-          </div>
-            </>
-          )}
-        </div>
+          </>
+        )}
+        {isStaff && user.role === 'superuser' && drawerOpen && (
+          <SettingsDrawer onOpen={openPanel} onClose={() => setDrawerOpen(false)} />
+        )}
       </main>
 
       {showNewTicket && (
@@ -719,7 +667,6 @@ export function WorkspaceView({
           onClose={() => setShowSlaManager(false)}
         />
       )}
-
 
       {showDefaults && <DefaultsManager onClose={() => setShowDefaults(false)} />}
       {showHolds && <HoldsManager onClose={() => setShowHolds(false)} />}
@@ -751,19 +698,31 @@ export function WorkspaceView({
         />
       )}
 
-      <footer className="flex items-center justify-between border-t border-line bg-panel px-4 py-2 text-xs text-dim">
-        <span>
+      <footer className="flex items-center justify-between gap-4 border-t border-line bg-panel px-4 py-2 text-xs text-dim">
+        <span className="flex min-w-0 items-center gap-2">
           <a
-            href="https://kippleticket.com/"
+            href="https://github.com/Kulik-Labs-Development/kipple"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-accent hover:underline"
+            aria-label="Kipple on GitHub"
+            className="shrink-0 hover:text-accent"
           >
-            kipple v0.1.0
-          </a>{' '}
-          · <span className="uppercase">{t('workspace.footer.presence', { presence })}</span>
+            <PhosphorIcon name="github" />
+          </a>
+          <span className="truncate">
+            <a
+              href="https://kippleticket.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-accent hover:underline"
+            >
+              kipple v0.1.0
+            </a>{' '}
+            · <span className="uppercase">{t('workspace.footer.presence', { presence })}</span>
+          </span>
         </span>
-        <span>{user.email}</span>
+        <span className="hidden truncate uppercase tracking-widest sm:block">{instanceName}</span>
+        <span className="shrink-0">{user.email}</span>
       </footer>
     </div>
   )

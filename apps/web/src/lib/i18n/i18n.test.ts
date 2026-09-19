@@ -4,7 +4,7 @@ import { translate } from './index'
 
 describe('i18n core (#141)', () => {
   it('resolves a plain key from the catalog', () => {
-    expect(translate('en', 'login.tab.client')).toBe(en['login.tab.client'])
+    expect(translate('en', 'login.kicker')).toBe(en['login.kicker'])
   })
 
   it('resolves the static before/after halves (no tokens — the styled span sits between them)', () => {
