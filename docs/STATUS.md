@@ -263,6 +263,13 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
+- **2026-09-19 (web: New Ticket button bolder / more legible)** —
+  Max: the workspace "+ New ticket" button was "very hard to read". It
+  shared the login CTA's 10px / .22em uppercase treatment, which reads
+  fine on a full-width login target but is too small on the dense top
+  bar. Bumped to `text-xs font-bold tracking-[.14em]` (kept `bg-accent` /
+  `text-ink` / `uppercase` so it stays the accent CTA). CSS-only, one
+  class string in `WorkspaceView.tsx`.
 - **2026-09-19 (web: system settings as left drawer + page, queue rail fixes, presence pulse)** —
   Six UI fixes from Max's 09-19 work order. (1+2) Queue rail rows: the
   selected highlight died on hover (a `hover:` utility in the row's class

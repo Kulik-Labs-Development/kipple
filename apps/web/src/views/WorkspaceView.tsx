@@ -485,7 +485,7 @@ export function WorkspaceView({
                 setFormError(null)
                 setShowNewTicket(true)
               }}
-              className="bg-accent px-4 py-2.5 text-[10px] tracking-[.22em] text-ink uppercase"
+              className="bg-accent px-4 py-2 text-xs font-bold tracking-[.14em] text-ink uppercase"
             >
               + {t('workspace.newTicket')}
             </button>
