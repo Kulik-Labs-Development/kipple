@@ -20,7 +20,9 @@
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.0.0",
     "pg": "^8.23.0",
-    "pino": "^9.5.0"
+    "pino": "^9.5.0",
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
