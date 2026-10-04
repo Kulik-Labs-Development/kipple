@@ -22,6 +22,12 @@ export async function getSession(request: FastifyRequest) {
 }
 
 export async function requireUser(request: FastifyRequest, reply: FastifyReply) {
+  // API key auth (Phase 2, row 1): a request authenticated with a valid
+  // in-scope key (preHandler hook in app.ts) proceeds AS the creating user.
+  // The cookie session path below is unchanged.
+  if (request.apiKeyAuth) {
+    return { user: request.apiKeyAuth.user, apiKey: request.apiKeyAuth }
+  }
   const session = await getSession(request)
   if (!session) {
     reply.code(401).send({ error: 'unauthorized', message: 'not signed in' })

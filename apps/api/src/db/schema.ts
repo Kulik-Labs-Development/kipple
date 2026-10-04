@@ -369,6 +369,28 @@ export const notifications = pgTable('notifications', {
   createdAt: createdAt(),
 })
 
+// API keys (Phase 2, row 1). A key authenticates requests AS its creating
+// user (user_id) — all RBAC + client scoping apply unchanged. Only the
+// sha256 hex of the full key and a 12-char display prefix are stored; the
+// full key exists only in the 201 create response, exactly once. Scopes
+// (shared API_KEY_SCOPES) gate which route groups the key may reach.
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    keyHash: text('key_hash').notNull().unique(),
+    keyPrefix: text('key_prefix').notNull(),
+    scopes: text('scopes').array().notNull().default(sql`'{}'::text[]`),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [unique().on(table.userId, table.name)],
+)
+
 export const audit = pgTable('audit', {
   id: text('id').primaryKey(),
   actorId: text('actor_id').references(() => users.id, { onDelete: 'set null' }),

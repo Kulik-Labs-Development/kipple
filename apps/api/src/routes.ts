@@ -14,6 +14,7 @@ import { registerHoldRoutes } from './routes/holds'
 import { registerEmailRoutes } from './routes/email'
 import { registerEventRoutes } from './routes/events'
 import { registerInviteRoutes } from './routes/invites'
+import { registerKeyRoutes } from './routes/keys'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
 import { registerPortalRoutes } from './routes/portal'
 import { registerProfileRoutes } from './routes/profile'
@@ -145,7 +146,10 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
         ...session.user,
         mfaRequired: prefs?.mfaRequired ?? session.user.mfaRequired,
       },
-      sessionId: session.session.id,
+      // /api/me is unreachable with an API key (it is outside the key scope
+      // table), so the key-auth union branch never reaches this line — the
+      // narrowing keeps the types honest.
+      sessionId: 'session' in session ? session.session.id : '',
       instanceTheme,
       agentDefaultTheme,
       instanceName,
@@ -185,6 +189,7 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerEmailRoutes(app)
   await registerEventRoutes(app)
   await registerInviteRoutes(app)
+  await registerKeyRoutes(app)
   await registerNotificationRoutes(app)
   await registerPresenceRoutes(app)
   await registerPortalRoutes(app)

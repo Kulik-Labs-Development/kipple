@@ -5,6 +5,7 @@ import fastifyStatic from '@fastify/static'
 import Fastify, { type FastifyInstance } from 'fastify'
 import { toErrorBody } from '@kipple/shared'
 import { and, eq } from 'drizzle-orm'
+import { authWithApiKey, scopeForRoute } from './api-keys'
 import { getSession } from './access'
 import { db } from './db'
 import { twoFactor, users } from './db/schema'
@@ -64,6 +65,36 @@ export async function buildApp(): Promise<FastifyInstance> {
     return reply
       .code(403)
       .send({ error: 'mfa_required', message: 'set up two-factor authentication to continue' })
+  })
+
+  // Bearer API key auth (Phase 2, row 1). Runs for every /api/* request:
+  // no `Authorization: Bearer kip_...` header = the cookie session path is
+  // untouched; a dead/unknown/expired key = 401 (house error shape); a valid
+  // key = the request proceeds as the creating user, gated to the key's
+  // scopes (route outside the scopes = 403). Session-authenticated requests
+  // are never affected.
+  app.addHook('preHandler', async (request, reply) => {
+    if (!request.url.startsWith('/api/')) return
+    const auth = await authWithApiKey(request)
+    if (auth.status === 'unauthorized') {
+      return reply
+        .code(401)
+        .send({ error: 'unauthorized', message: 'invalid api key' })
+    }
+    if (auth.status !== 'ok') return
+    const scope = scopeForRoute(request.method, request.url)
+    if (!scope || !auth.scopes.includes(scope)) {
+      return reply.code(403).send({
+        error: 'forbidden',
+        message: `api key is missing the required scope for this route${scope ? ` (${scope})` : ''}`,
+      })
+    }
+    request.apiKeyAuth = {
+      user: auth.user,
+      keyId: auth.keyId,
+      keyName: auth.keyName,
+      scopes: auth.scopes,
+    }
   })
 
   await registerAuthRoutes(app)
