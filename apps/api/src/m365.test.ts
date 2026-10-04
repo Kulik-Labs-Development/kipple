@@ -13,6 +13,7 @@ type App = Awaited<ReturnType<typeof buildApp>>
 // must never appear anywhere except as this constant in the test source.
 const TENANT = '99999999-8888-7777-6666-555555555555'
 const CLIENT = '00000000-1111-2222-3333-444444444444'
+const CLIENT2 = 'cccccccc-0000-1111-2222-333333333333'
 const SECRET = 'ci-fake-m365-secret'
 const SENDER = 'helpdesk@ci-kipple.test'
 
@@ -313,7 +314,7 @@ describe('m365 outbound mail provider (api e2e)', () => {
         provider: 'm365',
         m365: {
           tenantId: TENANT,
-          clientId: CLIENT,
+          clientId: CLIENT2,
           senderAddress: SENDER,
           mode: 'graph',
         },
@@ -336,5 +337,65 @@ describe('m365 outbound mail provider (api e2e)', () => {
       payload: { to: 'ops@ci-kipple.test' },
     })
     expect(testRes.statusCode).toBe(400)
+  })
+
+  it('a blank client secret with the same identity keeps the stored secret', async () => {
+    // First save stores the secret encrypted.
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/email',
+      headers: { cookie },
+      payload: {
+        provider: 'm365',
+        m365: {
+          tenantId: TENANT,
+          clientId: CLIENT,
+          clientSecret: SECRET,
+          senderAddress: SENDER,
+          mode: 'graph',
+        },
+      },
+    })
+    expect(first.statusCode).toBe(200)
+
+    // The panel cannot read the masked secret back, so a re-save of the same
+    // identity with a blank secret must keep the stored credential.
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/email',
+      headers: { cookie },
+      payload: {
+        provider: 'm365',
+        m365: {
+          tenantId: TENANT,
+          clientId: CLIENT,
+          senderAddress: SENDER,
+          mode: 'graph',
+        },
+      },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toMatchObject({ configured: true, provider: 'm365', m365: { hasSecret: true } })
+
+    const [row] = await db.select().from(settings).where(eq(settings.key, 'email'))
+    const value = row.value as { m365?: { clientSecret: string } }
+    expect(value.m365?.clientSecret).toMatch(/^enc1:/)
+
+    // A different identity with a blank secret clears it.
+    const cleared = await app.inject({
+      method: 'POST',
+      url: '/api/email',
+      headers: { cookie },
+      payload: {
+        provider: 'm365',
+        m365: {
+          tenantId: TENANT,
+          clientId: CLIENT2,
+          senderAddress: SENDER,
+          mode: 'graph',
+        },
+      },
+    })
+    expect(cleared.json()).toMatchObject({ configured: false, provider: null, m365: { hasSecret: false } })
   })
 })

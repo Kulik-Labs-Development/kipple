@@ -89,31 +89,48 @@ export async function loadEmailSettings(): Promise<EmailSettings | null> {
 }
 
 export async function saveEmailSettings(input: EmailSettings, actorId: string): Promise<void> {
+  // The settings panel can only read masked credentials (hasAuth/hasSecret),
+  // so a blank password/client secret on re-save means "keep what is stored"
+  // — but only when the identity is unchanged (smtp: same username; m365:
+  // same client + tenant). A different identity, or a missing auth block,
+  // stores '' (unconfigured). The stored value is already enc1:, so it is
+  // carried over as-is, never re-encrypted.
+  const stored = await loadStoredEmailSettings()
+  const inputSmtpAuth = input.smtp?.auth
+  const storedSmtpAuth = stored?.smtp?.auth
+  const smtpPassword =
+    inputSmtpAuth && inputSmtpAuth.password
+      ? encryptAtRest(inputSmtpAuth.password, authSecret())
+      : inputSmtpAuth &&
+          storedSmtpAuth &&
+          storedSmtpAuth.username === inputSmtpAuth.username &&
+          isEncryptedValue(storedSmtpAuth.password)
+        ? storedSmtpAuth.password
+        : ''
+  const storedM365 = stored?.m365
+  const m365Secret =
+    input.m365?.clientSecret
+      ? encryptAtRest(input.m365.clientSecret, authSecret())
+      : input.m365 &&
+          storedM365 &&
+          storedM365.clientId === input.m365.clientId &&
+          storedM365.tenantId === input.m365.tenantId &&
+          isEncryptedValue(storedM365.clientSecret)
+        ? storedM365.clientSecret
+        : ''
   const value = {
     ...input,
     smtp: input.smtp
       ? {
           ...input.smtp,
           auth: input.smtp.auth
-            ? {
-                username: input.smtp.auth.username,
-                password: input.smtp.auth.password
-                  ? encryptAtRest(input.smtp.auth.password, authSecret())
-                  : '',
-              }
+            ? { username: input.smtp.auth.username, password: smtpPassword }
             : null,
         }
       : null,
     // Same enc1: seam as the SMTP password: the client secret is encrypted at
-    // rest; a blank secret (unset / "leave unchanged" on re-save) stores ''.
-    m365: input.m365
-      ? {
-          ...input.m365,
-          clientSecret: input.m365.clientSecret
-            ? encryptAtRest(input.m365.clientSecret, authSecret())
-            : '',
-        }
-      : null,
+    // rest (or carried over from the stored row on a blank re-save).
+    m365: input.m365 ? { ...input.m365, clientSecret: m365Secret } : null,
   }
   await db
     .insert(settings)

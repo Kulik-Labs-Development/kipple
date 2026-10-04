@@ -46,7 +46,9 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     const parsed = EmailSettings.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
     await saveEmailSettings(parsed.data, session.user.id)
-    return describeEmailSettings(parsed.data)
+    // Describe what is actually stored: a blank password/secret on re-save
+    // resolves to the stored credential, and the response must say so.
+    return describeEmailSettings(await loadEmailSettings())
   })
 
   app.post('/api/email/test-connection', async (request, reply) => {
