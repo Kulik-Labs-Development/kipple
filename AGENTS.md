@@ -110,8 +110,10 @@ Phase 2 is in progress: row 1 (REST API v1 + MCP) is live — API keys
 enum over the staff route groups in `@kipple/shared`), OpenAPI 3.1 at
 `GET /api/openapi.json` generated from the shared Zod schemas, and the MCP
 server (`apps/mcp`: 7 tools, stdio + streamable HTTP, talks to the REST API
-with `KIPPLE_API_URL` + `KIPPLE_API_KEY`). M365 mail, webhooks, and
-integrations remain. Update this file as each phase lands.
+with `KIPPLE_API_URL` + `KIPPLE_API_KEY`). The Microsoft 365 outbound mail
+provider (Graph + SMTP-OAuth2) is on branch `feat/m365-mail-provider`
+(PR in flight). Webhooks and integrations remain. Update this file as
+each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
 (active plan, what's live, open questions) and update it — including a dated

@@ -49,6 +49,59 @@ All configuration is via env vars — there is no config file to mount.
 | `KIPPLE_API_KEY` | yes (mcp) | — | A Kipple API key (superuser "API & MCP" panel) — scopes the MCP server's reach |
 
 ## First run
+| `ATTACHMENT_MAX_MB` | no | `25` | Per-file upload cap (MB) for attachments on ticket updates |
+
+## Outbound mail — Microsoft 365 (Exchange Online)
+
+Outbound mail (ticket updates, magic links, invites, test sends) is
+configured in the web UI: **System → mail**. Microsoft 365 supports two
+delivery modes:
+
+- **Microsoft Graph** (default) — sends via the Graph `sendMail` API.
+- **SMTP (OAuth2 bearer)** — sends via Exchange Online SMTP
+  (`smtp-mail.outlook.com:587`) with an OAuth2 access token instead of a
+  password.
+
+### Entra app registration
+
+1. [Microsoft Entra admin center](https://entra.microsoft.com) → **Identity
+   → Applications → App registrations → New registration**. Any name (e.g.
+   `kipple-outbound`); supported account types = your tenant only.
+2. **Certificates & secrets → New client secret**: add a secret and **copy
+   the value immediately** — it is only shown once. That value is the client
+   secret Kipple stores encrypted at rest.
+3. **API permissions → Add a permission → Microsoft Graph → Application
+   permissions**: grant **`Mail.Send`**, then **Grant admin consent** for
+   your tenant. This covers the Graph mode.
+4. **SMTP mode only** — Exchange Online is a separate service principal, not
+   Graph: **Add a permission → search “Exchange Online” → Application
+   permissions**: grant **`SMTP.SendAsApp`**, then **Grant admin consent**
+   again. Also enable OAuth2 SMTP authentication on the sender mailbox:
+
+   ```powershell
+   # Exchange Online PowerShell (or M365 admin center → Recipients → mailbox
+   # → Email features → “Allow authenticated SMTP clients using OAuth”)
+   Set-Mailbox -Identity helpdesk@example.com -SmtpAuthAcceptanceOAuth2 $true
+   ```
+
+### Where the ids live
+
+- **Tenant (directory) ID** — Entra admin center → **Identity → Properties**,
+  or the app registration’s Overview page (“Directory (tenant) ID”).
+- **Client (application) ID** — app registration → **Overview**
+  (“Application (client) ID”).
+
+### Sender address
+
+The sender is a real mailbox UPN (e.g. `helpdesk@example.com`) that the app
+may send as. In the panel, set the provider to *microsoft 365*, paste the
+tenant + client ids and the secret, set the sender and the delivery mode,
+**save**, then **test connection** (Graph: fetches a token and probes the
+sender; SMTP: performs the OAuth2 handshake), and a **test send** to a real
+inbox. Inbound mail for the same address stays plain IMAP (IMAP settings,
+unchanged).
+
+## First run
 
 Open `PUBLIC_URL` in a browser: the setup wizard creates the owner account
 (which becomes the superuser) and sets the instance name. Signups stay closed

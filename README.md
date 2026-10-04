@@ -128,7 +128,7 @@ it doesn't belong.
 |---|---|---|
 | **0 — Foundations** | Monorepo, CI/CD + GHCR images, schema + auth (MFA, setup wizard, RBAC), setup/login/workspace screens | **done** |
 | **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine, attachments | **done** (all 18 rows) |
-| **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | in progress (REST v1 + MCP live) |
+| **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | in progress (REST v1 + MCP + M365 mail live) |
 | **3 — Power features** | Assets, reports, SSO (OIDC/SAML), notification streams, CSAT, osTickets importer | planned |
 | **4 — Productization** | License decision, docs site, demo instance, Helm — deliberately last | deferred |
 

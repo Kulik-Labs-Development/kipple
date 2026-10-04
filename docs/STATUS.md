@@ -19,10 +19,12 @@ pre-close warning, issue #30, shipped 09-03), staff per-client access
 restriction (row 15), agent invites (row 16), client self-registration
 (row 17), and attachments v2 (row 18 — tus uploads + S3 adapter).
 Phase 1 is complete. Phase 2 is in progress: row 1 (REST API v1 + MCP)
-is live on `feat/rest-api-v1-mcp` — public REST API with scoped API keys,
-OpenAPI 3.1 served from the shared Zod schemas, and the real MCP server
-(stdio + streamable HTTP, 7 core tools over the REST API). Phase 2
-continues with M365 mail, webhooks, and the integration providers.
+is live — public REST API with scoped API keys, OpenAPI 3.1 served
+from the shared Zod schemas, and the real MCP server (stdio +
+streamable HTTP, 7 core tools over the REST API). The Microsoft 365
+outbound mail provider (Graph + SMTP-OAuth2) is on branch
+`feat/m365-mail-provider` (PR in flight). Phase 2 continues with
+webhooks and the integration providers.
 
 Update composers (workspace + portal) are now a rich text editor
 (TipTap): headings, lists, code, quotes, links, image embeds by URL, font
@@ -119,7 +121,10 @@ size — sanitized HTML in the web timeline, plain-text email egress.
    /api/email` (settings, masked), `POST /api/email/test-connection`,
    `GET /api/outbox` (filterable activity log), `GET /api/outbox/provider`
    (status), `POST /api/outbox/test` (one-click test send),
-   `POST /api/outbox/:id/retry`. M365/Google providers = Phase 2
+   `POST /api/outbox/:id/retry`. M365 provider on
+   `feat/m365-mail-provider` (graph + smtp-oauth2 modes, zero-dep token
+   client, clientSecret enc1: at rest, provider dispatch + masked reads);
+   Google Workspace = Phase 2
  - Email inbound (§5.1): worker IMAP IDLE loop (imapflow 1.7.6,
     `mailboxOpen`/`fetchAll`/`idle`/`exists` events) with catch-up scan of
     unread (capped 100) + live `exists` pickup + reconnect backoff 5s→5min;
@@ -283,7 +288,7 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 2 | Client scoping in query layer + mandatory client-scoping tests (contact users only ever see their own client's data) | done |
 | 3 | Audit log on all mutations | done |
 | 4 | `users.contact_id` link so portal users map to contact records | done |
-| 5 | Email outbound: provider queue (§5b) — generic SMTP first, then M365 OAuth2 (adoption gate) | done (SMTP; M365/Google = Phase 2) |
+| 5 | Email outbound: provider queue (§5b) — generic SMTP first, then M365 OAuth2 (adoption gate) | done (SMTP; M365 on `feat/m365-mail-provider`; Google = Phase 2) |
 | 6 | Email inbound: worker IMAP IDLE (imapflow) + mailparser, Message-ID dedupe, thread matching (References → alias → subject tag → contact), no match → new ticket | done |
 | 7 | Agent workspace UI: queue, ticket detail with update timeline, reply, status/priority/assign/tags | done (SLA timers arrive with item 10) |
 | 8 | Client portal + magic-link login for contacts (portal users hard-scoped to their clients) | done |
@@ -312,6 +317,58 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   the TypeScript rewrite whose only breaking change is a Node 20 floor — the
   repo runs node 22) + the matching `Transporter` type import in the SMTP
   provider. Full gate green (366 tests).
+
+- **2026-10-04 (Microsoft 365 outbound mail provider — Graph + SMTP-OAuth2, settings panel)** —
+  Branch `feat/m365-mail-provider` (off main `9646ca9`, PR in flight at the
+  time of writing). Phase 2, row 1 of the plan (PLAN §5b continuation):
+  Microsoft 365 as a second outbound provider, both delivery modes. Shared:
+  `M365EmailConfig` (tenant/client Entra GUIDs, clientSecret, senderAddress,
+  mode `graph|smtp` default graph) added to `EmailSettings` —
+  `provider: 'smtp' | 'm365'` defaulting to smtp, fully back-compatible
+  (legacy rows read as smtp, tested); `StoredM365EmailConfig` (clientSecret at
+  rest) and a new `outboundSender(settings)` helper — the single "active
+  provider" rule now used by delivery, magic links, invites, and the outbox
+  probes. Mail: `packages/mail/src/providers/m365.ts` — zero-dependency
+  client-credentials token client (node:fetch; token cache with 60s refresh
+  margin + in-flight dedupe; token URL
+  `login.microsoftonline.com/{tenant}/oauth2/v2.0/token`, scope =
+  `{resource}/.default` — flagged: the client-credentials contract scope, not
+  offline_access). Graph mode POSTs `/users/{sender}/sendMail` with an
+  in-house-built MIME (headers, RFC2047 B-encoding for non-ASCII, CRLF);
+  SMTP mode = Exchange Online `smtp-mail.outlook.com:587` over nodemailer
+  OAuth2 (single-use transport per send, bearer via `provisionCallback` — the
+  token never enters the transport options). Error mapping: graph 401→535 /
+  403+404→550 / 429+5xx retryable; token 4xx→535 permanent / 5xx retryable.
+  testConnection: graph = token + sender probe (403 = ok-with-note, because a
+  Mail.Send-only app cannot read `/users/{sender}`), smtp = XOAUTH2
+  handshake. API: the client secret rides the same enc1: AES-256-GCM seam as
+  the SMTP password (masked on GET as `hasSecret`), provider dispatch, and
+  `email_outbox.provider` (defaults 'smtp'). Keep-credential semantics
+  (decide-and-flag): a blank password/client secret on re-save KEEPS the
+  stored credential when the identity is unchanged (smtp: same username;
+  m365: same client + tenant) — the panel can only read masked flags, so a
+  save-after-provider-toggle must not wipe; a different identity clears it.
+  `POST /api/email` now describes the persisted row (not the input) so the
+  returned flags reflect the resolved secret. Web: MailManager panel (System
+  → mail, previously an honest stub) — provider toggle, full SMTP + M365
+  forms, per-mode Entra helper text (Mail.Send application permission + admin
+  consent; SMTP mode adds Exchange Online `SMTP.SendAsApp` +
+  `SmtpAuthAcceptanceOAuth2` on the mailbox), test connection, test send
+  through the saved-config outbox; secrets start blank with a "leave blank to
+  keep the stored value" hint; every string in the typed i18n catalog. Docs:
+  DEPLOYMENT.md recipe (app registration, both permission sets, where the ids
+  live, sender = the mailbox UPN) + STATUS/README/AGENTS updates. Scope
+  decisions (flagged): the PLAN setup-WIZARD step is deferred — v1 is panel
+  helper text + DEPLOYMENT.md; inbound stays IMAP; zero new dependencies.
+  Tests: shared 12 (settings shape + back-compat + outboundSender), mail 21
+  (token client, graph send, live XOAUTH2 handshake against a local
+  smtp-server, error mapping, B-encoding, testConnection), api 8 e2e
+  (back-compat read, enc1: at rest, masked reads, GUID validation,
+  test-connection dispatch, rejected secret, test send → delivered, no-secret
+  = unconfigured, keep-on-blank-re-save), web 49 (lib suite — the panel is
+  presentational; the house has no render tests). Full gate green, full log
+  read: lint clean, typecheck 7/7, tests shared 54 / mail 51 / api 250 /
+  web 49 / ui 3, build 4/4.
 
 - **2026-10-03 (Phase 2 row 1 — REST API v1 + MCP server, branch `feat/rest-api-v1-mcp`)** —
   The public API is now key-authenticated and documented. (K1) `api_keys`
