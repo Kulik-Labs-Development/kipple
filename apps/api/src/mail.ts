@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Queue } from 'bullmq'
 import pino from 'pino'
 import {
+  createM365Provider,
   createSmtpProvider,
   deliverOutbox,
   type DeliverResult,
@@ -18,6 +19,7 @@ import {
   htmlToText,
   isEncryptedValue,
   isHtmlBody,
+  outboundSender,
 } from '@kipple/shared'
 import { desc, eq, ilike } from 'drizzle-orm'
 import { logAudit } from './audit'
@@ -50,8 +52,8 @@ function authSecret(): string {
   return secret
 }
 
-// The stored settings carry the SMTP password ciphertext; the provider needs
-// the plaintext, so loading always decrypts.
+// The stored settings carry the SMTP password + M365 client secret as
+// ciphertexts; the provider needs the plaintext, so loading always decrypts.
 export async function loadStoredEmailSettings(): Promise<StoredEmailSettings | null> {
   const [row] = await db
     .select({ value: settings.value })
@@ -66,14 +68,24 @@ export async function loadEmailSettings(): Promise<EmailSettings | null> {
   const stored = await loadStoredEmailSettings()
   if (!stored) return null
   const smtp = stored.smtp
-  if (!smtp?.auth?.password || !isEncryptedValue(smtp.auth.password)) return stored
-  return {
-    ...stored,
-    smtp: {
+  const m365 = stored.m365
+  if (
+    (!smtp?.auth?.password || !isEncryptedValue(smtp.auth.password)) &&
+    (!m365?.clientSecret || !isEncryptedValue(m365.clientSecret))
+  ) {
+    return stored
+  }
+  const loaded: EmailSettings = { ...stored }
+  if (smtp?.auth?.password && isEncryptedValue(smtp.auth.password)) {
+    loaded.smtp = {
       ...smtp,
       auth: { ...smtp.auth, password: decryptAtRest(smtp.auth.password, authSecret()) },
-    },
+    }
   }
+  if (m365?.clientSecret && isEncryptedValue(m365.clientSecret)) {
+    loaded.m365 = { ...m365, clientSecret: decryptAtRest(m365.clientSecret, authSecret()) }
+  }
+  return loaded
 }
 
 export async function saveEmailSettings(input: EmailSettings, actorId: string): Promise<void> {
@@ -92,24 +104,40 @@ export async function saveEmailSettings(input: EmailSettings, actorId: string): 
             : null,
         }
       : null,
+    // Same enc1: seam as the SMTP password: the client secret is encrypted at
+    // rest; a blank secret (unset / "leave unchanged" on re-save) stores ''.
+    m365: input.m365
+      ? {
+          ...input.m365,
+          clientSecret: input.m365.clientSecret
+            ? encryptAtRest(input.m365.clientSecret, authSecret())
+            : '',
+        }
+      : null,
   }
   await db
     .insert(settings)
     .values({ key: 'email', value })
     .onConflictDoUpdate({ target: settings.key, set: { value } })
   await logAudit(actorId, 'email.settings.update', 'setting', 'email', {
+    provider: input.provider,
     host: input.smtp?.host ?? null,
     from: input.smtp?.from ?? null,
     hasAuth: Boolean(input.smtp?.auth?.username),
+    m365Mode: input.m365?.mode ?? null,
   })
 }
 
 // Masked view of the settings for the API: credentials never leave the DB.
+// "configured" follows the ACTIVE provider (a stored smtp config does not
+// count when the provider is m365, and vice versa); the client secret is
+// exposed as a boolean flag only, the same way the SMTP password is.
 export function describeEmailSettings(settingsValue: EmailSettings | null) {
+  const sender = settingsValue ? outboundSender(settingsValue) : null
   return {
-    configured: Boolean(settingsValue?.smtp),
+    configured: Boolean(sender),
     domain: settingsValue?.domain ?? 'kipple.local',
-    provider: settingsValue?.smtp ? settingsValue.provider : null,
+    provider: sender ? settingsValue?.provider : null,
     smtp: settingsValue?.smtp
       ? {
           host: settingsValue.smtp.host,
@@ -119,6 +147,15 @@ export function describeEmailSettings(settingsValue: EmailSettings | null) {
           from: settingsValue.smtp.from,
           fromName: settingsValue.smtp.fromName ?? '',
           hasAuth: Boolean(settingsValue.smtp.auth?.username),
+        }
+      : null,
+    m365: settingsValue?.m365
+      ? {
+          tenantId: settingsValue.m365.tenantId,
+          clientId: settingsValue.m365.clientId,
+          senderAddress: settingsValue.m365.senderAddress,
+          mode: settingsValue.m365.mode,
+          hasSecret: Boolean(settingsValue.m365.clientSecret),
         }
       : null,
   }
@@ -179,13 +216,16 @@ export function describeImapSettings(settingsValue: ImapSettings | null) {
   }
 }
 
-// Provider registry. Phase 1 ships generic SMTP; M365/Google land in Phase 2.
+// Provider registry: dispatch on the settings' active provider. The smtp
+// path is byte-identical to the Phase 1 wiring; m365 needs a client secret
+// to fetch a token, so a saved m365 config without one = not configured.
 export function providerFromSettings(settingsValue: EmailSettings): MailProvider {
-  if (!settingsValue.smtp) throw new Error('email_not_configured')
-  switch (settingsValue.provider) {
-    case 'smtp':
-      return createSmtpProvider(settingsValue.smtp)
+  if (settingsValue.provider === 'm365') {
+    if (!settingsValue.m365?.clientSecret) throw new Error('email_not_configured')
+    return createM365Provider(settingsValue.m365)
   }
+  if (!settingsValue.smtp) throw new Error('email_not_configured')
+  return createSmtpProvider(settingsValue.smtp)
 }
 
 export interface EnqueueOutboxInput {
@@ -197,6 +237,8 @@ export interface EnqueueOutboxInput {
   body: string
   replyTo?: string | null
   messageId: string
+  /** Transport that will deliver (logged on the outbox row). */
+  provider?: 'smtp' | 'm365'
 }
 
 // Persist the outbox row first (it is the audit log), then trigger the
@@ -216,7 +258,9 @@ export async function enqueueOutbox(input: EnqueueOutboxInput): Promise<string> 
     body: isHtmlBody(input.body) ? htmlToText(input.body) : input.body,
     replyTo: input.replyTo ?? null,
     messageId: input.messageId,
-    provider: 'smtp',
+    // The outbox log records the transport that will actually deliver, so
+    // the activity log is filterable per provider.
+    provider: input.provider ?? 'smtp',
   })
   try {
     await (await getQueue()).add(
@@ -272,10 +316,11 @@ export async function sendMagicLinkEmail(email: string, url: string): Promise<vo
   const instanceName = ((instanceRow?.value as { name?: string } | null) ?? {}).name ?? 'Kipple'
   const emailSettings = await loadEmailSettings()
   const domain = emailSettings?.domain ?? 'kipple.local'
+  const sender = emailSettings ? outboundSender(emailSettings) : null
   await enqueueOutbox({
     to: user.email,
-    from: emailSettings?.smtp?.from ?? `no-reply@${domain}`,
-    fromName: emailSettings?.smtp?.fromName ?? instanceName,
+    from: sender?.from ?? `no-reply@${domain}`,
+    fromName: sender?.fromName ?? instanceName,
     subject: `Sign in to ${instanceName}`,
     body: [
       `Hi ${user.name || 'there'},`,
@@ -304,10 +349,11 @@ export async function sendInviteEmail(email: string, role: string, url: string):
   const instanceName = ((instanceRow?.value as { name?: string } | null) ?? {}).name ?? 'Kipple'
   const emailSettings = await loadEmailSettings()
   const domain = emailSettings?.domain ?? 'kipple.local'
+  const sender = emailSettings ? outboundSender(emailSettings) : null
   await enqueueOutbox({
     to: email,
-    from: emailSettings?.smtp?.from ?? `no-reply@${domain}`,
-    fromName: emailSettings?.smtp?.fromName ?? instanceName,
+    from: sender?.from ?? `no-reply@${domain}`,
+    fromName: sender?.fromName ?? instanceName,
     subject: `You're invited to ${instanceName}`,
     body: [
       'Hi there,',
@@ -431,26 +477,29 @@ export async function resolveClientContactEmail(
 }
 
 // Enqueue the client-facing email for a staff-authored public update.
-// No recipient configured (no email settings, no contact email) = no-op:
-// nothing is auto-sent, and there is no template layer in Phase 1.
+// No recipient configured (active provider not configured, no contact
+// email) = no-op: nothing is auto-sent.
 export async function queueTicketReply(input: {
   ticket: { id: string; number: number; subject: string; clientId: string; alias: string | null }
   body: string
   isReply: boolean
 }): Promise<string | null> {
   const settingsValue = await loadEmailSettings()
-  if (!settingsValue?.smtp) return null
+  if (!settingsValue) return null
+  const sender = outboundSender(settingsValue)
+  if (!sender) return null
   const recipient = await resolveClientContactEmail(input.ticket.clientId)
   if (!recipient) return null
   const id = await enqueueOutbox({
     ticketId: input.ticket.id,
     to: recipient.email,
-    from: settingsValue.smtp.from,
-    fromName: settingsValue.smtp.fromName || null,
+    from: sender.from,
+    fromName: sender.fromName,
     subject: `${input.isReply ? 'Re: ' : ''}[KIP-${input.ticket.number}] ${input.ticket.subject}`,
     body: input.body,
     replyTo: input.ticket.alias,
     messageId: `<${randomUUID()}@${settingsValue.domain}>`,
+    provider: settingsValue.provider,
   })
   log.info({ outboxId: id, ticketId: input.ticket.id, to: recipient.email }, 'outbox enqueued')
   return id
