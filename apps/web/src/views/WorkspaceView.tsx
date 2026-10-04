@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { agentThemes, type ThemeId } from '@kipple/shared/themes'
+import { ApiKeysManager } from '../components/ApiKeysManager'
 import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { DefaultsManager } from '../components/DefaultsManager'
@@ -641,6 +642,7 @@ export function WorkspaceView({
               />
             )}
             {systemSection === 'holds' && <HoldsManager onClose={closeSystem} embedded />}
+            {systemSection === 'api' && <ApiKeysManager onClose={closeSystem} embedded />}
           </div>
         ) : view === 'clients' ? (
           <div className="flex min-h-0 flex-1 bg-ink">

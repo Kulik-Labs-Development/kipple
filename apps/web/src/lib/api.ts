@@ -334,6 +334,29 @@ export function clientLogoSrc(client: {
   return `/api/clients/${client.id}/logo`
 }
 
+export interface ApiKeyRow {
+  id: string
+  name: string
+  prefix: string
+  scopes: string[]
+  createdAt: string
+  lastUsedAt: string | null
+  expiresAt: string | null
+  revokedAt: string | null
+}
+
+export const API_KEY_SCOPES = [
+  'tickets:read',
+  'tickets:write',
+  'clients:read',
+  'clients:write',
+  'contacts:read',
+  'contacts:write',
+  'time:read',
+  'time:write',
+] as const
+export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]
+
 export const api = {
   me: () => request<MeResponse>('/api/me'),
   listClients: () => request<ClientSummary[]>('/api/clients'),
@@ -633,4 +656,13 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ presence }),
     }),
+  // API keys (Phase 2 row 1, superuser). createApiKey's response carries the
+  // full key EXACTLY ONCE — never persisted anywhere else.
+  listApiKeys: () => request<ApiKeyRow[]>('/api/keys'),
+  createApiKey: (body: { name: string; scopes: string[]; expiresAt?: string | null }) =>
+    request<ApiKeyRow & { key: string }>('/api/keys', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  revokeApiKey: (id: string) => request<ApiKeyRow>(`/api/keys/${id}`, { method: 'DELETE' }),
 }

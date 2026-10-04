@@ -17,9 +17,10 @@ export type DrawerPanel =
   | 'sla'
   | 'automation'
   | 'holds'
+  | 'api'
 
 interface DrawerItem {
-  id: DrawerPanel | 'mail' | 'notifications' | 'audit' | 'api' | 'webhooks'
+  id: DrawerPanel | 'mail' | 'notifications' | 'audit' | 'webhooks'
   label: I18nKey
   stub?: 'drawer.stub' | 'drawer.phase2'
 }
@@ -62,7 +63,7 @@ const GROUPS: { id: DrawerGroupId; items: DrawerItem[] }[] = [
   {
     id: 'integrations',
     items: [
-      { id: 'api', label: 'drawer.api', stub: 'drawer.phase2' },
+      { id: 'api', label: 'drawer.api' },
       { id: 'webhooks', label: 'drawer.webhooks', stub: 'drawer.phase2' },
     ],
   },
@@ -83,7 +84,7 @@ export function SettingsDrawer({
   // Type-level backstop for the onClick path: stub rows are disabled, but the
   // id union still carries the stub ids, so narrow before onOpen.
   const isPanel = (id: DrawerItem['id']): id is DrawerPanel =>
-    id !== 'mail' && id !== 'notifications' && id !== 'audit' && id !== 'api' && id !== 'webhooks'
+    id !== 'mail' && id !== 'notifications' && id !== 'audit' && id !== 'webhooks'
 
   return (
     <aside className="drawer-slide-in flex w-[340px] shrink-0 flex-col border-r-2 border-line bg-panel">
