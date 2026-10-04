@@ -105,8 +105,13 @@ live: per-client allowed email domains, off by default. Row 18 is live in
 full (the S3 adapter was row 18 part 2). Hold states (row 14, issue #30)
 and staff per-client access restriction (row 15) shipped 2026-09-03;
 agent invites (row 16) and attachments v2 (row 18) are on main as well.
-Phase 1 is complete; Phase 2 (API + MCP + integrations) is next. Update
-this file as each phase lands.
+Phase 2 is in progress: row 1 (REST API v1 + MCP) is live — API keys
+(`api_keys`, `Bearer kip_...` acting as the creating user with a fixed scope
+enum over the staff route groups in `@kipple/shared`), OpenAPI 3.1 at
+`GET /api/openapi.json` generated from the shared Zod schemas, and the MCP
+server (`apps/mcp`: 7 tools, stdio + streamable HTTP, talks to the REST API
+with `KIPPLE_API_URL` + `KIPPLE_API_KEY`). M365 mail, webhooks, and
+integrations remain. Update this file as each phase lands.
 
 **Rolling build state:** read `docs/STATUS.md` at the start of every session
 (active plan, what's live, open questions) and update it — including a dated

@@ -42,8 +42,8 @@ settled. See §12 of the plan.)
 | | |
 |---|---|
 | **Email-native ticketing** | One support mailbox, plus-addressed ticket aliases (`support+1042@you.com`), IMAP IDLE ingest, smart thread matching, SMTP outbound (Microsoft 365 OAuth2 + Google Workspace providers in Phase 2). No subdomains, no catch-alls, works as-is on M365 and Google. |
-| **API-first** | REST API generated from the same Zod schemas that validate requests — docs, validation, and MCP tools can never drift (OpenAPI 3.1 spec, HMAC-signed webhooks, and scoped API keys land in Phase 2). |
-| **MCP server** *(Phase 2)* | Your help desk that AI agents can operate: search, read, reply, track time — over stdio or HTTP. Read-only by default; writes are an explicit opt-in. |
+| **API-first** | REST API generated from the same Zod schemas that validate requests — docs, validation, and MCP tools can never drift (OpenAPI 3.1 spec + scoped API keys are live; HMAC-signed webhooks land later in Phase 2). |
+| **MCP server** | Your help desk that AI agents can operate: 7 core tools (tickets, clients, contacts, updates) over stdio or streamable HTTP, powered by scoped API keys — what a key can do is exactly what the REST API allows it. Writes are gated by key scope + the key creator's role. |
 | **White-label everything** | Themes are pure token swaps, per-client branding overrides (theme, accent, logo), your logo on the portal. The agent app defaults to the "Console" theme: dark, monospace, keyboard-first, LED status lights. |
 | **Time tracking** | Start/stop timers per ticket, billable flags, per client/agent rollups (CSV export + Invoice Ninja draft invoices in Phase 2/3). |
 | **SLAs you can switch on** | Named policies, business-hours aware, per-ticket → per-client → instance-default precedence, escalation-ready. Off until you need it. |
@@ -104,7 +104,7 @@ it doesn't belong.
  apps/api       Fastify 5 + Drizzle + Postgres 16 — REST v1, sessions, RBAC
  apps/worker    BullMQ on Redis — IMAP ingest, SLA ticks, webhooks, syncs
  apps/web       React 19 + Vite — agent workspace (Console theme) + client portal
- apps/mcp       MCP server (stdio + streamable HTTP) over scoped API keys (Phase 2)
+ apps/mcp       MCP server (stdio + streamable HTTP) over scoped API keys
  packages/*     shared (Zod = source of truth) · ui (design tokens) · mail
 ```
 
@@ -127,8 +127,8 @@ it doesn't belong.
 | Phase | What lands | Status |
 |---|---|---|
 | **0 — Foundations** | Monorepo, CI/CD + GHCR images, schema + auth (MFA, setup wizard, RBAC), setup/login/workspace screens | **done** |
-| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine, attachments | **core complete** (13/13; backlog: holds, staff scoping, invites, self-registration, attachments v2) |
-| **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | planned |
+| **1 — Core ticketing MVP** | Clients/contacts/tickets, email conversations, portal, SLAs, time tracking, themes, magic links, rules engine, attachments | **done** (all 18 rows) |
+| **2 — API + MCP + integrations** | REST v1 (OpenAPI), webhooks, MCP server, M365 mail, UniFi Talk, BookStack, Tactical RMM | in progress (REST v1 + MCP live) |
 | **3 — Power features** | Assets, reports, SSO (OIDC/SAML), notification streams, CSAT, osTickets importer | planned |
 | **4 — Productization** | License decision, docs site, demo instance, Helm — deliberately last | deferred |
 
@@ -136,7 +136,7 @@ Exit criteria for every phase live in [docs/PLAN.md](docs/PLAN.md).
 
 ## Status
 
-**Phase 1 core complete — all 13 plan items shipped.** Live today: the full
+**Phase 1 complete — all 18 plan rows shipped.** Live today: the full
 email ticket loop (IMAP IDLE ingest → thread matching → one ticket, threaded
 SMTP replies, and zero automated emails unless you configure a rule), the
 agent workspace (queue, ticket detail, reply/notes, status/priority/assign/
@@ -145,9 +145,17 @@ superuser SLA manager, a clients + per-client portal branding manager), the
 client portal with passwordless magic-link login and per-client branding
 (theme, accent, logo), email templates + a rules engine with a "what would
 fire" dry-run, the in-app notification center, per-agent presence, and file attachments on updates (v1: multipart uploads, local disk, client-scoped).
-Remaining Phase 1 scope (tracked in the status doc): hold states with auto-close,
-staff per-client restriction, agent invites, optional domain-gated client
-self-registration, and attachments v2 (chunked/tus uploads + S3).
+Hold states with auto-close, staff per-client access restriction, agent
+invites, domain-gated client self-registration, and attachments v2 (chunked/
+tus uploads + S3) all shipped — Phase 1 is complete (all 18 plan rows).
+
+**Phase 2 row 1 is live:** the public REST API is open to scoped API keys
+(`Bearer kip_...`; a key acts as its creating user, so full RBAC + client
+scoping apply and a key never elevates), the OpenAPI 3.1 spec is served at
+`/api/openapi.json` generated from the shared Zod schemas, and the MCP
+server (7 tools over stdio + streamable HTTP) dogfoods the REST API with
+the same keys. The rest of Phase 2 — M365 mail, webhooks, integrations —
+is next.
 
 Phase 0 (monorepo, CI/CD + GHCR images, schema + auth with TOTP MFA,
 setup wizard, RBAC, theme system) is complete — see the rolling build state

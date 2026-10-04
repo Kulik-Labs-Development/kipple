@@ -45,6 +45,8 @@ All configuration is via env vars — there is no config file to mount.
 | `REDIS_URL` | no | `redis://redis:6379` | |
 | `STORAGE_DIR` | no | `/app/storage` | Where attachment files live inside the api container; backed by the `storage-data` named volume |
 | `ATTACHMENT_MAX_MB` | no | `25` | Per-file upload cap (MB) for attachments on ticket updates |
+| `KIPPLE_API_URL` | no (mcp) | `http://localhost:3000` | REST API base URL for the mcp container (on the stack network: http://api:3000) |
+| `KIPPLE_API_KEY` | yes (mcp) | — | A Kipple API key (superuser "API & MCP" panel) — scopes the MCP server's reach |
 
 ## First run
 
@@ -157,6 +159,11 @@ Set `TRUST_PROXY=true` and `PUBLIC_URL=https://help.example.com` either way.
   holds the ticket-update attachment files (they are not in the database).
   Redis holds only job queues — no durable state.
 - **Logs**: pino → stdout; Portainer → stack → container → Logs.
-- **MCP server**: the `mcp` image is a stdio server (run it where the MCP
-  client lives, e.g. `docker run -i --rm --network kipple_default ghcr.io/.../mcp`);
-  it is deliberately not a stack service until it ships an HTTP transport.
+- **MCP server**: the `mcp` image speaks both transports — stdio (run it
+  where the MCP client lives, e.g. `docker run -i --rm --network
+  kipple_default -e KIPPLE_API_URL=http://api:3000 -e KIPPLE_API_KEY=kip_...
+  ghcr.io/.../mcp`) and streamable HTTP (`KIPPLE_MCP_TRANSPORT=http`,
+  `KIPPLE_MCP_HTTP_PORT` default 8080, `KIPPLE_MCP_HTTP_PATH` default
+  `/mcp`, stateless mode). It needs a Kipple API key (`KIPPLE_API_KEY`) and
+  talks to the REST API over HTTP — it never reaches in-process into the
+  app. It is still run as a standalone container, not a compose service.
