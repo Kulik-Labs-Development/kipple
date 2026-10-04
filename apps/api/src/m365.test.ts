@@ -46,7 +46,7 @@ async function wipe() {
 const fetchLog: Array<{ url: string; init: RequestInit }> = []
 let tokenStatus = 200
 let tokenBody: Record<string, unknown> = { access_token: 'ci-token', expires_in: 3600 }
-let userStatus = 200
+const userStatus = 200
 
 const stubFetch = (async (input: string | URL, init?: RequestInit): Promise<Response> => {
   const url = String(input)
