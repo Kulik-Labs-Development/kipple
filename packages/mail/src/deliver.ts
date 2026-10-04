@@ -1,4 +1,4 @@
-import type { EmailSettings } from '@kipple/shared'
+import { outboundSender, type EmailSettings } from '@kipple/shared'
 import type { MailProvider } from './providers'
 
 // Delivery state machine for one email_outbox row. The DB row is the source
@@ -83,7 +83,10 @@ export async function deliverOutbox(
     await deps.patchRow(outboxId, { status: 'failed', error: `settings: ${reason}` })
     return { action: 'failed', reason }
   }
-  if (!settings?.smtp) {
+  // The ACTIVE provider must have a usable config (an m365 row needs its
+  // client secret; a legacy smtp-only row is unchanged behavior). Without
+  // one there is nothing to deliver with.
+  if (!settings || outboundSender(settings) === null) {
     await deps.patchRow(outboxId, { status: 'failed', error: 'email_not_configured' })
     return { action: 'failed', reason: 'email_not_configured' }
   }
