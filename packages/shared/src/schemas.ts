@@ -223,15 +223,43 @@ export const SmtpEmailConfig = z.object({
 })
 export type SmtpEmailConfig = z.infer<typeof SmtpEmailConfig>
 
+export const M365EmailMode = z.enum(['graph', 'smtp'])
+export type M365EmailMode = z.infer<typeof M365EmailMode>
+
+// Entra ids come from the app registration ("Tenant (directory) ID" / "Application
+// (client) ID") — both GUIDs, so they are validated as such.
+const EntraGuid = z
+  .string()
+  .regex(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    'expected an Entra GUID (see the Microsoft 365 setup guide)',
+  )
+
+// Microsoft 365 outbound (Phase 2, §5b): OAuth2 client credentials — a service
+// principal with the Mail.Send app permission + admin consent. Sends either via
+// Microsoft Graph (mode 'graph') or SMTP AUTH with the OAuth2 bearer token
+// (mode 'smtp' — requires SmtpAuthAcceptanceOAuth2 enabled on the mailbox).
+// clientSecret is blank when unset/cleared on save (the stored form carries
+// the at-rest ciphertext, like the SMTP password).
+export const M365EmailConfig = z.object({
+  tenantId: EntraGuid,
+  clientId: EntraGuid,
+  clientSecret: z.string().max(4096).optional().or(z.literal('')),
+  senderAddress: z.string().email().max(254),
+  mode: M365EmailMode.default('graph'),
+})
+export type M365EmailConfig = z.infer<typeof M365EmailConfig>
+
 export const EmailSettings = z.object({
   domain: z.string().max(253).default('kipple.local'),
-  provider: z.enum(['smtp']).default('smtp'),
+  provider: z.enum(['smtp', 'm365']).default('smtp'),
   smtp: SmtpEmailConfig.nullable().optional(),
+  m365: M365EmailConfig.nullable().optional(),
 })
 export type EmailSettings = z.infer<typeof EmailSettings>
 
-// Persisted shape: the SMTP password is stored as an at-rest ciphertext
-// (enc1:...), so it is just a string here.
+// Persisted shape: the SMTP password and the M365 client secret are stored as
+// at-rest ciphertexts (enc1:...), so they are just strings here.
 export const StoredSmtpAuth = z.object({
   username: z.string().min(1).max(254),
   password: z.string(),
@@ -243,10 +271,31 @@ export const StoredSmtpEmailConfig = SmtpEmailConfig.extend({
 })
 export type StoredSmtpEmailConfig = z.infer<typeof StoredSmtpEmailConfig>
 
+export const StoredM365EmailConfig = M365EmailConfig.omit({ clientSecret: true }).extend({
+  clientSecret: z.string(),
+})
+export type StoredM365EmailConfig = z.infer<typeof StoredM365EmailConfig>
+
 export const StoredEmailSettings = EmailSettings.extend({
   smtp: StoredSmtpEmailConfig.nullable().optional(),
+  m365: StoredM365EmailConfig.nullable().optional(),
 })
 export type StoredEmailSettings = z.infer<typeof StoredEmailSettings>
+
+// The outbound sender identity derived from the ACTIVE provider's config.
+// Null when the active provider has no usable config — nothing can be sent
+// (an M365 config without a client secret is not configured).
+export function outboundSender(
+  settings: EmailSettings,
+): { from: string; fromName: string | null } | null {
+  if (settings.provider === 'm365') {
+    const m365 = settings.m365
+    if (!m365 || !m365.clientSecret) return null
+    return { from: m365.senderAddress, fromName: null }
+  }
+  if (!settings.smtp) return null
+  return { from: settings.smtp.from, fromName: settings.smtp.fromName || null }
+}
 
 // Inbound mail (IMAP) — same shape as the SMTP provider config.
 export const ImapSettings = z.object({
