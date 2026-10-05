@@ -25,6 +25,7 @@ import { registerTicketRoutes } from './routes/tickets'
 import { registerTimeRoutes } from './routes/time'
 import { registerUserRoutes } from './routes/users'
 import { registerUploadRoutes } from './routes/uploads'
+import { registerWebhookRoutes } from './routes/webhooks'
 import { seedDefaultTemplates } from './templates'
 
 async function instanceSetupRequired(): Promise<boolean> {
@@ -203,4 +204,5 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerUserRoutes(app)
   await registerInstanceUploadRoutes(app)
   await registerUploadRoutes(app)
+  await registerWebhookRoutes(app)
 }

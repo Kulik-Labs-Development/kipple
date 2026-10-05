@@ -1,6 +1,7 @@
 import { Worker } from 'bullmq'
 import pino from 'pino'
 import { createOutboxWorker } from './outbox'
+import { createWebhookWorker } from './webhooks'
 import { runIngestLoop } from './ingest'
 import { createSlaWorker, scheduleSlaTick } from './sla'
 import { createHoldWorker, scheduleHoldTick } from './holds'
@@ -19,6 +20,7 @@ const ingest = new Worker(
 )
 
 const outbox = createOutboxWorker(connection)
+const webhook = createWebhookWorker(connection)
 const sla = createSlaWorker(connection)
 const hold = createHoldWorker(connection)
 
@@ -27,6 +29,9 @@ ingest.on('failed', (job, error) => {
 })
 outbox.on('failed', (job, error) => {
   log.error({ jobId: job?.id, err: error.message }, 'outbox job failed')
+})
+webhook.on('failed', (job, error) => {
+  log.error({ jobId: job?.id, err: error.message }, 'webhook job failed')
 })
 sla.on('failed', (job, error) => {
   log.error({ jobId: job?.id, err: error.message }, 'sla tick failed')
@@ -43,4 +48,7 @@ void scheduleHoldTick(connection).catch((error) => {
   log.error({ err: error }, 'failed to schedule hold tick (redis down?)')
 })
 
-log.info({ redisUrl }, 'worker ready: email-ingest (IMAP IDLE) + email-outbox + sla tick + hold tick')
+log.info(
+  { redisUrl },
+  'worker ready: email-ingest (IMAP IDLE) + email-outbox + webhooks-deliver + sla tick + hold tick',
+)
