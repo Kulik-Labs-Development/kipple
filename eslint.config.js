@@ -4,7 +4,15 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', 'pnpm-lock.yaml'],
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.turbo/**',
+      'pnpm-lock.yaml',
+      // local agent scratch / recon dumps (untracked, never in CI)
+      'workspace_temp/**',
+      '.gate-logs/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
