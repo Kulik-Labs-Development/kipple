@@ -13,6 +13,7 @@ import { registerInstanceUploadRoutes } from './routes/instance-uploads'
 import { registerHoldRoutes } from './routes/holds'
 import { registerEmailRoutes } from './routes/email'
 import { registerEventRoutes } from './routes/events'
+import { registerInboundRoutes } from './routes/inbound'
 import { registerInviteRoutes } from './routes/invites'
 import { registerKeyRoutes } from './routes/keys'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
@@ -205,4 +206,5 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerInstanceUploadRoutes(app)
   await registerUploadRoutes(app)
   await registerWebhookRoutes(app)
+  await registerInboundRoutes(app)
 }
