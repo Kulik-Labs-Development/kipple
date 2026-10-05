@@ -1,11 +1,11 @@
 import type { SmtpEmailConfig } from '@kipple/shared'
-import nodemailer from 'nodemailer'
+import nodemailer, { type Transporter } from 'nodemailer'
 import type { MailProvider, OutboundMessage, ProviderStatus } from './types'
 
 export class SmtpProvider implements MailProvider {
   name = 'smtp'
 
-  private readonly transport: nodemailer.Transporter
+  private readonly transport: Transporter
 
   constructor(private readonly config: SmtpEmailConfig) {
     this.transport = nodemailer.createTransport({

@@ -16,7 +16,7 @@
     "@kipple/shared": "workspace:*",
     "imapflow": "^1.7.6",
     "mailparser": "^3.9.17",
-    "nodemailer": "^9.1.0"
+    "nodemailer": "^10.0.9"
   },
   "devDependencies": {
     "@types/mailparser": "^3.4.6",
