@@ -18,7 +18,11 @@ branding for the portal (row 12), attachments v1 (row 13), hold states
 pre-close warning, issue #30, shipped 09-03), staff per-client access
 restriction (row 15), agent invites (row 16), client self-registration
 (row 17), and attachments v2 (row 18 — tus uploads + S3 adapter).
-Phase 1 is complete; Phase 2 (API + MCP + integrations) is next.
+Phase 1 is complete. Phase 2 is in progress: row 1 (REST API v1 + MCP)
+is live on `feat/rest-api-v1-mcp` — public REST API with scoped API keys,
+OpenAPI 3.1 served from the shared Zod schemas, and the real MCP server
+(stdio + streamable HTTP, 7 core tools over the REST API). Phase 2
+continues with M365 mail, webhooks, and the integration providers.
 
 Update composers (workspace + portal) are now a rich text editor
 (TipTap): headings, lists, code, quotes, links, image embeds by URL, font
@@ -26,6 +30,38 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 
 ## What's live
 
+- **Public REST API v1 + MCP (Phase 2 row 1):** the REST API is open to
+  **API keys** — `api_keys` (migration 0017) stores only the sha256 hash + a
+  12-char display prefix; the full key (`kip_` + 32 random bytes base64url)
+  is returned exactly once at creation. `Authorization: Bearer kip_...`
+  resolves by hash lookup and proceeds **as the creating user** — all RBAC +
+  client scoping apply, a key never elevates; dead/unknown/expired key = 401
+  (house error shape). Scope model v1 = a small fixed scope enum over the
+  staff route groups in `@kipple/shared` (tickets/clients/contacts/time,
+  read+write pairs); every `/api` route maps to exactly one scope
+  (`apps/api/src/api-keys.ts`) and a key outside its scopes = 403 (the
+  out-of-scope=404 rule stays for contact users); unmapped routes (users,
+  email, SLA, rules, instance settings, key management, portal, setup,
+  `/api/me`) are unreachable by keys. `last_used_at` touched at most once per
+  60s per key. Superuser key management: `POST/GET/DELETE /api/keys`
+  (create = 201 + full key once, list = metadata only, delete = revoke with
+  `revoked_at`; duplicate name per user 409; audit rows `api_key.create` /
+  `api_key.revoke`; web panel in the system settings drawer, ex-stub). **OpenAPI
+  3.1** at `GET /api/openapi.json` (no auth): bearer security scheme + the key
+  routes + the clients/contacts/tickets/updates core, request/response
+  wire shapes generated from the shared Zod schemas via `zod-to-json-schema`
+  (3.0-style `nullable` normalized to the 3.1 `anyOf` form; a test pins
+  3.1-validity). **MCP server** (`apps/mcp`, real, not the scaffold): both
+  transports — stdio (default) + streamable HTTP
+  (`KIPPLE_MCP_TRANSPORT=http`, stateless mode) — and 7 tools (inputs =
+  shared Zod schemas, advertised JSON schemas generated from the same
+  objects): `list_tickets` (filters), `get_ticket`, `create_ticket`,
+  `add_update` (public/internal — internal only works with a staff key),
+  `list_clients`, `create_client`, `list_contacts`. The server talks to the
+  REST API over HTTP with `KIPPLE_API_URL` + `KIPPLE_API_KEY` — it
+  dogfoods the API, never reaches in-process into the domain layer. 37 new
+  tests (16 api e2e incl. key-scoped client-scoping, 10 shared, 9 mcp
+  incl. an in-memory transport smoke, 2 openapi).
 - Monorepo (pnpm + Turborepo); CI (lint/typecheck/test + dependency audit) +
   GHCR image builds on push
   (`ghcr.io/kulik-labs-development/kipple/{api,worker,mcp}`, public → anonymous pull);
@@ -275,7 +311,70 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   (no 9.x patch exists for the new addressparser/DNS-cache advisories; v10 is
   the TypeScript rewrite whose only breaking change is a Node 20 floor — the
   repo runs node 22) + the matching `Transporter` type import in the SMTP
-  provider. Full gate green (366 tests).- **2026-09-19 (web: New Ticket button bolder / more legible)** —
+  provider. Full gate green (366 tests).
+
+- **2026-10-03 (Phase 2 row 1 — REST API v1 + MCP server, branch `feat/rest-api-v1-mcp`)** —
+  The public API is now key-authenticated and documented. (K1) `api_keys`
+  table (hand-rolled migration `0017_api_keys`, journal `when` strictly above
+  the 0016 watermark — the migrator skips entries at or below it): id, name,
+  key_hash (sha256 hex, unique), key_prefix (first 12 chars after `kip_`),
+  scopes text[], user_id (creator, NOT NULL, cascade), created_at, expires_at,
+  last_used_at, revoked_at; unique (user_id, name) = duplicate name per user
+  409. (K2) Bearer auth parallel to the cookie session path (untouched):
+  a `preHandler` hook in `app.ts` resolves `Authorization: Bearer kip_...`
+  by hash lookup → active check (revoked/expired = 401 house shape) →
+  `requireUser` returns a key-auth session shim, so the request proceeds AS
+  THE CREATING USER with all existing RBAC + client scoping (a key never
+  elevates — tested with an agent key 403'ing on an admin-only route). Scope
+  model v1: a fixed 8-scope enum over the staff route groups in
+  `@kipple/shared` (`apiKeys.ts`); a curated route→scope table
+  (`apps/api/src/api-keys.ts`) maps every `/api` route to exactly one scope —
+  key outside its scopes = 403 (NOT 404: that rule is for contact users),
+  unmapped routes unreachable by keys; `last_used_at` throttled to one write
+  per 60s per key (documented). (K3) Superuser key management
+  (`POST/GET/DELETE /api/keys`): the full key is returned exactly once in the
+  201 (never stored, never in logs/fixtures/list/audit), DELETE revokes
+  (`revoked_at`, 409 if already), audit rows `api_key.create` /
+  `api_key.revoke`. (K4) OpenAPI 3.1 at `GET /api/openapi.json` (unauthenticated
+  — it documents the API): dep pick = `zod-to-json-schema` (the maintained
+  zod→JSON-Schema bridge; the asteasolutions fork requires a zod 4 upgrade
+  this repo isn't doing) — wire shapes generated from the shared Zod schemas,
+  paths curated (key routes + clients/contacts/tickets/updates core), bearer
+  security scheme; the lib's `openApi3` target emits 3.0-style `nullable`, so
+  a small normalizer rewrites to the 3.1 `anyOf` form and a test pins it.
+  (K5) MCP server: the 54-line scaffold is replaced. Both transports (stdio
+  default; streamable HTTP via `KIPPLE_MCP_TRANSPORT=http` + port/path env,
+  stateless mode — fresh server per request, no state to persist). 7 tools
+  (list_tickets w/ filters, get_ticket, create_ticket, add_update,
+  list_clients, create_client, list_contacts); inputs = shared Zod schemas
+  (house style), advertised schemas generated from the same objects;
+  the server is a thin HTTP client over the REST API using
+  `KIPPLE_API_URL` + `KIPPLE_API_KEY` (dogfoods K1–K4, no in-process domain
+  access). (K6) web: the "API & MCP" drawer stub is now a real superuser
+  panel (key list: name/prefix/scopes/created/last used/expires/revoked
+  state; create with scope checkboxes + optional expiry; the full key shown
+  exactly once with copy affordance + one-time warning; revoke with confirm).
+  (K7) 37 new tests: api e2e key lifecycle (create/list/revoke, 401
+  unknown/revoked/expired, scope 403s, no-mapping 403s, superuser-only
+  management, duplicate 409, RBAC-as-creator, last_used_at throttle) +
+  REQUIRED client-scoping tests for key-authenticated query routes (a
+  contact-owned key sees exactly what its session sees; cross-client 404s;
+  contact updates forced public) + shared key-helper tests + mcp unit tests
+  (tool schema validation + run() against a stubbed fetch + an in-memory
+  MCP transport smoke over the real protocol) + openapi spec tests. Gate:
+  lint/typecheck/test/build all green (api 260 tests).
+  **Flagged decisions:** (1) scope enum shape = 8 read/write pairs over the
+  staff route groups, defined in `@kipple/shared` (PLAN's "small fixed scope
+  enum" — deliberately NOT per-route granularity); (2) OpenAPI dep =
+  `zod-to-json-schema` @3.25.2 (active, standard) rather than the
+  asteasolutions fork (zod 4 peer — would force a monorepo-wide zod bump);
+  (3) MCP streamable HTTP runs stateless (no session persistence) — fine for
+  the current tool surface, revisit if streaming/server-push is needed;
+  (4) rate limiting (PLAN row) is deferred — the key scope gate + per-user
+  RBAC are the v1 security boundary; (5) interactive docs page (PLAN row,
+  Scalar) deferred — the spec is served and pinned by tests.
+
+- **2026-09-19 (web: New Ticket button bolder / more legible)** —
   Max: the workspace "+ New ticket" button was "very hard to read". It
   shared the login CTA's 10px / .22em uppercase treatment, which reads
   fine on a full-width login target but is too small on the dense top
