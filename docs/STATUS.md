@@ -263,7 +263,19 @@ size — sanitized HTML in the web timeline, plain-text email egress.
 | 18 | Attachments v2: chunked (tus) uploads + S3 adapter + editable MIME allowlist + superuser upload settings (PLAN §6b) | done |
 
 ## Recent sessions
-- **2026-09-19 (web: New Ticket button bolder / more legible)** —
+
+
+- **2026-10-05 (dep audit — CI `audit` job green again, new 2026-09 advisory batch)** —
+  `pnpm audit` clean. Lockfile-only re-resolution for the transitives:
+  undici 8.10.1→8.11.2 (jsdom), fast-uri 3.1.6→3.1.8 + 4.1.3→4.2.1 (ajv /
+  @fastify), hono 4.13.5→4.13.13 (MCP SDK), ip-address 10.7.0→10.7.3
+  (express-rate-limit), brace-expansion 1.1.18→1.1.21 + 5.0.9→5.0.12
+  (minimatch). Direct bumps inside existing ranges: fastify 5.12.1→5.12.5,
+  dompurify 3.4.14→3.4.16. One override change: nodemailer ^9.1.1→^10.0.9
+  (no 9.x patch exists for the new addressparser/DNS-cache advisories; v10 is
+  the TypeScript rewrite whose only breaking change is a Node 20 floor — the
+  repo runs node 22) + the matching `Transporter` type import in the SMTP
+  provider. Full gate green (366 tests).- **2026-09-19 (web: New Ticket button bolder / more legible)** —
   Max: the workspace "+ New ticket" button was "very hard to read". It
   shared the login CTA's 10px / .22em uppercase treatment, which reads
   fine on a full-width login target but is too small on the dense top
