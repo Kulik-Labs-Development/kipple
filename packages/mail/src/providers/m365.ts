@@ -1,5 +1,5 @@
 import type { M365EmailConfig } from '@kipple/shared'
-import nodemailer from 'nodemailer'
+import nodemailer, { type Transporter } from 'nodemailer'
 import type { MailProvider, OutboundMessage, ProviderStatus } from './types'
 
 // Microsoft 365 / Exchange Online outbound (PLAN §5b, Phase 2).
@@ -272,7 +272,7 @@ export class M365Provider implements MailProvider {
     }
   }
 
-  private async buildSmtpTransport(): Promise<nodemailer.Transporter> {
+  private async buildSmtpTransport(): Promise<Transporter> {
     const token = await this.tokenClient.accessToken()
     return nodemailer.createTransport({
       host: this.smtpHost,
@@ -301,7 +301,7 @@ export class M365Provider implements MailProvider {
 
   // @types/nodemailer types close() as void but the runtime may return a
   // promise — tolerate both.
-  private closeQuietly(transport: nodemailer.Transporter): void {
+  private closeQuietly(transport: Transporter): void {
     try {
       const result = transport.close() as unknown
       if (result instanceof Promise) void result.catch(() => undefined)
