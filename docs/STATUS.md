@@ -431,6 +431,51 @@ size — sanitized HTML in the web timeline, plain-text email egress.
   RBAC are the v1 security boundary; (5) interactive docs page (PLAN row,
   Scalar) deferred — the spec is served and pinned by tests.
 
+- **2026-10-04 (Phase 2, arc #4 — webhooks in/out: signed outbound deliveries + NMS inbound alerts → tickets)** —
+  Two-way webhook integration, one superuser panel (system settings →
+  webhooks). **Outbound** (`webhooks` + `webhook_deliveries`, migration
+  0018): hooks subscribe to the five house ticket events (the same seams the
+  rules engine listens to); the runtime-generated 32-hex secret (enc1: at
+  rest, masked in reads) HMAC-SHA256-signs every JSON delivery over the raw
+  body (`x-kipple-signature`); the delivery row is the audit log and the
+  BullMQ `webhooks-deliver` job is only the trigger (email-outbox pattern);
+  state machine 2xx = sent, any 4xx = permanent fail-fast, 5xx/network =
+  retry 30s→1h ×5; panel gets a test ping, a payload-preview-only delivery
+  list, and manual retry. **Inbound**: seven NMS sources (PRTG, Zabbix,
+  Watcher, UptimeRobot, Uptime Kuma, OnlineOrNot, custom) POST to the
+  unauthenticated `POST /api/webhooks/inbound/{source}/{secret}` — the
+  per-source secret in the URL path is the credential (constant-time
+  compare; one generic 401 for disabled/absent/wrong; 404 unknown source;
+  400 unrecognized payload; 409 while no default client is set). Pure
+  per-source parsers normalize vendor bodies (Kuma/UptimeRobot/OnlineOrNot
+  shapes source/doc-verified; Zabbix/PRTG/Watcher are contract JSON —
+  documented in `docs/DEPLOYMENT.md`, which now carries the full per-source
+  recipes incl. the request-line ceiling: the secret can appear in vendor/
+  proxy access logs, owner's call, rotation is the remedy); UptimeRobot's
+  form-encoded body is parsed from the raw request (JSON fallback). The
+  episode state machine on `alert_signatures` (unique source + target id):
+  a repeat DOWN updates the open ticket (re-open if closed, never a second
+  ticket), an UP closes it, anything else noops. Inbound tickets land on the
+  configured default client (alias, `nms:{source}` tag, severity → priority)
+  and fire no email/notifications/outbound fan-out (nothing auto-sends; also
+  avoids vendor loops). **Panel** (`WebhooksManager`, embedded drawer
+  pattern like HoldsManager): per-source enable + full URL (copy/rotate)
+  + default-client select; outbound create/enable/delete/ping + deliveries
+  with retry. Drawer: webhooks promoted from phase-2 stub. **Tests**: 13
+  outbound e2e (independent HMAC recompute vs the stored ciphertext, 4xx
+  fail-fast, 5xx backoff, sent-row idempotency, ping, preview-not-payload,
+  manual retry, RBAC, disabled-hook silence) + 21 parser fixture tests + 15
+  inbound e2e (episode lifecycle, form-encoded body, 404/401/400/409 ladder,
+  rotation, RBAC, no-fan-out with a live-hook control, and the required
+  client-scoping case for the signature→ticket lookup) + 8 shared schema
+  tests. Full gate green: lint clean, typecheck 7/7, 383 tests (api 291,
+  shared 50, web 49, mail 30, ui 3), build 4/4. Flags: migration tag 0018
+  (0017 belongs to the unmerged PR #155 branch); journal `when` chosen past
+  an orphaned row in the shared kipple_test migrations table (fresh CI DBs
+  unaffected); inbound has no body HMAC / timestamp / replay window
+  (deliberate, documented ruling); eslint ignores two untracked local dirs
+  (`workspace_temp/**`, `**/.gate-logs/**`) — inert in CI.
+
 - **2026-09-19 (web: New Ticket button bolder / more legible)** —
   Max: the workspace "+ New ticket" button was "very hard to read". It
   shared the login CTA's 10px / .22em uppercase treatment, which reads

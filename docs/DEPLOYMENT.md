@@ -203,6 +203,193 @@ docker network connect kipple_default <your-proxy-container>
 
 Set `TRUST_PROXY=true` and `PUBLIC_URL=https://help.example.com` either way.
 
+## Webhooks
+
+Two directions, one panel (superuser → system settings → **webhooks**):
+
+- **Inbound** — monitoring tools POST alerts to Kipple; each alert becomes a
+  ticket (or updates/closes the open one). Nothing is enabled until you turn
+  a source on.
+- **Outbound** — Kipple pushes signed JSON for house ticket events
+  (`ticket.created`, `ticket.status_changed`, `ticket.reply`, `ticket.updated`,
+  `ticket.hold_warning`) to URLs you register. Each hook gets a
+  runtime-generated secret; every delivery is signed with an HMAC-SHA256
+  `x-kipple-signature` header over the raw body (your receiver recomputes the
+  digest and compares it). 4xx responses are permanent (no retry); 5xx /
+  timeouts retry with exponential backoff (30s → 1h, 5 attempts).
+
+### Inbound: connecting a monitoring tool
+
+1. In the webhooks panel, pick the **default client** — inbound alerts create
+   tickets on that client (leave it on "none" and every inbound alert is
+   rejected with 409).
+2. Enable the source you use. The panel shows the full URL:
+   `POST {PUBLIC_URL}/api/webhooks/inbound/{source}/{secret}`.
+   The URL **is** the credential — hand it to the vendor, keep it out of
+   public places, and treat a leaked URL as a leaked secret (rotate below).
+3. **Request-line ceiling (know before you choose):** the secret rides the
+   URL path, so it can appear in vendor-side and proxy access logs, and in
+   any tool that logs request lines. There is deliberately no body signature,
+   no timestamp, and no replay window — this is a documented trade-off, and
+   the decision is the operator's. The remedy is **secret rotation** in the
+   panel (the old URL stops working immediately; the vendor's stored URL
+   must be updated).
+
+**Episode semantics** (all sources): a *down*-style alert creates a ticket
+(subject `[{source}] {name} is down`, priority from the vendor severity, tag
+`nms:{source}`) on the default client. A repeat *down* for the same monitored
+object **updates that open ticket** (fresh update, re-open if it was closed)
+— it never creates a second ticket. A recovery (*up*) closes it. Inbound
+tickets are first-class tickets: they get an alias (`support+{n}@{domain}`),
+show in the queue and portal, and are fully client-scoped — but they fire no
+email, no notifications, and no outbound webhook fan-out (nothing auto-sends).
+
+Status codes: 404 unknown source · 401 source disabled, not enabled yet, or
+wrong secret (deliberately indistinguishable) · 400 body not recognized for
+the source · 409 no default client · 200 `{status: created|updated|closed|noop}`.
+
+#### Per-source recipes
+
+Payload shapes marked *verified* were checked against the vendor's source or
+official docs; shapes marked *contract* are the JSON Kipple documents —
+vendors without a fixed JSON body need a small script/template that POSTs
+exactly that shape. UptimeRobot sends form-encoded parameters (all
+`application/x-www-form-urlencoded`); every other source below POSTs JSON.
+
+**Uptime Kuma** (*verified* — default webhook notification body)
+URL: `/api/webhooks/inbound/kuma/{secret}`. In the Kuma monitor's
+notification settings add a *Webhook* notification with that URL; the default
+body is used as-is (no template needed):
+
+```json
+{
+  "heartbeat": { "monitorID": 42, "status": 0, "msg": "Ping failed" },
+  "monitor": { "name": "Portal", "url": "https://portal.example" },
+  "msg": "Ping failed"
+}
+```
+
+`heartbeat.status`: 0 = down, 1 = up, 2 = pending and 3 = maintenance are
+ignored. The dedupe key is `monitorID`.
+
+**UptimeRobot** (*verified* — default notification variables, form-encoded)
+URL: `/api/webhooks/inbound/uptimerobot/{secret}`. In the monitor's
+*Notifications* add a *Webhook* with that URL (Kipple accepts the vendor's
+default variables without a custom template). Dedupe key is `monitorID`;
+`alertType` 1 = down, 2 = up, 3 = SSL/domain expiry (treated as down).
+
+**OnlineOrNot** (*verified* — documented webhook JSON)
+URL: `/api/webhooks/inbound/onlineornot/{secret}`. Configure the monitor's
+webhook with that URL; the event JSON is used as-is. Dedupe key is the
+heartbeat `id` for heartbeat events, otherwise the monitor `url`.
+`event`: `uptime.down` / `uptime.up` / `heartbeat.down` / `heartbeat.up`
+(status-page events are out of scope); `alert_priority` maps to ticket
+priority.
+
+**Zabbix** (*contract* — Zabbix webhooks are user-script driven; there is no
+fixed vendor body). Point the trigger action's webhook at
+`/api/webhooks/inbound/zabbix/{secret}` and POST this JSON from the action
+script (macro-driven, e.g.):
+
+```json
+{
+  "event": { "id": "{EVENT.ID}", "status": 0 },
+  "host": { "name": "{HOST.NAME}" },
+  "trigger": { "id": "{TRIGGER.ID}", "name": "{TRIGGER.NAME}" },
+  "severity": "{TRIGGER.SEVERITY}"
+}
+```
+
+`event.status`: 0 = PROBLEM (down), 1 = RESOLVED (up). Dedupe key is the
+trigger id (falls back to `host:trigger name` when absent); severity words
+(`disaster`, `high`, `average`, `warning`, `information`) map to ticket
+priority.
+
+**PRTG** (*contract* — PRTG has no native JSON alert webhook). In a PRTG
+notification that fires on sensor state change, POST this JSON to
+`/api/webhooks/inbound/prtg/{secret}` (macro-driven):
+
+```json
+{
+  "objectid": "{sensorid}",
+  "objectname": "{sensorname}",
+  "state": "Down",
+  "checkmessage": "{message}",
+  "mapUrl": "https://prtg.example/overview?node={sensorid}"
+}
+```
+
+`state`: `Up` = recovery, `Down` / `Error` = alerting. Dedupe key is
+`objectid`.
+
+**Watcher** (*contract* — minimal documented JSON). From your Watcher
+workflow/alerting, POST to `/api/webhooks/inbound/watcher/{secret}`:
+
+```json
+{
+  "target": "chk-7",
+  "name": "Status page",
+  "status": "down",
+  "message": "optional details",
+  "url": "https://status.example"
+}
+```
+
+`status`: `down` / `alerting` / `critical` = alerting, `up` / `resolved` /
+`ok` = recovery. Dedupe key is `target` (or `id`).
+
+**Custom** (fully generic — the escape hatch for any monitor that can POST
+JSON). POST to `/api/webhooks/inbound/custom/{secret}`:
+
+```json
+{
+  "target": "svc-1",
+  "status": "down",
+  "name": "Search API",
+  "severity": "critical",
+  "message": "502",
+  "url": "https://search.example"
+}
+```
+
+`status`: `down` / `alerting` = alerting, `up` / `resolved` = recovery.
+`severity`: `critical` / `urgent` → urgent, `high` → high, `normal` /
+`medium` → normal, `low` → low. Dedupe key is `target` (or `id`). `name`,
+`severity`, `message`, and `url` are optional.
+
+#### Testing without a vendor
+
+```sh
+curl -s -X POST '{PUBLIC_URL}/api/webhooks/inbound/custom/{secret}' \
+  -H 'content-type: application/json' \
+  -d '{"target":"demo-1","status":"down","name":"Demo","severity":"high"}'
+# → 200 {"status":"created","ticketId":"...","number":12}
+curl -s -X POST '{PUBLIC_URL}/api/webhooks/inbound/custom/{secret}' \
+  -H 'content-type: application/json' \
+  -d '{"target":"demo-1","status":"up"}'
+# → 200 {"status":"closed",...}
+```
+
+### Outbound: verifying the signature
+
+Kipple sends `content-type: application/json` plus
+`x-kipple-signature: <hex hmac-sha256>` computed over the **raw request
+body** with the hook's secret. Verify by recomputing the digest over the
+bytes you received and comparing in constant time, e.g. Node:
+
+```js
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+function verifySignature(secret, rawBody, header) {
+  const expected = Buffer.from(createHmac('sha256', secret).update(rawBody).digest('hex'), 'utf8')
+  const got = Buffer.from(header ?? '', 'utf8')
+  return expected.length === got.length && timingSafeEqual(expected, got)
+}
+```
+
+A hook's secret is shown once at create time (the API only ever reports that
+a secret exists) — store it where your receiver can read it.
+
 ## Operations
 
 - **Upgrades**: bump `KIPPLE_TAG` (or let GitOps re-pull `latest`), re-deploy
