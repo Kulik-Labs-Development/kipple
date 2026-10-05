@@ -42,8 +42,9 @@ import {
   markTicketResponded,
   markTicketResolved,
 } from '../sla'
-import { runRules, ticketSnapshot } from '../rules'
+import { runRules, ticketSnapshot, type RuleEvent } from '../rules'
 import { notifyTicketEvent } from '../notifications'
+import { emitWebhookEvents } from '../webhooks'
 
 // SLA internals are staff data; portal views never leak due times/states.
 type SlaFields = Pick<
@@ -214,18 +215,15 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     })
     if (created) {
       const actor = { id: session.user.id, name: session.user.name, role: session.user.role }
-      await runRules({
+      const createdEvent: RuleEvent = {
         type: 'ticket.created',
         ticket: ticketSnapshot(created),
         actor,
         body: parsed.data.body,
-      })
-      await notifyTicketEvent({
-        type: 'ticket.created',
-        ticket: ticketSnapshot(created),
-        actor,
-        body: parsed.data.body,
-      })
+      }
+      await runRules(createdEvent)
+      await notifyTicketEvent(createdEvent)
+      await emitWebhookEvents(createdEvent)
       // re-read: rule actions may have mutated the row
       const [final] = await db.select().from(tickets).where(eq(tickets.id, created.id))
       if (final) created = final
@@ -316,19 +314,18 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
     const statusChanged = parsed.data.status !== undefined && parsed.data.status !== existing?.status
     const actor = { id: session.user.id, name: session.user.name, role: session.user.role }
     const eventType = statusChanged ? 'ticket.status_changed' : 'ticket.updated'
-    await runRules({
+    const patchEvent: RuleEvent = {
       type: eventType,
       ticket: ticketSnapshot(row),
       fromStatus: existing?.status,
       actor,
-    })
+    }
+    await runRules(patchEvent)
     await notifyTicketEvent({
-      type: eventType,
-      ticket: ticketSnapshot(row),
-      fromStatus: existing?.status,
+      ...patchEvent,
       fromAssignedTo: existing?.assignedTo ?? null,
-      actor,
     })
+    await emitWebhookEvents(patchEvent)
     // re-read: rule actions may have mutated the row after the patch
     const [final] = await db.select().from(tickets).where(eq(tickets.id, id))
     return final ?? row
@@ -509,18 +506,15 @@ export async function registerTicketRoutes(app: FastifyInstance): Promise<void> 
       attachments: createdAttachments,
     })
     if (kind === 'public' && session.user.role !== 'contact') {
-      await runRules({
+      const replyEvent: RuleEvent = {
         type: 'ticket.reply',
         ticket: ticketSnapshot(ticket),
         actor: { id: session.user.id, name: session.user.name, role: session.user.role },
         body,
-      })
-      await notifyTicketEvent({
-        type: 'ticket.reply',
-        ticket: ticketSnapshot(ticket),
-        actor: { id: session.user.id, name: session.user.name, role: session.user.role },
-        body,
-      })
+      }
+      await runRules(replyEvent)
+      await notifyTicketEvent(replyEvent)
+      await emitWebhookEvents(replyEvent)
     }
     return reply.code(201).send(row)
   })

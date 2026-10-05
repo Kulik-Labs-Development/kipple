@@ -7,7 +7,8 @@ import { db } from './db'
 import { settings, tickets, updates } from './db/schema'
 import { markTicketResolved } from './sla'
 import { notifyTicketEvent } from './notifications'
-import { runRules, ticketSnapshot } from './rules'
+import { runRules, ticketSnapshot, type RuleEvent } from './rules'
+import { emitWebhookEvents } from './webhooks'
 
 const log = pino({ name: 'holds' })
 
@@ -142,18 +143,15 @@ async function autoCloseHold(ticket: typeof tickets.$inferSelect, days: number, 
   const [fresh] = await db.select().from(tickets).where(eq(tickets.id, ticket.id))
   if (fresh) {
     const actor = { id: null, name: 'system', role: 'system' }
-    await runRules({
+    const event: RuleEvent = {
       type: 'ticket.status_changed',
       ticket: ticketSnapshot(fresh),
       fromStatus: 'hold',
       actor,
-    })
-    await notifyTicketEvent({
-      type: 'ticket.status_changed',
-      ticket: ticketSnapshot(fresh),
-      fromStatus: 'hold',
-      actor,
-    })
+    }
+    await runRules(event)
+    await notifyTicketEvent(event)
+    await emitWebhookEvents(event)
   }
 }
 
@@ -180,13 +178,13 @@ async function warnHold(
   const [fresh] = await db.select().from(tickets).where(eq(tickets.id, ticket.id))
   if (fresh) {
     const actor = { id: null, name: 'system', role: 'system' }
-    await runRules({ type: 'ticket.hold_warning', ticket: ticketSnapshot(fresh), actor })
+    const event: RuleEvent = { type: 'ticket.hold_warning', ticket: ticketSnapshot(fresh), actor }
+    await runRules(event)
     await notifyTicketEvent({
-      type: 'ticket.hold_warning',
-      ticket: ticketSnapshot(fresh),
-      actor,
+      ...event,
       daysUntilAutoClose: daysLeft,
     })
+    await emitWebhookEvents(event)
   }
 }
 

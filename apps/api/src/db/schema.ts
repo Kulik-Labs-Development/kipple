@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
+  index,
   integer,
   jsonb,
   pgSequence,
@@ -400,3 +401,73 @@ export const audit = pgTable('audit', {
   meta: jsonb('meta'),
   createdAt: createdAt(),
 })
+
+
+// Instance webhooks (Phase 2, arc #4). Outbound: admins subscribe a URL to
+// house ticket events; deliveries are HMAC-SHA256-signed JSON pushed through
+// the webhooks-deliver queue with retry + exponential backoff. The secret is
+// generated at create time, stored enc1: ciphertext, masked in API reads.
+export const webhooks = pgTable('webhooks', {
+  id: text('id').primaryKey(),
+  url: text('url').notNull(),
+  // subset of the house rule events this hook listens to
+  events: text('events').array().notNull().default(sql`'{}'::text[]`),
+  enabled: boolean('enabled').notNull().default(true),
+  // enc1: ciphertext of the runtime-generated HMAC-SHA256 secret
+  secret: text('secret').notNull(),
+  lastStatus: text('last_status'),
+  lastError: text('last_error'),
+  lastDeliveredAt: timestamp('last_delivered_at', { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
+// Delivery log for outbound webhooks (the outbox mirror: the row is the
+// audit log, the BullMQ job is only the trigger).
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: text('id').primaryKey(),
+    webhookId: text('webhook_id')
+      .notNull()
+      .references(() => webhooks.id, { onDelete: 'cascade' }),
+    event: text('event').notNull(),
+    ticketId: text('ticket_id').references(() => tickets.id, { onDelete: 'set null' }),
+    payload: text('payload').notNull(),
+    status: text('status').notNull().default('queued'), // queued | sent | failed
+    error: text('error'),
+    attempts: integer('attempts').notNull().default(0),
+    nextTryAt: timestamp('next_try_at', { withTimezone: true }),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  // The panel lists recent deliveries per hook; keep that lookup cheap.
+  (table) => [index('webhook_deliveries_webhook_id_idx').on(table.webhookId)],
+)
+
+// Inbound NMS alert -> ticket dedupe (Phase 2, arc #4). A per-source 32-char
+// secret rides the URL path; the signature = source + stable vendor identity
+// (sensor/monitor id, ...) + state. A repeat of an OPEN alert's signature
+// updates the open ticket (fresh update + status re-open if needed), it never
+// creates a second ticket. Recovery (state='up') closes the open ticket.
+export const alertSignatures = pgTable(
+  'alert_signatures',
+  {
+    id: text('id').primaryKey(),
+    source: text('source').notNull(),
+    signature: text('signature').notNull(),
+    ticketId: text('ticket_id')
+      .notNull()
+      .references(() => tickets.id, { onDelete: 'cascade' }),
+    // 'open' = ticket open on this signature; 'closed' = alert recovered
+    state: text('state').notNull().default('open'),
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  // (source, signature) is the dedupe key: a repeat of an open alert's
+  // signature updates the open ticket, it never creates a second one.
+  (table) => [unique().on(table.source, table.signature)],
+)
+

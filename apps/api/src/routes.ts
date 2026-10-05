@@ -13,6 +13,7 @@ import { registerInstanceUploadRoutes } from './routes/instance-uploads'
 import { registerHoldRoutes } from './routes/holds'
 import { registerEmailRoutes } from './routes/email'
 import { registerEventRoutes } from './routes/events'
+import { registerInboundRoutes } from './routes/inbound'
 import { registerInviteRoutes } from './routes/invites'
 import { registerKeyRoutes } from './routes/keys'
 import { registerNotificationRoutes, registerPresenceRoutes } from './routes/notifications'
@@ -25,6 +26,7 @@ import { registerTicketRoutes } from './routes/tickets'
 import { registerTimeRoutes } from './routes/time'
 import { registerUserRoutes } from './routes/users'
 import { registerUploadRoutes } from './routes/uploads'
+import { registerWebhookRoutes } from './routes/webhooks'
 import { seedDefaultTemplates } from './templates'
 
 async function instanceSetupRequired(): Promise<boolean> {
@@ -203,4 +205,6 @@ export async function registerApiRoutes(app: FastifyInstance): Promise<void> {
   await registerUserRoutes(app)
   await registerInstanceUploadRoutes(app)
   await registerUploadRoutes(app)
+  await registerWebhookRoutes(app)
+  await registerInboundRoutes(app)
 }
