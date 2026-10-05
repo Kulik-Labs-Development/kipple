@@ -6,6 +6,7 @@ import {
   describeInboundWebhooks,
   enableInboundSource,
   handleVendorAlert,
+  loadInboundSettings,
   rotateInboundSource,
   setDefaultInboundClient,
 } from '../inbound'
@@ -62,7 +63,10 @@ export async function registerInboundRoutes(app: FastifyInstance): Promise<void>
   app.get('/api/webhooks/inbound', async (request, reply) => {
     const session = await requireRole(request, reply, STAFF)
     if (!session) return null
-    return describeInboundWebhooks()
+    // The default client rides along: the panel's select needs the current
+    // value, and it is staff-readable config (not secret material).
+    const settings = await loadInboundSettings()
+    return { defaultClientId: settings.defaultClientId ?? null, sources: await describeInboundWebhooks() }
   })
 
   // POST /api/webhooks/inbound — set the default client: { clientId } or

@@ -16,6 +16,7 @@ import { SlaManager } from '../components/SlaManager'
 import { TicketDetail, type TicketPatch } from '../components/TicketDetail'
 import { TicketForm, type TicketFormValues } from '../components/TicketForm'
 import { TimePanel } from '../components/TimePanel'
+import { WebhooksManager } from '../components/WebhooksManager'
 import {
   api,
   type ClientSummary,
@@ -645,6 +646,9 @@ export function WorkspaceView({
             {systemSection === 'holds' && <HoldsManager onClose={closeSystem} embedded />}
             {systemSection === 'api' && <ApiKeysManager onClose={closeSystem} embedded />}
             {systemSection === 'mail' && <MailManager onClose={closeSystem} embedded />}
+            {systemSection === 'webhooks' && (
+              <WebhooksManager clients={clients} onClose={closeSystem} embedded />
+            )}
           </div>
         ) : view === 'clients' ? (
           <div className="flex min-h-0 flex-1 bg-ink">

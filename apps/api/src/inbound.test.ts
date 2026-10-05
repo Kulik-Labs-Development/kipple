@@ -209,10 +209,12 @@ describe('inbound NMS webhooks (vendor route -> tickets)', () => {
     await wipe()
   })
 
-  it('lists all seven sources, with the full URL only for enabled ones', async () => {
+  it('lists all seven sources (+ default client), full URL only when enabled', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/webhooks/inbound', headers: { cookie } })
     expect(res.statusCode).toBe(200)
-    const rows = res.json()
+    const body = res.json()
+    expect(body.defaultClientId).toBe(clientA)
+    const rows = body.sources
     expect(rows.map((row: { source: string }) => row.source)).toEqual([
       'prtg',
       'zabbix',

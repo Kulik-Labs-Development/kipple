@@ -409,6 +409,41 @@ export const API_KEY_SCOPES = [
 ] as const
 export type ApiKeyScope = (typeof API_KEY_SCOPES)[number]
 
+// --- Webhooks (Phase 2, arc #4) -------------------------------------------
+
+export interface WebhookView {
+  id: string
+  url: string
+  events: string[]
+  enabled: boolean
+  hasSecret: boolean
+  lastStatus: string | null
+  lastError: string | null
+  lastDeliveredAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WebhookDeliveryView {
+  id: string
+  webhookId: string
+  event: string
+  ticketId: string | null
+  payloadPreview: string
+  status: 'queued' | 'sent' | 'failed'
+  error: string | null
+  attempts: number
+  nextTryAt: string | null
+  sentAt: string | null
+  createdAt: string
+}
+
+export interface InboundSourceView {
+  source: string
+  enabled: boolean
+  url: string | null
+}
+
 export const api = {
   me: () => request<MeResponse>('/api/me'),
   listClients: () => request<ClientSummary[]>('/api/clients'),
@@ -733,4 +768,38 @@ export const api = {
       body: JSON.stringify(body),
     }),
   revokeApiKey: (id: string) => request<ApiKeyRow>(`/api/keys/${id}`, { method: 'DELETE' }),
+
+  listWebhooks: () => request<WebhookView[]>('/api/webhooks'),
+  createWebhook: (body: { url: string; events: string[]; enabled?: boolean }) =>
+    request<WebhookView>('/api/webhooks', { method: 'POST', body: JSON.stringify(body) }),
+  patchWebhook: (id: string, body: { url?: string; events?: string[]; enabled?: boolean }) =>
+    request<WebhookView>(`/api/webhooks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteWebhook: (id: string) => request<void>(`/api/webhooks/${id}`, { method: 'DELETE' }),
+  testWebhook: (id: string) =>
+    request<{ id: string; status: string }>(`/api/webhooks/${id}/test`, { method: 'POST' }),
+  listWebhookDeliveries: (opts: { webhookId?: string; status?: string; limit?: number } = {}) => {
+    const params = new URLSearchParams()
+    if (opts.webhookId) params.set('webhookId', opts.webhookId)
+    if (opts.status) params.set('status', opts.status)
+    if (opts.limit) params.set('limit', String(opts.limit))
+    const qs = params.toString()
+    return request<WebhookDeliveryView[]>(`/api/webhooks/deliveries${qs ? `?${qs}` : ''}`)
+  },
+  retryWebhookDelivery: (id: string) =>
+    request<WebhookDeliveryView>(`/api/webhooks/deliveries/${id}/retry`, { method: 'POST' }),
+  inboundWebhooks: () =>
+    request<{ defaultClientId: string | null; sources: InboundSourceView[] }>('/api/webhooks/inbound'),
+  setInboundDefaultClient: (clientId: string | null) =>
+    request<{ defaultClientId: string | null }>('/api/webhooks/inbound', {
+      method: 'POST',
+      body: JSON.stringify({ clientId }),
+    }),
+  patchInboundSource: (source: string, body: { enabled?: boolean; rotate?: boolean }) =>
+    request<InboundSourceView>(`/api/webhooks/inbound/${source}`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 }
