@@ -181,6 +181,58 @@ export interface EmailTemplateInput {
   enabled?: boolean
 }
 
+// Outbound mail settings (superuser panel). The API answers with masked
+// credentials (hasAuth/hasSecret flags only); a blank password/clientSecret
+// on save means "keep the stored value" when the identity (username /
+// client+tenant) is unchanged.
+export interface EmailSettingsView {
+  configured: boolean
+  domain: string
+  provider: 'smtp' | 'm365' | null
+  smtp: {
+    host: string
+    port: number
+    secure: boolean
+    startTls: boolean
+    from: string
+    fromName: string
+    hasAuth: boolean
+  } | null
+  m365: {
+    tenantId: string
+    clientId: string
+    senderAddress: string
+    mode: 'graph' | 'smtp'
+    hasSecret: boolean
+  } | null
+}
+
+export interface EmailSettingsInput {
+  domain?: string
+  provider?: 'smtp' | 'm365'
+  smtp?: {
+    host: string
+    port?: number
+    secure?: boolean
+    startTls?: boolean
+    from: string
+    fromName?: string
+    auth?: { username: string; password?: string } | null
+  } | null
+  m365?: {
+    tenantId: string
+    clientId: string
+    clientSecret?: string
+    senderAddress: string
+    mode: 'graph' | 'smtp'
+  } | null
+}
+
+export interface ProviderStatusView {
+  ok: boolean
+  detail: string
+}
+
 export const RULE_EVENTS = [
   'ticket.created',
   'ticket.status_changed',
@@ -619,6 +671,22 @@ export const api = {
     request<{ subject: string; body: string }>('/api/email/templates/preview', {
       method: 'POST',
       body: JSON.stringify({ key, ticketId: ticketId ?? undefined }),
+    }),
+  // Outbound mail settings + outbox probes (superuser panel).
+  emailSettings: () => request<EmailSettingsView>('/api/email'),
+  saveEmailSettings: (body: EmailSettingsInput) =>
+    request<EmailSettingsView>('/api/email', { method: 'POST', body: JSON.stringify(body) }),
+  testEmailConnection: (body: EmailSettingsInput) =>
+    request<ProviderStatusView>('/api/email/test-connection', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  outboxProvider: () =>
+    request<{ configured: boolean; status: ProviderStatusView }>('/api/outbox/provider'),
+  outboxTestSend: (to: string) =>
+    request<{ id: string; status: string }>('/api/outbox/test', {
+      method: 'POST',
+      body: JSON.stringify({ to }),
     }),
   listRules: () => request<RuleRow[]>('/api/rules'),
   createRule: (body: RuleInput) =>

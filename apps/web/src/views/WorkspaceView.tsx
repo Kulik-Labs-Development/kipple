@@ -5,6 +5,7 @@ import { AutomationManager } from '../components/AutomationManager'
 import { ClientManager } from '../components/ClientManager'
 import { DefaultsManager } from '../components/DefaultsManager'
 import { HoldsManager } from '../components/HoldsManager'
+import { MailManager } from '../components/MailManager'
 import { UsersManager } from '../components/UsersManager'
 import { SettingsPanel } from '../components/SettingsPanel'
 import { NotificationBell } from '../components/NotificationBell'
@@ -643,6 +644,7 @@ export function WorkspaceView({
             )}
             {systemSection === 'holds' && <HoldsManager onClose={closeSystem} embedded />}
             {systemSection === 'api' && <ApiKeysManager onClose={closeSystem} embedded />}
+            {systemSection === 'mail' && <MailManager onClose={closeSystem} embedded />}
           </div>
         ) : view === 'clients' ? (
           <div className="flex min-h-0 flex-1 bg-ink">

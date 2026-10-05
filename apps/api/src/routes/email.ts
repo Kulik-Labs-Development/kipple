@@ -10,6 +10,7 @@ import {
 } from '@kipple/shared'
 import { badRequest, notFound, requireRole } from '../access'
 import { logAudit } from '../audit'
+import { outboundSender } from '@kipple/shared'
 import {
   describeEmailSettings,
   describeImapSettings,
@@ -45,7 +46,9 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     const parsed = EmailSettings.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
     await saveEmailSettings(parsed.data, session.user.id)
-    return describeEmailSettings(parsed.data)
+    // Describe what is actually stored: a blank password/secret on re-save
+    // resolves to the stored credential, and the response must say so.
+    return describeEmailSettings(await loadEmailSettings())
   })
 
   app.post('/api/email/test-connection', async (request, reply) => {
@@ -53,15 +56,18 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     if (!session) return null
     const parsed = EmailSettings.safeParse(request.body ?? {})
     if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
-    if (!parsed.data.smtp) {
+    if (outboundSender(parsed.data) === null) {
       return reply
         .code(400)
-        .send({ error: 'bad_request', message: 'no smtp configuration to test' })
+        .send({ error: 'bad_request', message: 'no outbound provider configuration to test' })
     }
+    // Dispatches on the body's provider: smtp settings test smtp, m365
+    // settings test the m365 provider (token + light probe / oauth2 handshake).
     const provider = providerFromSettings(parsed.data)
     const result = await provider.testConnection()
     await logAudit(session.user.id, 'email.test_connection', 'setting', 'email', {
       ok: result.ok,
+      provider: parsed.data.provider,
     })
     return result
   })
@@ -105,7 +111,7 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     const session = await requireRole(request, reply, ['superuser', 'admin', 'agent'])
     if (!session) return null
     const settingsValue = await loadEmailSettings()
-    if (!settingsValue?.smtp) {
+    if (!settingsValue || outboundSender(settingsValue) === null) {
       return { configured: false, status: { ok: false, detail: 'email not configured' } }
     }
     return { configured: true, status: providerFromSettings(settingsValue).status() }
@@ -117,7 +123,8 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     const parsed = OutboxTestSend.safeParse(request.body)
     if (!parsed.success) return reply.code(400).send(badRequest(parsed.error))
     const settingsValue = await loadEmailSettings()
-    if (!settingsValue?.smtp) {
+    const sender = settingsValue ? outboundSender(settingsValue) : null
+    if (!settingsValue || !sender) {
       return reply
         .code(400)
         .send({ error: 'bad_request', message: 'email not configured' })
@@ -129,11 +136,12 @@ export async function registerEmailRoutes(app: FastifyInstance): Promise<void> {
     const instanceName = (instance?.value as { name?: string } | null)?.name ?? 'Kipple'
     const id = await enqueueOutbox({
       to: parsed.data.to,
-      from: settingsValue.smtp.from,
-      fromName: settingsValue.smtp.fromName || null,
+      from: sender.from,
+      fromName: sender.fromName,
       subject: `[${instanceName}] Test email`,
       body: `This is a test send from ${instanceName}.\n\nIf you can read this, outbound email is working.`,
       messageId: `<${randomUUID()}@${settingsValue.domain}>`,
+      provider: settingsValue.provider,
     })
     await logAudit(session.user.id, 'outbox.test_send', 'outbox', id, { to: parsed.data.to })
     return reply.code(202).send({ id, status: 'queued' })

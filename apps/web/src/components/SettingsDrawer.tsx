@@ -9,6 +9,7 @@ import { useI18n, type I18nKey } from '../lib/i18n'
 export type DrawerPanel =
   | 'general'
   | 'appearance'
+  | 'mail'
   | 'uploads'
   | 'users'
   | 'invites'
@@ -20,7 +21,7 @@ export type DrawerPanel =
   | 'api'
 
 interface DrawerItem {
-  id: DrawerPanel | 'mail' | 'notifications' | 'audit' | 'webhooks'
+  id: DrawerPanel | 'notifications' | 'audit' | 'webhooks'
   label: I18nKey
   stub?: 'drawer.stub' | 'drawer.phase2'
 }
@@ -32,7 +33,7 @@ const GROUPS: { id: DrawerGroupId; items: DrawerItem[] }[] = [
     items: [
       { id: 'general', label: 'drawer.general' },
       { id: 'appearance', label: 'drawer.appearance' },
-      { id: 'mail', label: 'drawer.mail', stub: 'drawer.stub' },
+      { id: 'mail', label: 'drawer.mail' },
       { id: 'uploads', label: 'drawer.uploads' },
       { id: 'notifications', label: 'drawer.notifications', stub: 'drawer.stub' },
     ],
@@ -84,7 +85,7 @@ export function SettingsDrawer({
   // Type-level backstop for the onClick path: stub rows are disabled, but the
   // id union still carries the stub ids, so narrow before onOpen.
   const isPanel = (id: DrawerItem['id']): id is DrawerPanel =>
-    id !== 'mail' && id !== 'notifications' && id !== 'audit' && id !== 'webhooks'
+    id !== 'notifications' && id !== 'audit' && id !== 'webhooks'
 
   return (
     <aside className="drawer-slide-in flex w-[340px] shrink-0 flex-col border-r-2 border-line bg-panel">
